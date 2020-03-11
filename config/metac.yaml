@@ -1,0 +1,58 @@
+apiVersion: metac.openebs.io/v1alpha1
+kind: GenericController
+metadata:
+  # namespace & name combination should be unique
+  # across all the GenericControllers in this file
+  name: sync-blockdeviceset
+  namespace: dope
+spec:
+  watch:
+    apiVersion: dao.mayadata.io/v1alpha1
+    resource: blockdevicesets
+  attachments:
+  - apiVersion: openebs.io/v1alpha1
+    resource: blockdevices
+    updateStrategy:
+      method: InPlace
+  hooks:
+    sync:
+      inline:
+        funcName: sync/blockdeviceset
+---
+apiVersion: metac.openebs.io/v1alpha1
+kind: GenericController
+metadata:
+  # namespace & name combination should be unique
+  # across all the GenericControllers in this file
+  name: sync-directorhttp
+  namespace: dope
+spec:
+  watch:
+    apiVersion: dao.mayadata.io/v1alpha1
+    resource: directorhttps
+  attachments:
+  - apiVersion: dao.mayadata.io/v1alpha1
+    resource: https
+    updateStrategy:
+      method: InPlace
+  hooks:
+    sync:
+      inline:
+        funcName: sync/directorhttp
+---
+apiVersion: metac.openebs.io/v1alpha1
+kind: GenericController
+metadata:
+  # namespace & name combination should be unique
+  # across all the GenericControllers in this file
+  name: sync-http
+  namespace: dope
+spec:
+  watch:
+    apiVersion: dao.mayadata.io/v1alpha1
+    resource: https
+  hooks:
+    sync:
+      inline:
+        funcName: sync/http
+---
