@@ -77,6 +77,9 @@ func (r *Reconciler) logSyncFinish() {
 // updateWatchStatus updates the watch's status fields
 func (r *Reconciler) updateWatchStatus() {
 	var status = map[string]interface{}{}
+	var completion = map[string]interface{}{
+		"state": false,
+	}
 	var warn string
 	if r.Err != nil {
 		status["phase"] = "Error"
@@ -94,6 +97,13 @@ func (r *Reconciler) updateWatchStatus() {
 	if warn != "" {
 		status["warn"] = warn
 	}
+	observedAttachments := r.HookRequest.Attachments.Len()
+	desiredAttachments := len(r.HookResponse.Attachments)
+	if r.Err == nil && observedAttachments == desiredAttachments {
+		completion["state"] = true
+	}
+	// set completion against the status
+	status["completion"] = completion
 	// set the desired status
 	r.HookResponse.Status = status
 }

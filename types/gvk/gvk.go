@@ -17,19 +17,29 @@ limitations under the License.
 package gvk
 
 const (
-	// KindHTTP is the resource kind for HTTP custom resource
+	// KindHTTP represents HTTP custom resource
 	KindHTTP string = "HTTP"
 
-	// KindHTTPData is the resource kind for HTTPData custom resource
+	// KindHTTPData represents HTTPData custom resource
 	KindHTTPData string = "HTTPData"
 
-	// KindDirectorHTTP is the resource kind for DirectorHTTP
-	// custom resource
+	// KindDirectorHTTP represents DirectorHTTP custom resource
 	KindDirectorHTTP string = "DirectorHTTP"
 )
 
 const (
-	// APIVersionDAOV1Alpha1 represents the dao group &
-	// v1alpha1 apiVersion
-	APIVersionDAOV1Alpha1 string = "dao.mayadata.io/v1alpha1"
+	// APIExtensionsK8sIOV1Beta1 represents apiextensions.k8s.io
+	// as group & v1beta1 as version
+	APIExtensionsK8sIOV1Beta1 string = "apiextensions.k8s.io/v1beta1"
+
+	// GroupDAOMayadataIO represents dao.mayadata.io as
+	// group
+	GroupDAOMayadataIO string = "dao.mayadata.io"
+
+	// VersionV1Alpha1 represents v1alpha1 version
+	VersionV1Alpha1 string = "v1alpha1"
+
+	// DAOMayadataIOV1Alpha1 represents
+	// dao.mayadata.io as group & v1alpha1 as version
+	DAOMayadataIOV1Alpha1 string = GroupDAOMayadataIO + "/" + VersionV1Alpha1
 )

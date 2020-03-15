@@ -84,16 +84,16 @@ func (r *Reconciler) buildDesiredBlockDeviceTemplate() {
 	r.desiredBlockDeviceTemplate = obj
 }
 
-func (r *Reconciler) updateDesiredBlockDeviceTemplateLabels() {
-	lbls := r.desiredBlockDeviceTemplate.GetLabels()
-	if lbls == nil {
-		lbls = make(map[string]string)
+func (r *Reconciler) updateDesiredBlockDeviceTemplateAnnotations() {
+	anns := r.desiredBlockDeviceTemplate.GetAnnotations()
+	if anns == nil {
+		anns = make(map[string]string)
 	}
-	// add BlockDeviceClone name as a label
-	lbls[types.LabelKeyBlockDeviceCloneName] =
-		r.observedBlockDeviceSet.GetName()
+	// add BlockDeviceSet UID to the annotations
+	anns["blockdeviceset.dao.mayadata.io/uid"] =
+		string(r.observedBlockDeviceSet.GetUID())
 	// set the updated labels
-	r.desiredBlockDeviceTemplate.SetLabels(lbls)
+	r.desiredBlockDeviceTemplate.SetAnnotations(anns)
 }
 
 func (r *Reconciler) resetAndBuildBlockDeviceName() {
@@ -134,6 +134,9 @@ func (r *Reconciler) setAllDesiredBlockDevices() {
 // custom resource.
 func (r *Reconciler) updateWatchStatus() {
 	var status = map[string]interface{}{}
+	var completion = map[string]interface{}{
+		"state": false,
+	}
 	var warn string
 	// init with Online
 	status["phase"] = types.BlockDeviceSetStatusOnline
@@ -153,15 +156,11 @@ func (r *Reconciler) updateWatchStatus() {
 		status["phase"] = types.BlockDeviceSetStatusError
 		status["reason"] = r.Err.Error()
 	}
-	// check observed vs desired states
-	var completion = map[string]interface{}{}
 	// hook request has the observed state of children
 	observedReplicas := r.HookRequest.Attachments.Len()
 	// hook response has the desired state of children
 	desiredReplicas := len(r.HookResponse.Attachments)
-	if observedReplicas != desiredReplicas {
-		completion["state"] = false
-	} else {
+	if r.Err == nil && observedReplicas == desiredReplicas {
 		completion["state"] = true
 	}
 	completion["observedReplicas"] = observedReplicas
@@ -180,9 +179,7 @@ func (r *Reconciler) updateWatchStatus() {
 // response as part of reconcile request.
 //
 // NOTE:
-//	SyncHookRequest uses HTTP as the watched resource.
-// The same watched resource forms the desired state by updating
-// the its status.
+//	This controller watches BlockDeviceSet custom resource
 func Sync(request *generic.SyncHookRequest, response *generic.SyncHookResponse) error {
 	r := &Reconciler{}
 	r.HookRequest = request
@@ -192,7 +189,7 @@ func Sync(request *generic.SyncHookRequest, response *generic.SyncHookResponse) 
 	r.ReconcileFns = []func(){
 		r.walkObservedBlockDeviceSet,
 		r.buildDesiredBlockDeviceTemplate,
-		r.updateDesiredBlockDeviceTemplateLabels,
+		r.updateDesiredBlockDeviceTemplateAnnotations,
 		r.resetAndBuildBlockDeviceName,
 		r.setAllDesiredBlockDevices,
 	}

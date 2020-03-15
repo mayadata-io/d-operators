@@ -21,7 +21,10 @@ import (
 	"openebs.io/metac/start"
 
 	blockdeviceset "mayadata.io/d-operators/controller/blockdevice/set"
+	"mayadata.io/d-operators/controller/cstorpoolauto"
 	directorhttp "mayadata.io/d-operators/controller/director/http"
+	cspcaprecommendation "mayadata.io/d-operators/controller/director/recommendations/cstorpool/capacity"
+	"mayadata.io/d-operators/controller/doperator"
 	"mayadata.io/d-operators/controller/http"
 )
 
@@ -40,9 +43,17 @@ import (
 //	One can consider each registered function as an independent
 // kubernetes controller & this project as the operator.
 func main() {
-	generic.AddToInlineRegistry("sync/blockdeviceset", blockdeviceset.Sync)
-	generic.AddToInlineRegistry("sync/directorhttp", directorhttp.Sync)
-	generic.AddToInlineRegistry("sync/http", http.Sync)
-
+	// controller name & corresponding controller reconcile function
+	var controllers = map[string]func(*generic.SyncHookRequest, *generic.SyncHookResponse) error{
+		"sync/blockdeviceset":       blockdeviceset.Sync,
+		"sync/directorhttp":         directorhttp.Sync,
+		"sync/http":                 http.Sync,
+		"sync/cstorpoolauto":        cstorpoolauto.Sync,
+		"sync/cspcaprecommendation": cspcaprecommendation.Sync,
+		"sync/doperator":            doperator.Sync,
+	}
+	for name, ctrl := range controllers {
+		generic.AddToInlineRegistry(name, ctrl)
+	}
 	start.Start()
 }
