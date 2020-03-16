@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"openebs.io/metac/controller/generic"
 
@@ -40,12 +41,13 @@ type Reconciler struct {
 	observedIncludes          stringutil.List
 	observedDirectorName      string
 	observedDirectorNamespace string
+	observedSecretName        string
 
 	registeredAPIs []func()
 	desiredStates  []*unstructured.Unstructured
 }
 
-func (r *Reconciler) setObservedDirector() {
+func (r *Reconciler) walkObservedDirector() {
 	var director types.DirectorHTTP
 	err := unstruct.ToTyped(
 		r.HookRequest.Watch,
@@ -59,20 +61,36 @@ func (r *Reconciler) setObservedDirector() {
 	r.observedIncludes = director.Spec.Include
 	r.observedDirectorName = director.GetName()
 	r.observedDirectorNamespace = director.GetNamespace()
+	// verify if secret name is provided
+	r.observedSecretName = director.Spec.SecretName
+	if r.observedSecretName == "" {
+		r.Err = errors.Errorf("Missing .spec.secretName")
+		return
+	}
 }
 
 func (r *Reconciler) setObservedHTTPData() {
 	var httpdata http.HTTPData
+	if r.observedDirector.Spec.HTTPDataName == "" {
+		r.Warns = append(
+			r.Warns,
+			"Missing HTTPDataName in %q / %q: %s",
+			r.observedDirector.GetNamespace(),
+			r.observedDirector.GetName(),
+			r.observedDirector.GetObjectKind().GroupVersionKind().String(),
+		)
+		return
+	}
 	obj := r.HookRequest.Attachments.FindByGroupKindName(
-		gvk.APIVersionDAOV1Alpha1,
+		gvk.GroupDAOMayadataIO,
 		gvk.KindHTTPData,
-		r.observedDirectorName,
+		r.observedDirector.Spec.HTTPDataName,
 	)
 	if obj == nil {
 		r.Warns = append(
 			r.Warns,
 			"HTTPData resource %s not found",
-			r.observedDirectorName,
+			r.observedDirector.Spec.HTTPDataName,
 		)
 		return
 	}
@@ -100,6 +118,9 @@ func (r *Reconciler) buildDesiredState() {
 
 func (r *Reconciler) updateWatchStatus() {
 	var status = map[string]interface{}{}
+	var completion = map[string]interface{}{
+		"state": false,
+	}
 	var warn string
 	// init with Online
 	status["phase"] = types.DirectorHTTPStatusOnline
@@ -120,16 +141,15 @@ func (r *Reconciler) updateWatchStatus() {
 		status["reason"] = r.Err.Error()
 	}
 	// check for completion state
-	var completion = map[string]interface{}{}
 	// hook request has the observed state of children
 	observedAPIs := r.HookRequest.Attachments.Len()
 	// hook response has the desired state of children
 	desiredAPIs := len(r.HookResponse.Attachments)
-	if observedAPIs != desiredAPIs {
-		completion["state"] = false
+	if r.Err == nil && observedAPIs == desiredAPIs {
+		completion["state"] = true
 	}
-	completion["observedAPICount"] = observedAPIs
-	completion["desiredAPICount"] = desiredAPIs
+	completion["observedAttachmentCount"] = observedAPIs
+	completion["desiredAttachmentCount"] = desiredAPIs
 	// set completion status
 	status["completion"] = completion
 	// set the desired status against hook response
@@ -144,7 +164,7 @@ func (r *Reconciler) updateWatchStatus() {
 // response as part of reconcile request.
 //
 // NOTE:
-//	SyncHookRequest uses DirectorHTTP as the watched resource.
+//	This controller watches DirectorHTTP custom resource
 func Sync(request *generic.SyncHookRequest, response *generic.SyncHookResponse) error {
 	r := &Reconciler{}
 	r.HookRequest = request
@@ -152,7 +172,8 @@ func Sync(request *generic.SyncHookRequest, response *generic.SyncHookResponse) 
 
 	// add logic to achieve desired state of attachments/children
 	r.ReconcileFns = []func(){
-		r.setObservedDirector,
+		r.walkObservedDirector,
+		r.setObservedHTTPData,
 		r.registerAPIs,
 		r.buildDesiredState,
 	}

@@ -17,51 +17,44 @@ limitations under the License.
 package http
 
 import (
-	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/util/json"
 	types "mayadata.io/d-operators/types/director"
 	"mayadata.io/d-operators/types/gvk"
 	http "mayadata.io/d-operators/types/http"
 )
 
-func (r *Reconciler) addAPIForActiveNodesOrNone() {
+func (r *Reconciler) addGetProjectDetails() {
+	key := types.GetProjectDetails
 	if !r.observedIncludes.ContainsExact(types.IncludeAllAPIs) &&
-		!r.observedIncludes.ContainsExact(types.GetActiveNodes) {
+		!r.observedIncludes.ContainsExact(key) {
 		// nothing to be done since this is not included
 		// as part of DIrectorHTTP
 		return
 	}
-	var body []byte
-	values := r.observedHTTPData.Spec.Values
-	if len(values) != 0 && values[types.GetActiveNodes] != nil {
-		body, r.Err = json.Marshal(values[types.GetActiveNodes])
-		if r.Err != nil {
-			r.Err = errors.Wrapf(
-				r.Err,
-				"Invalid http request body for %s",
-				types.GetActiveNodes,
-			)
-			return
-		}
+	var headers, pathParams map[string]string
+	if r.observedHTTPData != nil {
+		headers = r.observedHTTPData.Spec.Headers
+		pathParams = r.observedHTTPData.Spec.PathParams
 	}
 	r.desiredStates = append(
 		r.desiredStates,
 		&unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"kind":       gvk.KindHTTP,
-				"apiVersion": gvk.APIVersionDAOV1Alpha1,
+				"apiVersion": gvk.VersionV1Alpha1,
 				"metadata": map[string]interface{}{
-					"name":      types.GetActiveNodes,
+					"name":      key,
 					"namespace": r.observedDirectorNamespace,
-					"labels": map[string]interface{}{
-						http.LabelKeyHTTPDataName: r.observedDirectorName,
+					"annotations": map[string]interface{}{
+						"directorhttp.dao.mayadata.io/uid": r.observedDirector.GetUID(),
 					},
 				},
 				"spec": map[string]interface{}{
-					"url":    types.URLActiveNodes,
-					"method": http.GET,
-					"body":   body,
+					"secretName": r.observedSecretName,
+					"headers":    headers,
+					"pathParams": pathParams,
+					"url":        types.URLProjectDetails,
+					"method":     http.GET,
 				},
 			},
 		},

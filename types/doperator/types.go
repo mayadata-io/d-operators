@@ -20,26 +20,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	// BlockDeviceSetStatusOnline represents no errors at BlockDeviceSet
-	BlockDeviceSetStatusOnline string = "Online"
-
-	// BlockDeviceSetStatusError represent error at BlockDeviceSet
-	BlockDeviceSetStatusError string = "Error"
-)
-
-// BlockDeviceSet is a kubernetes custom resource that defines
-// the specifications to create one or more BlockDevices
-type BlockDeviceSet struct {
+// DOperator is a kubernetes custom resource that defines
+// the specifications to manage CStorPoolAuto needs
+type DOperator struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
-
-	Spec BlockDeviceSetSpec `json:"spec"`
-}
-
-// BlockDeviceSetSpec defines the configuration required
-// to create one or more BlockDevices
-type BlockDeviceSetSpec struct {
-	Device   map[string]interface{} `json:"device,omitempty"`
-	Replicas *int                   `json:"replicas,omitempty"`
 }

@@ -20,7 +20,8 @@ func (r *Reconciler) registerAPIs() {
 	r.registeredAPIs = append(
 		r.registeredAPIs,
 		// NOTE:
-		//   Add all the director APIs here
-		r.addAPIForActiveNodesOrNone,
+		//   Add the registered/supported director APIs here
+		r.addGetActiveNodes,
+		r.addGetProjectDetails,
 	)
 }

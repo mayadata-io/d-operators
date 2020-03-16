@@ -21,28 +21,43 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	resty "github.com/go-resty/resty/v2"
 	"openebs.io/metac/controller/generic"
 
 	ctrlutil "mayadata.io/d-operators/common/controller"
 	"mayadata.io/d-operators/common/unstruct"
-	"mayadata.io/d-operators/types/gvk"
 	types "mayadata.io/d-operators/types/http"
+)
+
+const (
+	// SecretTypeBasicAuth refers to basic authentication based secret
+	SecretTypeBasicAuth string = "kubernetes.io/basic-auth"
+
+	// BasicAuthUsernameKey is the key of the username for
+	// SecretTypeBasicAuth secrets
+	BasicAuthUsernameKey = "username"
+
+	// BasicAuthPasswordKey is the key of the password or token for
+	// SecretTypeBasicAuth secrets
+	BasicAuthPasswordKey = "password"
 )
 
 // Reconciler manages reconciliation of HTTP resources
 type Reconciler struct {
 	ctrlutil.Reconciler
 
-	observedHTTP         *types.HTTP
-	observedHTTPData     *types.HTTPData
-	observedHTTPDataName string
+	observedHTTP       *types.HTTP
+	observedSecretName string
+	observedSecret     *unstructured.Unstructured
+	observedUsername   string
+	observedPassword   string
 
 	response *resty.Response
 }
 
-func (r *Reconciler) setObservedHTTP() {
+func (r *Reconciler) walkObservedHTTP() {
 	var http types.HTTP
 	err := unstruct.ToTyped(
 		r.HookRequest.Watch,
@@ -53,55 +68,92 @@ func (r *Reconciler) setObservedHTTP() {
 		return
 	}
 	r.observedHTTP = &http
-}
-
-func (r *Reconciler) setObservedHTTPDataName() {
-	lbls := r.observedHTTP.GetLabels()
-	if len(lbls) == 0 {
+	r.observedSecretName = http.Spec.SecretName
+	if r.observedSecretName == "" {
+		r.Err = errors.Errorf("Missing spec.secretName")
 		return
 	}
-	r.observedHTTPDataName = lbls[types.LabelKeyHTTPDataName]
 }
 
-func (r *Reconciler) setObservedHTTPData() {
-	if r.observedHTTPDataName == "" {
-		r.Warns = append(
-			r.Warns,
-			"HTTPData resource not found",
-		)
-		return
-	}
-	var httpdata types.HTTPData
-	obj := r.HookRequest.Attachments.FindByGroupKindName(
-		gvk.APIVersionDAOV1Alpha1,
-		gvk.KindHTTPData,
-		r.observedHTTPDataName,
+func (r *Reconciler) walkObservedSecret() {
+	r.observedSecret = r.HookRequest.Attachments.FindByGroupKindName(
+		"v1",
+		"Secret",
+		r.observedSecretName,
 	)
-	if obj == nil {
-		r.Warns = append(
-			r.Warns,
-			"HTTPData resource %s not found",
-			r.observedHTTPDataName,
+	if r.observedSecret == nil {
+		r.Err = errors.Errorf(
+			"Secret %q not found",
+			r.observedSecretName,
 		)
 		return
 	}
-	err := unstruct.ToTyped(
-		obj,
-		&httpdata,
+	// add it back to response attachments without any
+	// changes
+	//
+	// NOTE:
+	//	Adding back the request attachments to response
+	// attachments help in evaluating the completion state
+	r.HookResponse.Attachments = append(
+		r.HookResponse.Attachments,
+		r.observedSecret,
+	)
+	stype, found, err := unstructured.NestedString(
+		r.observedSecret.Object,
+		"type",
 	)
 	if err != nil {
 		r.Err = err
 		return
 	}
-	r.observedHTTPData = &httpdata
+	if !found || stype == "" {
+		r.Warns = append(
+			r.Warns,
+			"Secret type not found in %q: Will use %q",
+			r.observedSecretName,
+			SecretTypeBasicAuth,
+		)
+	}
+	if stype != SecretTypeBasicAuth {
+		r.Err = errors.Errorf(
+			"Unsupported secret type %s: %q",
+			stype,
+			r.observedSecretName,
+		)
+		return
+	}
+	data, found, err := unstructured.NestedMap(
+		r.observedSecret.Object,
+		"data",
+	)
+	if err != nil {
+		r.Err = err
+		return
+	}
+	if data == nil || !found {
+		r.Err = errors.Errorf(
+			"Secret data not found: %q",
+			r.observedSecretName,
+		)
+	}
+	r.observedUsername = fmt.Sprintf("%v", data[BasicAuthUsernameKey])
+	r.observedPassword = fmt.Sprintf("%v", data[BasicAuthPasswordKey])
+	if r.observedUsername == "" || r.observedPassword == "" {
+		r.Err = errors.Errorf(
+			"Missing credentials in secret %q",
+			r.observedSecretName,
+		)
+		return
+	}
 }
 
 func (r *Reconciler) invokeHTTP() {
-	req := resty.New().R()
-	req.SetBody(r.observedHTTP.Spec.Body)
-	req.SetHeaders(r.observedHTTP.Spec.Headers)
-	req.SetQueryParams(r.observedHTTP.Spec.Params)
-	req.SetPathParams(r.observedHTTPData.Spec.PathParams)
+	req := resty.New().R().
+		SetBasicAuth(r.observedUsername, r.observedPassword).
+		SetBody(r.observedHTTP.Spec.Body).
+		SetHeaders(r.observedHTTP.Spec.Headers).
+		SetQueryParams(r.observedHTTP.Spec.QueryParams).
+		SetPathParams(r.observedHTTP.Spec.PathParams)
 
 	switch strings.ToLower(r.observedHTTP.Spec.Method) {
 	case types.POST:
@@ -125,6 +177,9 @@ func (r *Reconciler) invokeHTTP() {
 // custom resource.
 func (r *Reconciler) updateWatchStatus() {
 	var status = map[string]interface{}{}
+	var completion = map[string]interface{}{
+		"state": false,
+	}
 	var warn string
 	// init with Online
 	status["phase"] = types.HTTPStatusPhaseOnline
@@ -156,13 +211,11 @@ func (r *Reconciler) updateWatchStatus() {
 		status["phase"] = types.HTTPStatusPhaseError
 	}
 	// check for completion state
-	if r.response != nil {
-		var completion = map[string]interface{}{
-			"state": true,
-		}
-		// set completion status
-		status["completion"] = completion
+	if r.Err == nil && r.response != nil && !r.response.IsError() {
+		completion["state"] = true
 	}
+	// set completion status
+	status["completion"] = completion
 	// set the desired status
 	r.HookResponse.Status = status
 }
@@ -175,9 +228,7 @@ func (r *Reconciler) updateWatchStatus() {
 // response as part of reconcile request.
 //
 // NOTE:
-//	SyncHookRequest uses HTTP as the watched resource.
-// The same watched resource forms the desired state by updating
-// the its status.
+//	This controller watches HTTP custom resource
 func Sync(request *generic.SyncHookRequest, response *generic.SyncHookResponse) error {
 	r := &Reconciler{}
 	r.HookRequest = request
@@ -185,9 +236,8 @@ func Sync(request *generic.SyncHookRequest, response *generic.SyncHookResponse) 
 
 	// add functions to achieve desired state
 	r.ReconcileFns = []func(){
-		r.setObservedHTTP,
-		r.setObservedHTTPDataName,
-		r.setObservedHTTPData,
+		r.walkObservedHTTP,
+		r.walkObservedSecret,
 		r.invokeHTTP,
 	}
 

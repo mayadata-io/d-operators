@@ -21,9 +21,11 @@ import (
 )
 
 const (
-	// LabelKeyHTTPDataName is the key used in labels to
-	// provides the name of HTTPData CR
-	LabelKeyHTTPDataName string = "httpdata-dao-mayadata-io/name"
+	// POST based http request
+	POST string = "post"
+
+	// GET based http request
+	GET string = "get"
 )
 
 // HTTP is a kubernetes custom resource that defines
@@ -33,25 +35,33 @@ type HTTP struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 
-	Spec HTTPRequestSpec `json:"spec"`
+	Spec   HTTPRequestSpec   `json:"spec"`
+	Status HTTPRequestStatus `json:"status,omitempty"`
 }
-
-const (
-	// POST based http request
-	POST string = "post"
-
-	// GET based http request
-	GET string = "get"
-)
 
 // HTTPRequestSpec defines the configuration required
 // to invoke http request
 type HTTPRequestSpec struct {
-	URL     string            `json:"url"`
-	Method  string            `json:"method,omitempty"`
-	Headers map[string]string `json:"headers,omitempty"`
-	Params  map[string]string `json:"params,omitempty"`
-	Body    string            `json:"body,omitempty"`
+	SecretName  string            `json:"secretName"`
+	URL         string            `json:"url"`
+	Method      string            `json:"method,omitempty"`
+	Headers     map[string]string `json:"headers,omitempty"`
+	QueryParams map[string]string `json:"queryParams,omitempty"`
+	PathParams  map[string]string `json:"pathParams,omitempty"`
+	Body        string            `json:"body,omitempty"`
+}
+
+// HTTPRequestStatus has the status & response of an
+// invoked http URL
+type HTTPRequestStatus struct {
+	Phase          string                 `json:"phase"`
+	Reason         string                 `json:"reason"`
+	Warn           string                 `json:"warn"`
+	Completion     map[string]interface{} `json:"completion"`
+	Body           interface{}            `json:"body"`
+	HTTPStatusCode int                    `json:"httpStatusCode"`
+	HTTPStatus     string                 `json:"httpStatus"`
+	HTTPError      interface{}            `json:"httpError"`
 }
 
 const (
@@ -76,6 +86,6 @@ type HTTPData struct {
 // HTTPDataSpec defines the values required to invoke
 // http request
 type HTTPDataSpec struct {
-	PathParams map[string]string      `json:"params,omitempty"`
-	Values     map[string]interface{} `json:"values,omitempty"`
+	Headers    map[string]string `json:"headers,omitempty"`
+	PathParams map[string]string `json:"pathParams,omitempty"`
 }

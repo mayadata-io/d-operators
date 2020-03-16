@@ -20,26 +20,23 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	// BlockDeviceSetStatusOnline represents no errors at BlockDeviceSet
-	BlockDeviceSetStatusOnline string = "Online"
-
-	// BlockDeviceSetStatusError represent error at BlockDeviceSet
-	BlockDeviceSetStatusError string = "Error"
-)
-
-// BlockDeviceSet is a kubernetes custom resource that defines
-// the specifications to create one or more BlockDevices
-type BlockDeviceSet struct {
+// CStorPoolAuto is a kubernetes custom resource that defines
+// the specifications to manage CStorPoolAuto needs
+type CStorPoolAuto struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 
-	Spec BlockDeviceSetSpec `json:"spec"`
+	Spec CStorPoolAutoSpec `json:"spec"`
 }
 
-// BlockDeviceSetSpec defines the configuration required
-// to create one or more BlockDevices
-type BlockDeviceSetSpec struct {
-	Device   map[string]interface{} `json:"device,omitempty"`
-	Replicas *int                   `json:"replicas,omitempty"`
+// CStorPoolAutoSpec defines the configuration required
+// to manage CStorPoolAuto
+type CStorPoolAutoSpec struct {
+	InstallRBAC             *bool  `json:"installRBAC,omitempty"`
+	InstallCRD              *bool  `json:"installCRD,omitempty"`
+	TargetNamespace         string `json:"targetNamespace"`
+	ServiceAccountName      string `json:"serviceAccountName"`
+	CStorPoolAutoImage      string `json:"cstorPoolAutoImage"`
+	StorageProvisionerImage string `json:"storageProvisionerImage"`
+	LogLevel                *int   `json:"logLevel,omitempty"`
 }

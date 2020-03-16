@@ -28,9 +28,9 @@ const (
 	URLActiveNodes string = URLDirector +
 		"/v3/groups/{group_id}/nodes?state=active&clusterId={cluster_id}"
 
-	// URLLabelNodes is the URL to label nodes
-	URLLabelNodes string = URLDirector +
-		"/v3/groups/{group_id}/nodes/{node_id}/?action=labelnodes"
+	// URLProjectDetails is the URL to fetch project details
+	URLProjectDetails string = URLDirector +
+		"/v3/groups/{group_id}/project"
 )
 
 const (
@@ -53,6 +53,9 @@ type DirectorHTTP struct {
 // DirectorHTTPSpec defines the configuration required
 // to invoke one or more Director APIs
 type DirectorHTTPSpec struct {
+	HTTPDataName string `json:"httpDataName"`
+	SecretName   string `json:"secretName"`
+
 	// Include the API names that should be invoked
 	//
 	// NOTE:
@@ -68,4 +71,8 @@ const (
 	// GetActiveNodes represent the Director API to fetch
 	// active node details
 	GetActiveNodes string = "get-active-nodes"
+
+	// GetProjectDetails represent the Director API to fetch
+	// project details
+	GetProjectDetails string = "get-project-details"
 )
