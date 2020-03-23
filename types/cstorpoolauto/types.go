@@ -31,6 +31,38 @@ type CStorPoolAuto struct {
 
 // CStorPoolAutoSpec defines the configuration required
 // to manage CStorPoolAuto
+//
+// rough draft
+// ```yaml
+// kind: CStorPoolAuto
+// spec:
+//   rbac:
+//     disable: 			// if true disables installing any rbac
+//     items:
+//     - cstorpoolauto-local
+//     - "*"  				// default internally
+//   crd:
+//     disable: 			// if true disables installing any crds
+//     items:
+//     - group: "*" 		// default internally
+//       version: "*"
+//       resource: "*"
+//     - group: dao.mayadata.io
+//       version: v1alpha1
+//       resource: cstorclusterconfigs
+//   deploy:
+//     uses:
+//       namespace:
+//       serviceAccountName:
+//     cstorpoolauto:
+//       image:
+//       loglevel:
+//       config:
+//     storageprovisioner:
+//       image:
+//       loglevel:
+//       config:
+// ```
 type CStorPoolAutoSpec struct {
 	InstallRBAC             *bool  `json:"installRBAC,omitempty"`
 	InstallCRD              *bool  `json:"installCRD,omitempty"`

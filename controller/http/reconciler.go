@@ -230,9 +230,12 @@ func (r *Reconciler) updateWatchStatus() {
 // NOTE:
 //	This controller watches HTTP custom resource
 func Sync(request *generic.SyncHookRequest, response *generic.SyncHookResponse) error {
-	r := &Reconciler{}
-	r.HookRequest = request
-	r.HookResponse = response
+	r := &Reconciler{
+		Reconciler: ctrlutil.Reconciler{
+			HookRequest:  request,
+			HookResponse: response,
+		},
+	}
 
 	// add functions to achieve desired state
 	r.ReconcileFns = []func(){

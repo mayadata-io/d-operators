@@ -166,9 +166,12 @@ func (r *Reconciler) updateWatchStatus() {
 // NOTE:
 //	This controller watches DirectorHTTP custom resource
 func Sync(request *generic.SyncHookRequest, response *generic.SyncHookResponse) error {
-	r := &Reconciler{}
-	r.HookRequest = request
-	r.HookResponse = response
+	r := &Reconciler{
+		Reconciler: ctrlutil.Reconciler{
+			HookRequest:  request,
+			HookResponse: response,
+		},
+	}
 
 	// add logic to achieve desired state of attachments/children
 	r.ReconcileFns = []func(){
