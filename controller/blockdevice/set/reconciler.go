@@ -106,7 +106,7 @@ func (r *Reconciler) resetAndBuildBlockDeviceName() {
 		name = r.desiredBlockDeviceTemplate.GetName()
 	}
 	if name == "" {
-		// use observed BlockDeviceClone name otherwise
+		// use observed BlockDeviceSet name otherwise
 		name = r.observedBlockDeviceSet.GetName()
 	}
 	// final desired name for block device(s)
@@ -181,9 +181,12 @@ func (r *Reconciler) updateWatchStatus() {
 // NOTE:
 //	This controller watches BlockDeviceSet custom resource
 func Sync(request *generic.SyncHookRequest, response *generic.SyncHookResponse) error {
-	r := &Reconciler{}
-	r.HookRequest = request
-	r.HookResponse = response
+	r := &Reconciler{
+		Reconciler: ctrlutil.Reconciler{
+			HookRequest:  request,
+			HookResponse: response,
+		},
+	}
 
 	// add functions to achieve desired state
 	r.ReconcileFns = []func(){

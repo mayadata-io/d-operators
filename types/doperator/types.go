@@ -21,7 +21,14 @@ import (
 )
 
 // DOperator is a kubernetes custom resource that defines
-// the specifications to manage CStorPoolAuto needs
+// the specifications to manage DOperator needs
+//
+// rough draft
+// include exclude CRDs that DOperator defines
+// e.g. CStorPoolAuto
+// e.g. HTTP
+// e.g. HTTPDirector
+// e.g. BlockDeviceSet
 type DOperator struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
