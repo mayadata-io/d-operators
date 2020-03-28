@@ -30,11 +30,11 @@ vendor: go.mod go.sum
 
 .PHONY: test
 test: 
-	@go test ./...
+	@go test ./... -cover
 
 .PHONY: testv
 testv:
-	@go test ./... -v -args --logtostderr -v=2
+	@go test ./... -cover -v -args --logtostderr -v=2
 
 .PHONY: image
 image:

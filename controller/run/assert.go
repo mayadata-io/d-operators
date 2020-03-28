@@ -29,7 +29,7 @@ import (
 // one condition
 type ResourceListCondition struct {
 	Items     []*unstructured.Unstructured
-	Condition *types.Condition
+	Condition *types.IfCondition
 
 	successfulMatches map[*unstructured.Unstructured]bool
 	isSuccess         bool
@@ -39,7 +39,7 @@ type ResourceListCondition struct {
 // NewResourceListCondition returns a new instance of ResourceCondition
 // from the provided condition _(read resource selectors)_ & resources
 func NewResourceListCondition(
-	cond types.Condition,
+	cond types.IfCondition,
 	resources []*unstructured.Unstructured,
 ) *ResourceListCondition {
 	if len(cond.ResourceSelector.SelectorTerms) == 0 {
@@ -69,7 +69,7 @@ func NewResourceListCondition(
 		}
 	}
 	rc := &ResourceListCondition{
-		Condition: &types.Condition{
+		Condition: &types.IfCondition{
 			ResourceSelector: cond.ResourceSelector,
 			ResourceOperator: cond.ResourceOperator,
 			Count:            cond.Count,
@@ -169,12 +169,12 @@ type Assertion struct {
 
 func (a *Assertion) runAllConditions() {
 	isOperatorOR :=
-		a.Request.Assert.AssertOperator == types.AssertOperatorOR
+		a.Request.Assert.IfOperator == types.IfOperatorOR
 	isOperatorAND :=
-		a.Request.Assert.AssertOperator == types.AssertOperatorAND
+		a.Request.Assert.IfOperator == types.IfOperatorAND
 	var atleastOneSuccess bool
 	// run each condition against all the resources
-	for _, cond := range a.Request.Assert.Conditions {
+	for _, cond := range a.Request.Assert.IfConditions {
 		// check each condition
 		success, err := NewResourceListCondition(
 			cond,
@@ -203,7 +203,7 @@ func (a *Assertion) runAllConditions() {
 
 // Assert verifies this assert condition
 func (a *Assertion) Assert() (bool, error) {
-	if a.Request.Assert == nil || len(a.Request.Assert.Conditions) == 0 {
+	if a.Request.Assert == nil || len(a.Request.Assert.IfConditions) == 0 {
 		// nothing needs to be done
 		// return successful assert
 		return true, nil
@@ -225,18 +225,20 @@ func (a *Assertion) Assert() (bool, error) {
 func ExecuteAssert(req AssertRequest) (bool, error) {
 	if req.Assert == nil {
 		return false, errors.Errorf(
-			"Can't assert: Nil assert",
+			"Can't assert: Missing assert specs",
 		)
 	}
-	var op = req.Assert.AssertOperator
+	var op = req.Assert.IfOperator
 	if op == "" {
 		// OR is the default AssertOperator
-		op = types.AssertOperatorOR
+		op = types.IfOperatorOR
 	}
 	var newreq = AssertRequest{
 		Assert: &types.Assert{
-			AssertOperator: op,
-			Conditions:     req.Assert.Conditions,
+			If: types.If{
+				IfOperator:   op,
+				IfConditions: req.Assert.IfConditions,
+			},
 		},
 		Resources: req.Resources,
 	}

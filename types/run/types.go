@@ -24,60 +24,77 @@ import (
 
 // TODO (@amitkumardas): draft specs
 //
+// UseCase: Delete a resource
+//
 // kind: Run
 // spec:
 //   tasks:
 //   - if:
 //     apply:
 //     replicas: 0   # delete since replicas = 0
-//   - if:
-//     apply:        # create
+//
+// UseCase: Create a resource
+//
+// kind: Run
+// spec:
+//   tasks:
+//   - if:           # optional, create only if condition passes
+//     apply:        # resource to be created
 //     replicas: 1   # optional; default is 1 replicas
-//     once:         # if true then this task is run only once
-//   - if:
-//     apply:
-//     for:          # update
-//   - assert:       # entire task is just an assertion
+//
+// UseCase: Delete a resource only once
+//
+// kind: Run
+// spec:
+//   tasks:
+//   - apply:        # resource to be deleted
+//     replicas: 0
+//     once:         # run this task only once
+//
+// UseCase: Update a resource
+//
+// kind: Run
+// spec:
+//   tasks:
+//   - if:           # update if condition passes
+//     apply:        # desired state to update
+//     target:       # resource on which update will be run
+//
+// UseCase: Assert presence of a resource
+//
+// kind: Run
+// spec:
+//   tasks:
+//   - assert:
+//
+// UseCase: Assert absence of a resource
+//
+// kind: Run
+// spec:
+//   tasks:
+//   - assert:
 
 // TODO (@amitkumardas): draft design
 //
 // NOTE: Run resource is the declarative way to code a controller
 //
-// - Metac specs will be provided to binary as file(s)
-// - Run specs will be provided to binary as file(s)
-// - Binary will apply the Run resource from file(s) against k8s cluster
-// - Binary will apply its internal CRDs as part of kind: DOperator
-// - User will deploy this binary as a StatefulSet
-// - User will apply their custom resources
-// - User's custom resource will be updated with Run status
-//
-// - Sample metac.yaml with a custom resource & a Run resource:
-//   kind: GenericController
-//   spec:
-//     watch:
-//       kind: user's custom resource
-//     attachments:
-//     - kind: Run
-//       select: specific to watch
-//     - kind: other1 (as required inside Run)
-//     - kind: other2 (as required inside Run)
-//     - kind: othern (as required inside Run)
-//     inlinehook:
-//       # multiple GenericControllers can use this inline func
-//       funcname: predefined in the binary
-//
-// - Sample metac.yaml with Run resource & no custom resource:
-//   kind: GenericController
-//   spec:
-//     watch:
-//       kind: Run
-//     attachments:
-//     - kind: other1 (as required inside Run)
-//     - kind: other2 (as required inside Run)
-//     - kind: othern (as required inside Run)
-//     inlinehook:
-//       # multiple GenericControllers can use this inline func
-//       funcname: predefined in the binary
+// - When any controller wants to use Run specs
+//   - Run specs should be mounted into doperator binary
+//   - Run name will be annotated at corresponding GenericController
+//   - GenericController's sync will invoke run.SyncDelegate func
+//   - GenericController's finalize will invoke run.FinalizeDelegate func
+//	 - run.SyncDelegate will invoke run.Sync
+//   - run.FinalizeDelegate will invoke run.Finalize
+// - Run can be applied as CR as well
+//	 - GenericController's sync will invoke run.Sync
+//	 - GenericController's finalize will invoke run.Finalize
+
+const (
+	// AnnotationKeyMetacCreatedDueToWatch is the annotation key
+	// found in GenericController attachments that were created
+	// by the GenericController
+	AnnotationKeyMetacCreatedDueToWatch string = "metac.openebs.io/created-due-to-watch"
+)
 
 const (
 	// AnnotationKeyRunUID is the annotation key that holds
@@ -186,18 +203,18 @@ const (
 	ResourceOperatorLTE ResourceOperator = "LTE"
 )
 
-// AssertOperator defines the operator that needs to be applied
-// against a list of AssertItem(s)
-type AssertOperator string
+// IfOperator defines the operator that needs to be applied
+// against a list of Item(s)
+type IfOperator string
 
 const (
-	// AssertOperatorAND does an AND operation amongst the
-	// list of AssertItem(s)
-	AssertOperatorAND AssertOperator = "AND"
+	// IfOperatorAND does an AND operation amongst the
+	// list of Item(s)
+	IfOperatorAND IfOperator = "AND"
 
-	// AssertOperatorOR does an OP operation amongst the
-	// list of AssertItem(s)
-	AssertOperatorOR AssertOperator = "OR"
+	// IfOperatorOR does an **OR** operation amongst the
+	// list of Item(s)
+	IfOperatorOR IfOperator = "OR"
 )
 
 // Run is a Kubernetes custom resource that defines
@@ -233,8 +250,9 @@ type Task struct {
 	// Proceed with Create or Delete or Update only if this
 	// condition succeeds
 	//
-	// If is optional
-	If *Assert `json:"if,omitempty"`
+	// NOTE:
+	// 	If is optional
+	If *If `json:"if,omitempty"`
 
 	// Apply defines the desired state that needs to be
 	// applied against the Kubernetes cluster
@@ -242,7 +260,8 @@ type Task struct {
 	// Entire resource yaml _(native or custom)_ is embedded
 	// here
 	//
-	// Apply is optional
+	// NOTE:
+	// 	Apply is optional
 	Apply map[string]interface{} `json:"desired,omitempty"`
 
 	// Action that needs to be taken against the specified state
@@ -252,33 +271,31 @@ type Task struct {
 	// if set. If Assert fails, then action won't be executed
 	// on the state.
 	//
-	// Action is optional
+	// NOTE:
+	// 	Action is optional
 	Action *Action `json:"action,omitempty"`
 
-	// This implies an update operation. The desired state found
-	// in Apply will be applied against the resources selected
+	// The target(s) that get updated. Desired state found in
+	// Apply will be applied against the resources selected
 	// by this selector
 	//
 	// NOTE:
 	//	One should not try to create or delete along with update
 	// in a single task
-	For metac.ResourceSelector `json:"for,omitempty"`
-
-	// Assert represents a condition.
-	//
-	// When used along with state, assert should return a
-	// successful match to carry out the state
-	//
-	// When used without state, assert represents the entire
-	// task. In other words, this task becomes a conditional
-	// operation.
 	//
 	// NOTE:
-	// 	Assert can not coexist with other fields. In other
-	// words if Assert is set then If, Apply & Action should
-	// not be set.
+	//	Target is optional
+	Target metac.ResourceSelector `json:"for,omitempty"`
+
+	// Assert verifies the presence of, absence of one or more
+	// resources in the cluster.
 	//
-	// Assert is optional
+	// NOTE:
+	// 	One should not try to create, update or delete along
+	// with assert in a single task
+	//
+	// NOTE:
+	// 	Assert is optional
 	Assert *Assert `json:"assert,omitempty"`
 }
 
@@ -295,60 +312,45 @@ type Action struct {
 	Replicas *int `json:"replicas,omitempty"`
 }
 
-// Assert verifies presence, absence, equals & other checks for
-// one or more resources observed in the cluster
+// Assert any condition or state of resource
 type Assert struct {
-	// AssertOperator defines the operation that need to be
-	// performed against the list of AssertItem
-	AssertOperator AssertOperator `json:"assertOperator,omitempty"`
+	// State of resource that gets asserted
+	//
+	// This must have the kind & apiVersion as its
+	// identifying fields
+	State map[string]interface{} `json:"state,omitempty"`
 
-	// Conditions are a list of conditions that gets verified
-	// as part of Assert operation
-	Conditions []Condition `json:"conditions,omitempty"`
+	// Embed If structure
+	If
 }
 
-// Condition to match, filter, verifying a kubernetes resource.
-// When used along with **task.state**, condition should succeed
-// to execute action against task.state.
-type Condition struct {
+// If defines the conditions reqired to verify the
+// presence of, absence of, equals to & other checks
+// against one or more resources observed in the cluster
+type If struct {
+	// OR-ing or AND-ing of conditions
+	IfOperator IfOperator `json:"operator,omitempty"`
+
+	// List of conditions that get executed as part of
+	// if operation
+	IfConditions []IfCondition `json:"conditions,omitempty"`
+}
+
+// IfCondition to match, filter, verify a kubernetes resource.
+type IfCondition struct {
 	// Selector to filter one or more resources that are expected
 	// to be present in the cluster
-	ResourceSelector metac.ResourceSelector `json:"resourceSelector,omitempty"`
+	ResourceSelector metac.ResourceSelector `json:"resource,omitempty"`
 
 	// ResourceOperator refers to the operation that gets executed to
 	// the selected resources
 	//
 	// Defaults to 'Exists'
-	ResourceOperator ResourceOperator `json:"resourceOperator,omitempty"`
+	ResourceOperator ResourceOperator `json:"operator,omitempty"`
 
 	// Count comes into effect when operator is related to count
 	// e.g. EqualsCount, GreaterThanEqualTo, LessThanEqualTo.
 	Count *int `json:"count,omitempty"`
-}
-
-// OnError provides the details of what needs to be done
-// in-case of an error executing Run resource
-type OnError struct {
-	// Abort execution of Run if this value is true
-	Abort *bool `json:"abort,omitempty"`
-
-	// Retry specific details are specified here
-	Retry *Retry `json:"retry,omitempty"`
-}
-
-// Retry has the details to retry executing a Run resource
-type Retry struct {
-	// Sleep interval between the retries
-	Interval metav1.Duration `json:"interval,omitempty"`
-
-	// Maximum number of times to retry any failed task
-	Count int `json:"count,omitempty"`
-}
-
-// Execute specifies the way each run tasks should get executed
-type Execute struct {
-	// Strategy to be followed to execute the tasks
-	Stategy ExecuteStrategy `json:"strategy,omitempty"`
 }
 
 // RunStatus has the operational state the Run resource

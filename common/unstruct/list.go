@@ -16,15 +16,19 @@ limitations under the License.
 
 package unstruct
 
-import "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+import (
+	"reflect"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+)
 
 // List is a custom datatype representing a list of
 // unstructured instances
 type List []*unstructured.Unstructured
 
-// Contains returns true if provided name && uid is
-// is available in this List.
-func (s List) Contains(target *unstructured.Unstructured) bool {
+// ContainsByIdentity returns true if provided target is available
+// by its name, uid & other metadata fields
+func (s List) ContainsByIdentity(target *unstructured.Unstructured) bool {
 	if target == nil || target.Object == nil {
 		// we don't know how to compare against a nil
 		return false
@@ -44,18 +48,68 @@ func (s List) Contains(target *unstructured.Unstructured) bool {
 	return false
 }
 
-// ContainsAll returns true if each item in the provided targets
-// is available in this List.
-func (s List) ContainsAll(targets []*unstructured.Unstructured) bool {
+// IdentifiesAll returns true if each item in the provided
+// targets is available & match by their identity
+func (s List) IdentifiesAll(targets []*unstructured.Unstructured) bool {
 	if len(s) == len(targets) && len(s) == 0 {
 		return true
 	}
-	if len(s) < len(targets) {
+	if len(s) != len(targets) {
 		return false
 	}
 	for _, t := range targets {
-		if !s.Contains(t) {
+		if !s.ContainsByIdentity(t) {
 			// return false if any item does not match
+			return false
+		}
+	}
+	return true
+}
+
+// ContainsByEquality does a field to field match of provided target
+// against the corresponding object present in this list
+func (s List) ContainsByEquality(target *unstructured.Unstructured) bool {
+	if target == nil || target.Object == nil {
+		// we can't match a nil target
+		return false
+	}
+	for _, src := range s {
+		if src == nil || src.Object == nil {
+			continue
+		}
+		// use meta fields as much as possible to verify
+		// if target & src do not match
+		if src.GetName() != target.GetName() ||
+			src.GetNamespace() != target.GetNamespace() ||
+			src.GetUID() != target.GetUID() ||
+			src.GetKind() != target.GetKind() ||
+			src.GetAPIVersion() != target.GetAPIVersion() ||
+			len(src.GetAnnotations()) != len(target.GetAnnotations()) ||
+			len(src.GetLabels()) != len(target.GetLabels()) ||
+			len(src.GetOwnerReferences()) != len(target.GetOwnerReferences()) ||
+			len(src.GetFinalizers()) != len(target.GetFinalizers()) {
+			// continue since target does not match src
+			continue
+		}
+		// Since target matches with this src based on meta
+		// information we need to **verify further** by running
+		// reflect based match
+		return reflect.DeepEqual(target, src)
+	}
+	return false
+}
+
+// EqualsAll does a field to field match of each target against
+// the corresponding object present in this list
+func (s List) EqualsAll(targets []*unstructured.Unstructured) bool {
+	if len(s) == len(targets) && len(s) == 0 {
+		return true
+	}
+	if len(s) != len(targets) {
+		return false
+	}
+	for _, t := range targets {
+		if !s.ContainsByEquality(t) {
 			return false
 		}
 	}
