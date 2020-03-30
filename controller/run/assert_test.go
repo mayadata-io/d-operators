@@ -27,17 +27,17 @@ import (
 
 func TestNewResourceListCondition(t *testing.T) {
 	var tests = map[string]struct {
-		condition types.Condition
+		condition types.IfCondition
 		resources []*unstructured.Unstructured
-		expect    types.Condition
+		expect    types.IfCondition
 		isErr     bool
 	}{
 		"empty condition": {
-			condition: types.Condition{},
+			condition: types.IfCondition{},
 			isErr:     true,
 		},
 		"condition without count & EqualsCount operator": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{},
@@ -48,7 +48,7 @@ func TestNewResourceListCondition(t *testing.T) {
 			isErr: true,
 		},
 		"condition without count & GTE operator": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{},
@@ -59,7 +59,7 @@ func TestNewResourceListCondition(t *testing.T) {
 			isErr: true,
 		},
 		"condition without count & LTE operator": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{},
@@ -70,7 +70,7 @@ func TestNewResourceListCondition(t *testing.T) {
 			isErr: true,
 		},
 		"condition with count & LTE operator": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{},
@@ -84,7 +84,7 @@ func TestNewResourceListCondition(t *testing.T) {
 					Object: map[string]interface{}{},
 				},
 			},
-			expect: types.Condition{
+			expect: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{},
@@ -96,7 +96,7 @@ func TestNewResourceListCondition(t *testing.T) {
 			isErr: false,
 		},
 		"condition with count & GTE operator": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{},
@@ -110,7 +110,7 @@ func TestNewResourceListCondition(t *testing.T) {
 					Object: map[string]interface{}{},
 				},
 			},
-			expect: types.Condition{
+			expect: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{},
@@ -122,7 +122,7 @@ func TestNewResourceListCondition(t *testing.T) {
 			isErr: false,
 		},
 		"condition with count & EqualsCount operator": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{},
@@ -136,7 +136,7 @@ func TestNewResourceListCondition(t *testing.T) {
 					Object: map[string]interface{}{},
 				},
 			},
-			expect: types.Condition{
+			expect: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{},
@@ -148,7 +148,7 @@ func TestNewResourceListCondition(t *testing.T) {
 			isErr: false,
 		},
 		"condition without resource operator": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{},
@@ -160,7 +160,7 @@ func TestNewResourceListCondition(t *testing.T) {
 					Object: map[string]interface{}{},
 				},
 			},
-			expect: types.Condition{
+			expect: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{},
@@ -171,7 +171,7 @@ func TestNewResourceListCondition(t *testing.T) {
 			isErr: false,
 		},
 		"condition with NotExist resource operator": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{},
@@ -184,7 +184,7 @@ func TestNewResourceListCondition(t *testing.T) {
 					Object: map[string]interface{}{},
 				},
 			},
-			expect: types.Condition{
+			expect: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{},
@@ -249,13 +249,13 @@ func TestNewResourceListCondition(t *testing.T) {
 
 func TestResourceListConditionTryMatchAndRegister(t *testing.T) {
 	var tests = map[string]struct {
-		condition          types.Condition
+		condition          types.IfCondition
 		resource           *unstructured.Unstructured
 		expectSuccessCount int // 1 implies match & 0 means no match
 		isErr              bool
 	}{
 		"select pod + match fields + kind": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -274,7 +274,7 @@ func TestResourceListConditionTryMatchAndRegister(t *testing.T) {
 			expectSuccessCount: 1,
 		},
 		"can not select pod + match fields + kind": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -293,7 +293,7 @@ func TestResourceListConditionTryMatchAndRegister(t *testing.T) {
 			expectSuccessCount: 0,
 		},
 		"select STS + match fields + kind + apiVersion": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -315,7 +315,7 @@ func TestResourceListConditionTryMatchAndRegister(t *testing.T) {
 			expectSuccessCount: 1,
 		},
 		"select STS + match fields + kind + spec.replicas": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -338,7 +338,7 @@ func TestResourceListConditionTryMatchAndRegister(t *testing.T) {
 			expectSuccessCount: 1,
 		},
 		"can not select STS + match fields + kind + spec.replicas": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -361,7 +361,7 @@ func TestResourceListConditionTryMatchAndRegister(t *testing.T) {
 			expectSuccessCount: 0,
 		},
 		"select Deployment + match labels + match fields": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -393,7 +393,7 @@ func TestResourceListConditionTryMatchAndRegister(t *testing.T) {
 			expectSuccessCount: 1,
 		},
 		"can not select Deployment + match labels + match fields": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -424,7 +424,7 @@ func TestResourceListConditionTryMatchAndRegister(t *testing.T) {
 			expectSuccessCount: 0,
 		},
 		"select Deployment + from multiple select terms": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -456,7 +456,7 @@ func TestResourceListConditionTryMatchAndRegister(t *testing.T) {
 			expectSuccessCount: 1,
 		},
 		"select StatefulSet + from multiple select terms": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -488,7 +488,7 @@ func TestResourceListConditionTryMatchAndRegister(t *testing.T) {
 			expectSuccessCount: 1,
 		},
 		"can not select StatefulSet + from multiple select terms": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -553,13 +553,13 @@ func TestResourceListConditionTryMatchAndRegister(t *testing.T) {
 
 func TestResourceListConditionIsSuccess(t *testing.T) {
 	var tests = map[string]struct {
-		condition types.Condition
+		condition types.IfCondition
 		resources []*unstructured.Unstructured
 		isSuccess bool
 		isErr     bool
 	}{
 		"select pod + match fields + kind": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -580,7 +580,7 @@ func TestResourceListConditionIsSuccess(t *testing.T) {
 			isSuccess: true,
 		},
 		"can not select pod + match fields + kind": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -601,7 +601,7 @@ func TestResourceListConditionIsSuccess(t *testing.T) {
 			isSuccess: false,
 		},
 		"select STS + match fields + kind + apiVersion": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -624,7 +624,7 @@ func TestResourceListConditionIsSuccess(t *testing.T) {
 			isSuccess: true,
 		},
 		"select STS + match fields + kind + spec.replicas": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -649,7 +649,7 @@ func TestResourceListConditionIsSuccess(t *testing.T) {
 			isSuccess: true,
 		},
 		"can not select STS + match fields + kind + spec.replicas": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -674,7 +674,7 @@ func TestResourceListConditionIsSuccess(t *testing.T) {
 			isSuccess: false,
 		},
 		"select Deployment + match labels + match fields": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -708,7 +708,7 @@ func TestResourceListConditionIsSuccess(t *testing.T) {
 			isSuccess: true,
 		},
 		"can not select Deployment + match labels + match fields": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -741,7 +741,7 @@ func TestResourceListConditionIsSuccess(t *testing.T) {
 			isSuccess: false,
 		},
 		"select Deployment + from multiple select terms": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -775,7 +775,7 @@ func TestResourceListConditionIsSuccess(t *testing.T) {
 			isSuccess: true,
 		},
 		"select StatefulSet + from multiple select terms": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -809,7 +809,7 @@ func TestResourceListConditionIsSuccess(t *testing.T) {
 			isSuccess: true,
 		},
 		"can not select StatefulSet + from multiple select terms": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -840,7 +840,7 @@ func TestResourceListConditionIsSuccess(t *testing.T) {
 			isSuccess: false,
 		},
 		"can not select StatefulSet + from multiple select terms + count=2": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -873,7 +873,7 @@ func TestResourceListConditionIsSuccess(t *testing.T) {
 			isSuccess: false,
 		},
 		"select both StatefulSet & Deployment + count=2": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -906,7 +906,7 @@ func TestResourceListConditionIsSuccess(t *testing.T) {
 			isSuccess: true,
 		},
 		"select both StatefulSet & Deployment + spec.replicas as int + count 2": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -947,7 +947,7 @@ func TestResourceListConditionIsSuccess(t *testing.T) {
 			isErr: true, // bug in metac refer https://github.com/AmitKumarDas/metac/issues/112
 		},
 		"select both StatefulSet & Deployment + count 2": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -988,7 +988,7 @@ func TestResourceListConditionIsSuccess(t *testing.T) {
 			isSuccess: true,
 		},
 		"select either StatefulSet or Deployment + gte 2": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -1029,7 +1029,7 @@ func TestResourceListConditionIsSuccess(t *testing.T) {
 			isSuccess: true,
 		},
 		"select either StatefulSet or Deployment + lte 2": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -1070,7 +1070,7 @@ func TestResourceListConditionIsSuccess(t *testing.T) {
 			isSuccess: true,
 		},
 		"select either StatefulSet or Deployment + lte 3": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -1111,7 +1111,7 @@ func TestResourceListConditionIsSuccess(t *testing.T) {
 			isSuccess: true,
 		},
 		"can't select + 1 StatefulSet & 1 Deployment + gte 3": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -1152,7 +1152,7 @@ func TestResourceListConditionIsSuccess(t *testing.T) {
 			isSuccess: false,
 		},
 		"can't select + 1 StatefulSet & 1 Deployment + lte 1": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -1193,7 +1193,7 @@ func TestResourceListConditionIsSuccess(t *testing.T) {
 			isSuccess: false,
 		},
 		"successful assert + 1 StatefulSet & 1 Deployment + not exists": {
-			condition: types.Condition{
+			condition: types.IfCondition{
 				ResourceSelector: v1alpha1.ResourceSelector{
 					SelectorTerms: []*v1alpha1.SelectorTerm{
 						&v1alpha1.SelectorTerm{
@@ -1268,13 +1268,15 @@ func TestExecuteAssert(t *testing.T) {
 		"successful match + OR operator + 1 condition + matchlabels": {
 			request: AssertRequest{
 				Assert: &types.Assert{
-					Conditions: []types.Condition{
-						types.Condition{
-							ResourceSelector: v1alpha1.ResourceSelector{
-								SelectorTerms: []*v1alpha1.SelectorTerm{
-									&v1alpha1.SelectorTerm{
-										MatchLabels: map[string]string{
-											"app": "d-operator",
+					If: types.If{
+						IfConditions: []types.IfCondition{
+							types.IfCondition{
+								ResourceSelector: v1alpha1.ResourceSelector{
+									SelectorTerms: []*v1alpha1.SelectorTerm{
+										&v1alpha1.SelectorTerm{
+											MatchLabels: map[string]string{
+												"app": "d-operator",
+											},
 										},
 									},
 								},
@@ -1299,24 +1301,26 @@ func TestExecuteAssert(t *testing.T) {
 		"successful match + OR operator + 2 conditions + matchlabels": {
 			request: AssertRequest{
 				Assert: &types.Assert{
-					Conditions: []types.Condition{
-						types.Condition{
-							ResourceSelector: v1alpha1.ResourceSelector{
-								SelectorTerms: []*v1alpha1.SelectorTerm{
-									&v1alpha1.SelectorTerm{
-										MatchLabels: map[string]string{
-											"app": "d-junk",
+					If: types.If{
+						IfConditions: []types.IfCondition{
+							types.IfCondition{
+								ResourceSelector: v1alpha1.ResourceSelector{
+									SelectorTerms: []*v1alpha1.SelectorTerm{
+										&v1alpha1.SelectorTerm{
+											MatchLabels: map[string]string{
+												"app": "d-junk",
+											},
 										},
 									},
 								},
 							},
-						},
-						types.Condition{
-							ResourceSelector: v1alpha1.ResourceSelector{
-								SelectorTerms: []*v1alpha1.SelectorTerm{
-									&v1alpha1.SelectorTerm{
-										MatchLabels: map[string]string{
-											"app": "d-operator",
+							types.IfCondition{
+								ResourceSelector: v1alpha1.ResourceSelector{
+									SelectorTerms: []*v1alpha1.SelectorTerm{
+										&v1alpha1.SelectorTerm{
+											MatchLabels: map[string]string{
+												"app": "d-operator",
+											},
 										},
 									},
 								},
@@ -1341,20 +1345,22 @@ func TestExecuteAssert(t *testing.T) {
 		"successful match + AND operator + 1 condition + matchlabels": {
 			request: AssertRequest{
 				Assert: &types.Assert{
-					Conditions: []types.Condition{
-						types.Condition{
-							ResourceSelector: v1alpha1.ResourceSelector{
-								SelectorTerms: []*v1alpha1.SelectorTerm{
-									&v1alpha1.SelectorTerm{
-										MatchLabels: map[string]string{
-											"app": "d-operator",
+					If: types.If{
+						IfConditions: []types.IfCondition{
+							types.IfCondition{
+								ResourceSelector: v1alpha1.ResourceSelector{
+									SelectorTerms: []*v1alpha1.SelectorTerm{
+										&v1alpha1.SelectorTerm{
+											MatchLabels: map[string]string{
+												"app": "d-operator",
+											},
 										},
 									},
 								},
 							},
 						},
+						IfOperator: types.IfOperatorAND,
 					},
-					AssertOperator: types.AssertOperatorAND,
 				},
 				Resources: []*unstructured.Unstructured{
 					&unstructured.Unstructured{
@@ -1373,31 +1379,33 @@ func TestExecuteAssert(t *testing.T) {
 		"successful match + AND operator + 2 conditions + matchlabels": {
 			request: AssertRequest{
 				Assert: &types.Assert{
-					Conditions: []types.Condition{
-						types.Condition{
-							ResourceSelector: v1alpha1.ResourceSelector{
-								SelectorTerms: []*v1alpha1.SelectorTerm{
-									&v1alpha1.SelectorTerm{
-										MatchLabels: map[string]string{
-											"app": "d-operator",
+					If: types.If{
+						IfConditions: []types.IfCondition{
+							types.IfCondition{
+								ResourceSelector: v1alpha1.ResourceSelector{
+									SelectorTerms: []*v1alpha1.SelectorTerm{
+										&v1alpha1.SelectorTerm{
+											MatchLabels: map[string]string{
+												"app": "d-operator",
+											},
+										},
+									},
+								},
+							},
+							types.IfCondition{
+								ResourceSelector: v1alpha1.ResourceSelector{
+									SelectorTerms: []*v1alpha1.SelectorTerm{
+										&v1alpha1.SelectorTerm{
+											MatchLabels: map[string]string{
+												"name": "test",
+											},
 										},
 									},
 								},
 							},
 						},
-						types.Condition{
-							ResourceSelector: v1alpha1.ResourceSelector{
-								SelectorTerms: []*v1alpha1.SelectorTerm{
-									&v1alpha1.SelectorTerm{
-										MatchLabels: map[string]string{
-											"name": "test",
-										},
-									},
-								},
-							},
-						},
+						IfOperator: types.IfOperatorAND,
 					},
-					AssertOperator: types.AssertOperatorAND,
 				},
 				Resources: []*unstructured.Unstructured{
 					&unstructured.Unstructured{
@@ -1417,13 +1425,15 @@ func TestExecuteAssert(t *testing.T) {
 		"failed match + OR operator + 1 condition + matchlabels": {
 			request: AssertRequest{
 				Assert: &types.Assert{
-					Conditions: []types.Condition{
-						types.Condition{
-							ResourceSelector: v1alpha1.ResourceSelector{
-								SelectorTerms: []*v1alpha1.SelectorTerm{
-									&v1alpha1.SelectorTerm{
-										MatchLabels: map[string]string{
-											"app": "k8s",
+					If: types.If{
+						IfConditions: []types.IfCondition{
+							types.IfCondition{
+								ResourceSelector: v1alpha1.ResourceSelector{
+									SelectorTerms: []*v1alpha1.SelectorTerm{
+										&v1alpha1.SelectorTerm{
+											MatchLabels: map[string]string{
+												"app": "k8s",
+											},
 										},
 									},
 								},
@@ -1448,31 +1458,33 @@ func TestExecuteAssert(t *testing.T) {
 		"failed match + AND operator + 2 conditions + matchlabels": {
 			request: AssertRequest{
 				Assert: &types.Assert{
-					Conditions: []types.Condition{
-						types.Condition{
-							ResourceSelector: v1alpha1.ResourceSelector{
-								SelectorTerms: []*v1alpha1.SelectorTerm{
-									&v1alpha1.SelectorTerm{
-										MatchLabels: map[string]string{
-											"app": "k8s",
+					If: types.If{
+						IfConditions: []types.IfCondition{
+							types.IfCondition{
+								ResourceSelector: v1alpha1.ResourceSelector{
+									SelectorTerms: []*v1alpha1.SelectorTerm{
+										&v1alpha1.SelectorTerm{
+											MatchLabels: map[string]string{
+												"app": "k8s",
+											},
+										},
+									},
+								},
+							},
+							types.IfCondition{
+								ResourceSelector: v1alpha1.ResourceSelector{
+									SelectorTerms: []*v1alpha1.SelectorTerm{
+										&v1alpha1.SelectorTerm{
+											MatchLabels: map[string]string{
+												"app": "d-operator",
+											},
 										},
 									},
 								},
 							},
 						},
-						types.Condition{
-							ResourceSelector: v1alpha1.ResourceSelector{
-								SelectorTerms: []*v1alpha1.SelectorTerm{
-									&v1alpha1.SelectorTerm{
-										MatchLabels: map[string]string{
-											"app": "d-operator",
-										},
-									},
-								},
-							},
-						},
+						IfOperator: types.IfOperatorAND,
 					},
-					AssertOperator: types.AssertOperatorAND,
 				},
 				Resources: []*unstructured.Unstructured{
 					&unstructured.Unstructured{
@@ -1491,20 +1503,22 @@ func TestExecuteAssert(t *testing.T) {
 		"failed match + AND operator + 1 condition + matchlabels": {
 			request: AssertRequest{
 				Assert: &types.Assert{
-					Conditions: []types.Condition{
-						types.Condition{
-							ResourceSelector: v1alpha1.ResourceSelector{
-								SelectorTerms: []*v1alpha1.SelectorTerm{
-									&v1alpha1.SelectorTerm{
-										MatchLabels: map[string]string{
-											"app": "k8s",
+					If: types.If{
+						IfConditions: []types.IfCondition{
+							types.IfCondition{
+								ResourceSelector: v1alpha1.ResourceSelector{
+									SelectorTerms: []*v1alpha1.SelectorTerm{
+										&v1alpha1.SelectorTerm{
+											MatchLabels: map[string]string{
+												"app": "k8s",
+											},
 										},
 									},
 								},
 							},
 						},
+						IfOperator: types.IfOperatorAND,
 					},
-					AssertOperator: types.AssertOperatorAND,
 				},
 				Resources: []*unstructured.Unstructured{
 					&unstructured.Unstructured{
@@ -1523,31 +1537,33 @@ func TestExecuteAssert(t *testing.T) {
 		"successful match + OR operator + 2 condition + 2 resources": {
 			request: AssertRequest{
 				Assert: &types.Assert{
-					Conditions: []types.Condition{
-						types.Condition{
-							ResourceSelector: v1alpha1.ResourceSelector{
-								SelectorTerms: []*v1alpha1.SelectorTerm{
-									&v1alpha1.SelectorTerm{
-										MatchLabels: map[string]string{
-											"app": "k8s-1",
+					If: types.If{
+						IfConditions: []types.IfCondition{
+							types.IfCondition{
+								ResourceSelector: v1alpha1.ResourceSelector{
+									SelectorTerms: []*v1alpha1.SelectorTerm{
+										&v1alpha1.SelectorTerm{
+											MatchLabels: map[string]string{
+												"app": "k8s-1",
+											},
+										},
+									},
+								},
+							},
+							types.IfCondition{
+								ResourceSelector: v1alpha1.ResourceSelector{
+									SelectorTerms: []*v1alpha1.SelectorTerm{
+										&v1alpha1.SelectorTerm{
+											MatchLabels: map[string]string{
+												"app": "k8s-2",
+											},
 										},
 									},
 								},
 							},
 						},
-						types.Condition{
-							ResourceSelector: v1alpha1.ResourceSelector{
-								SelectorTerms: []*v1alpha1.SelectorTerm{
-									&v1alpha1.SelectorTerm{
-										MatchLabels: map[string]string{
-											"app": "k8s-2",
-										},
-									},
-								},
-							},
-						},
+						IfOperator: types.IfOperatorOR,
 					},
-					AssertOperator: types.AssertOperatorOR,
 				},
 				Resources: []*unstructured.Unstructured{
 					&unstructured.Unstructured{
@@ -1575,31 +1591,33 @@ func TestExecuteAssert(t *testing.T) {
 		"successful match + AND operator + 2 condition + 2 resources": {
 			request: AssertRequest{
 				Assert: &types.Assert{
-					Conditions: []types.Condition{
-						types.Condition{
-							ResourceSelector: v1alpha1.ResourceSelector{
-								SelectorTerms: []*v1alpha1.SelectorTerm{
-									&v1alpha1.SelectorTerm{
-										MatchLabels: map[string]string{
-											"app": "k8s-1",
+					If: types.If{
+						IfConditions: []types.IfCondition{
+							types.IfCondition{
+								ResourceSelector: v1alpha1.ResourceSelector{
+									SelectorTerms: []*v1alpha1.SelectorTerm{
+										&v1alpha1.SelectorTerm{
+											MatchLabels: map[string]string{
+												"app": "k8s-1",
+											},
+										},
+									},
+								},
+							},
+							types.IfCondition{
+								ResourceSelector: v1alpha1.ResourceSelector{
+									SelectorTerms: []*v1alpha1.SelectorTerm{
+										&v1alpha1.SelectorTerm{
+											MatchLabels: map[string]string{
+												"app": "k8s-2",
+											},
 										},
 									},
 								},
 							},
 						},
-						types.Condition{
-							ResourceSelector: v1alpha1.ResourceSelector{
-								SelectorTerms: []*v1alpha1.SelectorTerm{
-									&v1alpha1.SelectorTerm{
-										MatchLabels: map[string]string{
-											"app": "k8s-2",
-										},
-									},
-								},
-							},
-						},
+						IfOperator: types.IfOperatorAND,
 					},
-					AssertOperator: types.AssertOperatorAND,
 				},
 				Resources: []*unstructured.Unstructured{
 					&unstructured.Unstructured{

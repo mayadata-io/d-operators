@@ -32,17 +32,17 @@ type UpdateRequest struct {
 	Watch             *unstructured.Unstructured
 	TaskKey           string
 	Apply             map[string]interface{}
-	For               metac.ResourceSelector
+	Target            metac.ResourceSelector
 	ObservedResources []*unstructured.Unstructured
 }
 
 // UpdateResponse holds the updated states that
 // needs to be applied against the cluster
 type UpdateResponse struct {
-	DesiredResources []*unstructured.Unstructured
-	DesiredUpdates   []*unstructured.Unstructured
-	Message          string
-	Phase            types.TaskStatusPhase
+	DesiredUpdates  []*unstructured.Unstructured
+	ExplicitUpdates []*unstructured.Unstructured
+	Message         string
+	Phase           types.TaskStatusPhase
 }
 
 // UpdateBuilder builds the desired resource(s) to
@@ -55,14 +55,14 @@ type UpdateBuilder struct {
 
 	// resources created due to this controller & are
 	// marked to be updated
-	markForDesired []*unstructured.Unstructured
+	markedForDesiredUpdates []*unstructured.Unstructured
 
 	// resources that are not created by this controller
 	// & are marked to be updated
-	markForUpdates []*unstructured.Unstructured
+	markedForExplicitUpdates []*unstructured.Unstructured
 
-	desiredResources []*unstructured.Unstructured
-	desiredUpdates   []*unstructured.Unstructured
+	desiredUpdates  []*unstructured.Unstructured
+	explicitUpdates []*unstructured.Unstructured
 
 	// flags if the update process should be skipped
 	isSkip bool
@@ -74,12 +74,12 @@ func (r *UpdateBuilder) filterResources() {
 	for _, observed := range r.Request.ObservedResources {
 		if observed == nil || observed.Object == nil {
 			r.err = errors.Errorf(
-				"Can't filter resources: Nil object found",
+				"Can't filter resources: Nil observed object",
 			)
 			return
 		}
 		e := selector.Evaluation{
-			Terms:     r.Request.For.SelectorTerms,
+			Terms:     r.Request.Target.SelectorTerms,
 			Target:    observed,
 			Reference: r.Request.Watch,
 		}
@@ -104,79 +104,120 @@ func (r *UpdateBuilder) isSkipUpdate() {
 	}
 }
 
-func (r *UpdateBuilder) markResources() {
+func (r *UpdateBuilder) groupResourcesByUpdateType() {
 	var watchuid = string(r.Request.Watch.GetUID())
-	for _, observed := range r.filteredResources {
-		observedAnns := observed.GetAnnotations()
+	for _, filtered := range r.filteredResources {
+		observedAnns := filtered.GetAnnotations()
 		if len(observedAnns) != 0 &&
-			observedAnns["metac.openebs.io/created-due-to-watch"] == watchuid {
+			observedAnns[types.AnnotationKeyMetacCreatedDueToWatch] == watchuid {
 			// This observed resource was created by this controller
-			// Hence this can be updated by metac without any special needs
-			r.markForDesired = append(
-				r.markForDesired,
-				observed,
+			// Hence this can be **updated** by metac without any special needs
+			r.markedForDesiredUpdates = append(
+				r.markedForDesiredUpdates,
+				filtered,
 			)
 			continue
 		}
 		// This observed resource was not created by this controller.
-		// Hence, this resource needs to be updated explicitly by metac.
-		r.markForUpdates = append(
-			r.markForUpdates,
-			observed,
+		// Hence, this resource needs to be **updated explicitly** by metac.
+		r.markedForExplicitUpdates = append(
+			r.markedForExplicitUpdates,
+			filtered,
 		)
 	}
 }
 
-// A 3-way merge is performed against the resource to arrive at
-// the final resource state. This final state gets updated against
-// the cluster.
+// A 3-way merge is performed against the resource to arrive
+// at the final resource state. This final state gets updated
+// against the cluster. This **avoids** the need to parse
+// desired state & observed states individually to update the
+// desired against observed.
+//
+// NOTE:
+// 	A 3-way merge helps us in applying the desired state against
+// the observed state without the need to have this desired state
+// with all the identifying fields. In other words, this desired
+// state need not have name, uid, apiVersion, kind at all & yet
+// this logic will be able to merge the desired state against
+// the observed state & arrive at the final merge state.
 //
 // NOTE:
 //	Last applied state & desired state are applied against the
 // observed state to derive the final state.
 //
 // NOTE:
-//	Last applied state and desired state are same here
-func (r *UpdateBuilder) runApply() {
-	var desired []map[string]interface{}
-	var updates []map[string]interface{}
-	for _, observed := range r.markForDesired {
+//	This logic is essentially a 2 way merge since last applied &
+// desired state are same. Both last applied & desired state
+// equals the desired state.
+func (r *UpdateBuilder) runApplyForDesiredUpdates() {
+	for _, obj := range r.markedForDesiredUpdates {
 		final, err := apply.Merge(
-			observed.UnstructuredContent(), // observed
-			r.Request.Apply,                // last applied
-			r.Request.Apply,                // desired
+			obj.UnstructuredContent(), // observed
+			r.Request.Apply,           // last applied
+			r.Request.Apply,           // desired update content
 		)
 		if err != nil {
-			r.err = err
+			r.err = errors.Wrapf(
+				err,
+				"Can't update: %s: %q / %q",
+				obj.GroupVersionKind().String(),
+				obj.GetNamespace(),
+				obj.GetName(),
+			)
 			return
 		}
-		desired = append(desired, final)
-	}
-	for _, observed := range r.markForUpdates {
-		final, err := apply.Merge(
-			observed.UnstructuredContent(), // observed
-			r.Request.Apply,                // last applied
-			r.Request.Apply,                // desired
-		)
-		if err != nil {
-			r.err = err
-			return
-		}
-		updates = append(updates, final)
-	}
-	for _, d := range desired {
-		r.desiredResources = append(
-			r.desiredResources,
-			&unstructured.Unstructured{
-				Object: d,
-			},
-		)
-	}
-	for _, u := range updates {
 		r.desiredUpdates = append(
 			r.desiredUpdates,
 			&unstructured.Unstructured{
-				Object: u,
+				Object: final,
+			},
+		)
+	}
+}
+
+// A 3-way merge is performed against the resource to arrive
+// at the final resource state. This final state gets updated
+// against the cluster. This **avoids** the need to parse
+// desired state & observed states individually to update the
+// desired against observed.
+//
+// NOTE:
+// 	A 3-way merge helps us in applying the desired state against
+// the observed state without the need to have this desired state
+// with all the identifying fields. In other words, this desired
+// state need not have name, uid, apiVersion, kind at all & yet
+// this logic will be able to merge the desired state against
+// the observed state & arrive at the final merge state.
+//
+// NOTE:
+//	Last applied state & desired state are applied against the
+// observed state to derive the final state.
+//
+// NOTE:
+//	This logic is essentially a 2 way merge since last applied &
+// desired state are same. Both last applied & desired state
+// equals the desired state.
+func (r *UpdateBuilder) runApplyForExplicitUpdates() {
+	for _, obj := range r.markedForExplicitUpdates {
+		final, err := apply.Merge(
+			obj.UnstructuredContent(), // observed
+			r.Request.Apply,           // last applied
+			r.Request.Apply,           // desired update content
+		)
+		if err != nil {
+			r.err = errors.Wrapf(
+				err,
+				"Can't update: %s: %q / %q",
+				obj.GroupVersionKind().String(),
+				obj.GetNamespace(),
+				obj.GetName(),
+			)
+			return
+		}
+		r.explicitUpdates = append(
+			r.explicitUpdates,
+			&unstructured.Unstructured{
+				Object: final,
 			},
 		)
 	}
@@ -186,32 +227,39 @@ func (r *UpdateBuilder) runApply() {
 func (r *UpdateBuilder) Build() (UpdateResponse, error) {
 	if r.Request.TaskKey == "" {
 		return UpdateResponse{}, errors.Errorf(
-			"Can't build desired state: Empty task key",
+			"Can't update: Missing task key",
 		)
 	}
 	if r.Request.Run == nil {
 		return UpdateResponse{}, errors.Errorf(
-			"Can't build desired state: Nil run: %q",
+			"Can't update: Missing run: %q",
 			r.Request.TaskKey,
 		)
 	}
 	if r.Request.Watch == nil {
 		return UpdateResponse{}, errors.Errorf(
-			"Can't build desired state: Nil watch: %q",
+			"Can't update: Missing watch: %q",
 			r.Request.TaskKey,
 		)
 	}
 	if len(r.Request.Apply) == 0 {
 		return UpdateResponse{}, errors.Errorf(
-			"Can't build desired state: No desired state found: %q",
+			"Can't update: Missing update state: %q",
+			r.Request.TaskKey,
+		)
+	}
+	if len(r.Request.Target.SelectorTerms) == 0 {
+		return UpdateResponse{}, errors.Errorf(
+			"Can't update: Missing target: %q",
 			r.Request.TaskKey,
 		)
 	}
 	fns := []func(){
 		r.filterResources,
 		r.isSkipUpdate,
-		r.markResources,
-		r.runApply,
+		r.groupResourcesByUpdateType,
+		r.runApplyForDesiredUpdates,
+		r.runApplyForExplicitUpdates,
 	}
 	for _, fn := range fns {
 		fn()
@@ -226,9 +274,9 @@ func (r *UpdateBuilder) Build() (UpdateResponse, error) {
 		}
 	}
 	return UpdateResponse{
-		DesiredUpdates:   r.desiredUpdates,
-		DesiredResources: r.desiredResources,
-		Phase:            types.TaskStatusPhaseOnline,
+		ExplicitUpdates: r.explicitUpdates,
+		DesiredUpdates:  r.desiredUpdates,
+		Phase:           types.TaskStatusPhaseOnline,
 	}, nil
 }
 

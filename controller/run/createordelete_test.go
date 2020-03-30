@@ -1368,7 +1368,7 @@ func TestBuildCreateOrDeleteStates(t *testing.T) {
 					len(got.DesiredResources),
 				)
 			}
-			if !unstruct.List(got.DesiredResources).ContainsAll(mock.expectStates) {
+			if !unstruct.List(got.DesiredResources).IdentifiesAll(mock.expectStates) {
 				t.Fatalf(
 					"Expected no diff in states got\n%s",
 					cmp.Diff(got.DesiredResources, mock.expectStates),
@@ -1381,7 +1381,7 @@ func TestBuildCreateOrDeleteStates(t *testing.T) {
 					len(got.DesiredDeletes),
 				)
 			}
-			if !unstruct.List(got.DesiredDeletes).ContainsAll(mock.expectDeletes) {
+			if !unstruct.List(got.DesiredDeletes).IdentifiesAll(mock.expectDeletes) {
 				t.Fatalf(
 					"Expected no diff in deletes got\n%s",
 					cmp.Diff(got.DesiredDeletes, mock.expectDeletes),

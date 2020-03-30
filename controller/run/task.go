@@ -60,17 +60,17 @@ type RunnableTask struct {
 }
 
 func (r *RunnableTask) validate() {
-	if len(r.Request.Task.For.SelectorTerms) == 0 {
+	if len(r.Request.Task.Target.SelectorTerms) == 0 {
 		r.isNilUpdate = true
 	}
-	if r.Request.Task.Apply == nil {
+	if len(r.Request.Task.Apply) == 0 {
 		r.isNilApply = true
 	}
 	if r.Request.Task.Action == nil {
 		r.isNilAction = true
 	}
 	if r.Request.Task.Assert == nil ||
-		len(r.Request.Task.Assert.Conditions) == 0 {
+		len(r.Request.Task.Assert.IfConditions) == 0 {
 		r.isNilAssert = true
 	}
 	if r.isNilAssert && r.isNilApply {
@@ -111,7 +111,7 @@ func (r *RunnableTask) runIfCondition() {
 	}
 	r.isIfCondSuccess, r.err = ExecuteAssert(
 		AssertRequest{
-			Assert:    r.Request.Task.If,
+			Assert:    r.Request.Task.Assert,
 			Resources: r.Request.ObservedResources,
 		},
 	)
@@ -119,6 +119,10 @@ func (r *RunnableTask) runIfCondition() {
 
 // update the desired resource(s)
 func (r *RunnableTask) runUpdate() {
+	if r.isNilUpdate || r.isNilApply {
+		// nothing to be updated
+		return
+	}
 	if !r.isIfCondSuccess {
 		return
 	}
@@ -126,6 +130,7 @@ func (r *RunnableTask) runUpdate() {
 		Run:               r.Request.Run,
 		Watch:             r.Request.Watch,
 		Apply:             r.Request.Task.Apply,
+		Target:            r.Request.Task.Target,
 		ObservedResources: r.Request.ObservedResources,
 		TaskKey:           r.Request.Task.Key,
 	})
@@ -139,7 +144,7 @@ func (r *RunnableTask) runUpdate() {
 	//	These resources were created by this controller
 	r.Response.DesiredResources = append(
 		r.Response.DesiredResources,
-		resp.DesiredResources...,
+		resp.DesiredUpdates...,
 	)
 	// add the resources that need to be updated explicitly
 	//
@@ -147,12 +152,16 @@ func (r *RunnableTask) runUpdate() {
 	//	These resources were not created by this controller
 	r.Response.DesiredDeletes = append(
 		r.Response.DesiredUpdates,
-		resp.DesiredUpdates...,
+		resp.ExplicitUpdates...,
 	)
 }
 
 // create or delete the desired resource(s)
 func (r *RunnableTask) runCreateOrDelete() {
+	if r.isNilApply {
+		// nothing to create or delete
+		return
+	}
 	if !r.isIfCondSuccess {
 		return
 	}
@@ -185,7 +194,7 @@ func (r *RunnableTask) runCreateOrDelete() {
 // execute task as an assertion
 func (r *RunnableTask) runAssert() {
 	if r.Request.Task.Assert == nil {
-		r.isAssertSuccess = true
+		// nothing to be done
 		return
 	}
 	r.isAssertSuccess, r.err = ExecuteAssert(
