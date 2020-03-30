@@ -527,7 +527,7 @@ func TestResourceListConditionTryMatchAndRegister(t *testing.T) {
 					mock.resource,
 				},
 			)
-			rc.tryMatchAndRegisterFor(mock.resource)
+			rc.runMatchFor(mock.resource)
 			if mock.isErr && rc.err == nil {
 				t.Fatalf("Expected error got none")
 			}
@@ -1253,6 +1253,1091 @@ func TestResourceListConditionIsSuccess(t *testing.T) {
 					"Expected success %t got %t",
 					mock.isSuccess,
 					got,
+				)
+			}
+		})
+	}
+}
+
+func TestVerifyAssert(t *testing.T) {
+	var tests = map[string]struct {
+		request              AssertRequest
+		expectedMatchCount   int
+		expectedNoMatchCount int
+		isSuccess            bool
+		isErr                bool
+	}{
+		"no state + no resources": {
+			request: AssertRequest{
+				Assert:    &types.Assert{},
+				Resources: []*unstructured.Unstructured{},
+			},
+			expectedNoMatchCount: 1,
+			isSuccess:            false,
+		},
+		"service + no state": {
+			request: AssertRequest{
+				Assert: &types.Assert{},
+				Resources: []*unstructured.Unstructured{
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Service",
+							"apiVersion": "v1",
+							"metadata": map[string]interface{}{
+								"name": "my-svc-1",
+								"labels": map[string]interface{}{
+									"hi": "there",
+								},
+								"annotations": map[string]interface{}{
+									"hi": "there",
+								},
+							},
+							"status": map[string]interface{}{
+								"phase": "Error",
+							},
+						},
+					},
+				},
+			},
+			expectedNoMatchCount: 1,
+			isSuccess:            false,
+		},
+		"pod + assert pods with labels hi=there to have status.phase = Running": {
+			request: AssertRequest{
+				Assert: &types.Assert{
+					State: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"labels": map[string]interface{}{
+								"hi": "there",
+							},
+						},
+						"status": map[string]interface{}{
+							"phase": "Running",
+						},
+					},
+				},
+				Resources: []*unstructured.Unstructured{
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Pod",
+							"apiVersion": "v1",
+							"metadata": map[string]interface{}{
+								"name": "my-pod-1",
+								"labels": map[string]interface{}{
+									"hi": "there",
+								},
+								"annotations": map[string]interface{}{
+									"hi": "there",
+								},
+							},
+							"spec": map[string]interface{}{
+								"containers": []interface{}{
+									map[string]interface{}{
+										"image": "junk",
+									},
+								},
+							},
+							"status": map[string]interface{}{
+								"phase": "Running",
+							},
+						},
+					},
+				},
+			},
+			expectedMatchCount: 1,
+			isSuccess:          true,
+		},
+		"pod & service + assert pods with labels hi=there to have status.phase = Running": {
+			request: AssertRequest{
+				Assert: &types.Assert{
+					State: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"labels": map[string]interface{}{
+								"hi": "there",
+							},
+						},
+						"status": map[string]interface{}{
+							"phase": "Running",
+						},
+					},
+				},
+				Resources: []*unstructured.Unstructured{
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Pod",
+							"apiVersion": "v1",
+							"metadata": map[string]interface{}{
+								"name": "my-pod-1",
+								"labels": map[string]interface{}{
+									"hi": "there",
+								},
+								"annotations": map[string]interface{}{
+									"hi": "there",
+								},
+							},
+							"spec": map[string]interface{}{
+								"containers": []interface{}{
+									map[string]interface{}{
+										"image": "junk",
+									},
+								},
+							},
+							"status": map[string]interface{}{
+								"phase": "Running",
+							},
+						},
+					},
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Service",
+							"apiVersion": "v1",
+							"metadata": map[string]interface{}{
+								"name": "my-svc-1",
+								"labels": map[string]interface{}{
+									"hi": "there",
+								},
+								"annotations": map[string]interface{}{
+									"hi": "there",
+								},
+							},
+							"status": map[string]interface{}{
+								"phase": "Online",
+							},
+						},
+					},
+				},
+			},
+			expectedMatchCount: 1,
+			isSuccess:          true,
+		},
+		"pod & pod + assert pods with labels hi=there to have status.phase = Running": {
+			request: AssertRequest{
+				Assert: &types.Assert{
+					State: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"labels": map[string]interface{}{
+								"hi": "there",
+							},
+						},
+						"status": map[string]interface{}{
+							"phase": "Running",
+						},
+					},
+				},
+				Resources: []*unstructured.Unstructured{
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Pod",
+							"apiVersion": "v1",
+							"metadata": map[string]interface{}{
+								"name": "my-pod-1",
+								"labels": map[string]interface{}{
+									"hi": "there",
+								},
+								"annotations": map[string]interface{}{
+									"hi": "there",
+								},
+							},
+							"spec": map[string]interface{}{
+								"containers": []interface{}{
+									map[string]interface{}{
+										"image": "junk",
+									},
+								},
+							},
+							"status": map[string]interface{}{
+								"phase": "Running",
+							},
+						},
+					},
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Pod",
+							"apiVersion": "v1",
+							"metadata": map[string]interface{}{
+								"name": "my-pod-2",
+								"labels": map[string]interface{}{
+									"hi": "there",
+								},
+								"annotations": map[string]interface{}{
+									"hi": "there",
+								},
+							},
+							"spec": map[string]interface{}{
+								"containers": []interface{}{
+									map[string]interface{}{
+										"image": "junk",
+									},
+								},
+							},
+							"status": map[string]interface{}{
+								"phase": "Error",
+							},
+						},
+					},
+				},
+			},
+			expectedMatchCount:   1,
+			expectedNoMatchCount: 1,
+			isSuccess:            false,
+		},
+		"pod & pod + assert pods with labels hi=there to have status.phase = Error": {
+			request: AssertRequest{
+				Assert: &types.Assert{
+					State: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"labels": map[string]interface{}{
+								"hi": "there",
+							},
+						},
+						"status": map[string]interface{}{
+							"phase": "Error",
+						},
+					},
+				},
+				Resources: []*unstructured.Unstructured{
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Pod",
+							"apiVersion": "v1",
+							"metadata": map[string]interface{}{
+								"name": "my-pod-1",
+								"labels": map[string]interface{}{
+									"hi": "there",
+								},
+								"annotations": map[string]interface{}{
+									"hi": "there",
+								},
+							},
+							"spec": map[string]interface{}{
+								"containers": []interface{}{
+									map[string]interface{}{
+										"image": "junk",
+									},
+								},
+							},
+							"status": map[string]interface{}{
+								"phase": "Running",
+							},
+						},
+					},
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Pod",
+							"apiVersion": "v1",
+							"metadata": map[string]interface{}{
+								"name": "my-pod-2",
+								"labels": map[string]interface{}{
+									"hi": "there",
+								},
+								"annotations": map[string]interface{}{
+									"hi": "there",
+								},
+							},
+							"spec": map[string]interface{}{
+								"containers": []interface{}{
+									map[string]interface{}{
+										"image": "junk",
+									},
+								},
+							},
+							"status": map[string]interface{}{
+								"phase": "Error",
+							},
+						},
+					},
+				},
+			},
+			expectedMatchCount:   1,
+			expectedNoMatchCount: 1,
+			isSuccess:            false,
+		},
+		"service + assert pods with labels hi=there to have status.phase = Error": {
+			request: AssertRequest{
+				Assert: &types.Assert{
+					State: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"labels": map[string]interface{}{
+								"hi": "there",
+							},
+						},
+						"status": map[string]interface{}{
+							"phase": "Error",
+						},
+					},
+				},
+				Resources: []*unstructured.Unstructured{
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Service",
+							"apiVersion": "v1",
+							"metadata": map[string]interface{}{
+								"name": "my-svc-1",
+								"labels": map[string]interface{}{
+									"hi": "there",
+								},
+								"annotations": map[string]interface{}{
+									"hi": "there",
+								},
+							},
+							"status": map[string]interface{}{
+								"phase": "Error",
+							},
+						},
+					},
+				},
+			},
+			expectedNoMatchCount: 1,
+			isSuccess:            false,
+		},
+		"service + assert pods with annotations hi=there to have status.phase = Error": {
+			request: AssertRequest{
+				Assert: &types.Assert{
+					State: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"annotations": map[string]interface{}{
+								"hi": "there",
+							},
+						},
+						"status": map[string]interface{}{
+							"phase": "Error",
+						},
+					},
+				},
+				Resources: []*unstructured.Unstructured{
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Service",
+							"apiVersion": "v1",
+							"metadata": map[string]interface{}{
+								"name": "my-svc-1",
+								"labels": map[string]interface{}{
+									"hi": "there",
+								},
+								"annotations": map[string]interface{}{
+									"hi": "there",
+								},
+							},
+							"status": map[string]interface{}{
+								"phase": "Error",
+							},
+						},
+					},
+				},
+			},
+			expectedNoMatchCount: 1,
+			isSuccess:            false,
+		},
+		"pod + assert pods with annotations hi=there to have status.phase = Error": {
+			request: AssertRequest{
+				Assert: &types.Assert{
+					State: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"annotations": map[string]interface{}{
+								"hi": "there",
+							},
+						},
+						"status": map[string]interface{}{
+							"phase": "Error",
+						},
+					},
+				},
+				Resources: []*unstructured.Unstructured{
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Pod",
+							"apiVersion": "v1",
+							"metadata": map[string]interface{}{
+								"name": "my-pod-1",
+								"labels": map[string]interface{}{
+									"hi": "there",
+								},
+								"annotations": map[string]interface{}{
+									"hi": "there",
+								},
+							},
+							"status": map[string]interface{}{
+								"phase": "Error",
+							},
+						},
+					},
+				},
+			},
+			expectedMatchCount: 1,
+			isSuccess:          true,
+		},
+		"no deploy + assert deploys with annotations hi=there to have spec.replicas = 1": {
+			request: AssertRequest{
+				Assert: &types.Assert{
+					State: map[string]interface{}{
+						"kind":       "Deployment",
+						"apiVersion": "apps/v1",
+						"metadata": map[string]interface{}{
+							"annotations": map[string]interface{}{
+								"hi": "there",
+							},
+						},
+						"spec": map[string]interface{}{
+							"replicas": int64(1),
+						},
+					},
+				},
+				Resources: []*unstructured.Unstructured{
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Deployment",
+							"apiVersion": "apps/v1",
+							"metadata": map[string]interface{}{
+								"name": "my-deploy-1",
+								"labels": map[string]interface{}{
+									"hi": "there",
+								},
+								"annotations": map[string]interface{}{
+									"hi": "there",
+								},
+							},
+							"spec": map[string]interface{}{
+								"replicas": int64(0),
+							},
+						},
+					},
+				},
+			},
+			expectedNoMatchCount: 1,
+			isSuccess:            false,
+		},
+		"deploy + assert deploys with annotations hi=there to have spec.replicas = 1": {
+			request: AssertRequest{
+				Assert: &types.Assert{
+					State: map[string]interface{}{
+						"kind":       "Deployment",
+						"apiVersion": "apps/v1",
+						"metadata": map[string]interface{}{
+							"annotations": map[string]interface{}{
+								"hi": "there",
+							},
+						},
+						"spec": map[string]interface{}{
+							"replicas": int64(1),
+						},
+					},
+				},
+				Resources: []*unstructured.Unstructured{
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Deployment",
+							"apiVersion": "apps/v1",
+							"metadata": map[string]interface{}{
+								"name": "my-deploy-1",
+								"labels": map[string]interface{}{
+									"hi": "there",
+								},
+								"annotations": map[string]interface{}{
+									"hi":  "there",
+									"yes": "i-am",
+								},
+							},
+							"spec": map[string]interface{}{
+								"replicas": int64(1),
+							},
+						},
+					},
+				},
+			},
+			expectedMatchCount: 1,
+			isSuccess:          true,
+		},
+		"deploy + assert deploys with anns & lbls hi=there to have spec.replicas = 1": {
+			request: AssertRequest{
+				Assert: &types.Assert{
+					State: map[string]interface{}{
+						"kind":       "Deployment",
+						"apiVersion": "apps/v1",
+						"metadata": map[string]interface{}{
+							"annotations": map[string]interface{}{
+								"hi": "there",
+							},
+							"labels": map[string]interface{}{
+								"hi": "there",
+							},
+						},
+						"spec": map[string]interface{}{
+							"replicas": int64(1),
+						},
+					},
+				},
+				Resources: []*unstructured.Unstructured{
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Deployment",
+							"apiVersion": "apps/v1",
+							"metadata": map[string]interface{}{
+								"name": "my-deploy-1",
+								"labels": map[string]interface{}{
+									"hi":  "there",
+									"yes": "i-am",
+								},
+								"annotations": map[string]interface{}{
+									"hi":  "there",
+									"yes": "i-am",
+								},
+							},
+							"spec": map[string]interface{}{
+								"replicas": int64(1),
+							},
+						},
+					},
+				},
+			},
+			expectedMatchCount: 1,
+			isSuccess:          true,
+		},
+		"no deploy + assert deploys with anns & lbls hi=there to have spec.replicas = 1": {
+			request: AssertRequest{
+				Assert: &types.Assert{
+					State: map[string]interface{}{
+						"kind":       "Deployment",
+						"apiVersion": "apps/v1",
+						"metadata": map[string]interface{}{
+							"annotations": map[string]interface{}{
+								"hi": "there",
+							},
+							"labels": map[string]interface{}{
+								"hi": "there",
+							},
+						},
+						"spec": map[string]interface{}{
+							"replicas": int64(1),
+						},
+					},
+				},
+				Resources: []*unstructured.Unstructured{
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Deployment",
+							"apiVersion": "apps/v1",
+							"metadata": map[string]interface{}{
+								"name": "my-deploy-1",
+								"labels": map[string]interface{}{
+									"yes": "i-am",
+								},
+								"annotations": map[string]interface{}{
+									"yes": "i-am",
+								},
+							},
+							"spec": map[string]interface{}{
+								"replicas": int64(1),
+							},
+						},
+					},
+				},
+			},
+			expectedNoMatchCount: 1,
+			isSuccess:            false,
+		},
+		"deploy + assert deploys to have spec.replicas = 1": {
+			request: AssertRequest{
+				Assert: &types.Assert{
+					State: map[string]interface{}{
+						"kind":       "Deployment",
+						"apiVersion": "apps/v1",
+						"metadata":   map[string]interface{}{},
+						"spec": map[string]interface{}{
+							"replicas": int64(1),
+						},
+					},
+				},
+				Resources: []*unstructured.Unstructured{
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Deployment",
+							"apiVersion": "apps/v1",
+							"metadata": map[string]interface{}{
+								"name": "my-deploy-1",
+								"labels": map[string]interface{}{
+									"yes": "i-am",
+								},
+								"annotations": map[string]interface{}{
+									"yes": "i-am",
+								},
+							},
+							"spec": map[string]interface{}{
+								"replicas": int64(1),
+							},
+						},
+					},
+				},
+			},
+			expectedMatchCount: 1,
+			isSuccess:          true,
+		},
+		"no deploy + assert deploys to have spec.replicas = 1": {
+			request: AssertRequest{
+				Assert: &types.Assert{
+					State: map[string]interface{}{
+						"kind":       "Deployment",
+						"apiVersion": "apps/v1",
+						"metadata":   map[string]interface{}{},
+						"spec": map[string]interface{}{
+							"replicas": int64(1),
+						},
+					},
+				},
+				Resources: []*unstructured.Unstructured{
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Deployment",
+							"apiVersion": "apps/v1",
+							"metadata": map[string]interface{}{
+								"name": "my-deploy-1",
+								"labels": map[string]interface{}{
+									"yes": "i-am",
+								},
+								"annotations": map[string]interface{}{
+									"yes": "i-am",
+								},
+							},
+							"spec": map[string]interface{}{
+								"replicas": int64(0),
+							},
+						},
+					},
+				},
+			},
+			expectedNoMatchCount: 1,
+			isSuccess:            false,
+		},
+		"2 deploys + assert deploys with name to have spec.replicas = 1": {
+			request: AssertRequest{
+				Assert: &types.Assert{
+					State: map[string]interface{}{
+						"kind":       "Deployment",
+						"apiVersion": "apps/v1",
+						"metadata": map[string]interface{}{
+							"name": "my-deploy-1",
+						},
+						"spec": map[string]interface{}{
+							"replicas": int64(1),
+						},
+					},
+				},
+				Resources: []*unstructured.Unstructured{
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Deployment",
+							"apiVersion": "apps/v1",
+							"metadata": map[string]interface{}{
+								"name": "my-deploy-1",
+								"labels": map[string]interface{}{
+									"yes": "i-am",
+								},
+								"annotations": map[string]interface{}{
+									"yes": "i-am",
+								},
+							},
+							"spec": map[string]interface{}{
+								"replicas": int64(1),
+							},
+						},
+					},
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Deployment",
+							"apiVersion": "apps/v1",
+							"metadata": map[string]interface{}{
+								"name": "my-deploy-2",
+								"labels": map[string]interface{}{
+									"yes": "i-am",
+								},
+								"annotations": map[string]interface{}{
+									"yes": "i-am",
+								},
+							},
+							"spec": map[string]interface{}{
+								"replicas": int64(0),
+							},
+						},
+					},
+				},
+			},
+			expectedMatchCount: 1,
+			isSuccess:          true,
+		},
+		"no match + 2 deploys + assert deploys with name to have spec.replicas = 1": {
+			request: AssertRequest{
+				Assert: &types.Assert{
+					State: map[string]interface{}{
+						"kind":       "Deployment",
+						"apiVersion": "apps/v1",
+						"metadata": map[string]interface{}{
+							"name": "my-deploy-1",
+						},
+						"spec": map[string]interface{}{
+							"replicas": int64(1),
+						},
+					},
+				},
+				Resources: []*unstructured.Unstructured{
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Deployment",
+							"apiVersion": "apps/v1",
+							"metadata": map[string]interface{}{
+								"name": "my-deploy-11",
+								"labels": map[string]interface{}{
+									"yes": "i-am",
+								},
+								"annotations": map[string]interface{}{
+									"yes": "i-am",
+								},
+							},
+							"spec": map[string]interface{}{
+								"replicas": int64(1),
+							},
+						},
+					},
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Deployment",
+							"apiVersion": "apps/v1",
+							"metadata": map[string]interface{}{
+								"name": "my-deploy-22",
+								"labels": map[string]interface{}{
+									"yes": "i-am",
+								},
+								"annotations": map[string]interface{}{
+									"yes": "i-am",
+								},
+							},
+							"spec": map[string]interface{}{
+								"replicas": int64(1),
+							},
+						},
+					},
+				},
+			},
+			expectedNoMatchCount: 1,
+			isSuccess:            false,
+		},
+		"no match + 1 deploy + assert deploys with name & ns to have spec.replicas = 1": {
+			request: AssertRequest{
+				Assert: &types.Assert{
+					State: map[string]interface{}{
+						"kind":       "Deployment",
+						"apiVersion": "apps/v1",
+						"metadata": map[string]interface{}{
+							"name":      "my-deploy-1",
+							"namespace": "my-ns-1",
+						},
+						"spec": map[string]interface{}{
+							"replicas": int64(1),
+						},
+					},
+				},
+				Resources: []*unstructured.Unstructured{
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Deployment",
+							"apiVersion": "apps/v1",
+							"metadata": map[string]interface{}{
+								"name":      "my-deploy-1",
+								"namespace": "my-ns-11",
+								"labels": map[string]interface{}{
+									"yes": "i-am",
+								},
+								"annotations": map[string]interface{}{
+									"yes": "i-am",
+								},
+							},
+							"spec": map[string]interface{}{
+								"replicas": int64(1),
+							},
+						},
+					},
+				},
+			},
+			expectedNoMatchCount: 1,
+			isSuccess:            false,
+		},
+		"match + 1 deploy + assert deploys with name & ns to have spec.replicas = 1": {
+			request: AssertRequest{
+				Assert: &types.Assert{
+					State: map[string]interface{}{
+						"kind":       "Deployment",
+						"apiVersion": "apps/v1",
+						"metadata": map[string]interface{}{
+							"name":      "my-deploy-1",
+							"namespace": "my-ns-1",
+						},
+						"spec": map[string]interface{}{
+							"replicas": int64(1),
+						},
+					},
+				},
+				Resources: []*unstructured.Unstructured{
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Deployment",
+							"apiVersion": "apps/v1",
+							"metadata": map[string]interface{}{
+								"name":      "my-deploy-1",
+								"namespace": "my-ns-1",
+								"labels": map[string]interface{}{
+									"yes": "i-am",
+								},
+								"annotations": map[string]interface{}{
+									"yes": "i-am",
+								},
+							},
+							"spec": map[string]interface{}{
+								"replicas": int64(1),
+							},
+						},
+					},
+				},
+			},
+			expectedMatchCount: 1,
+			isSuccess:          true,
+		},
+		"match + assert deploys with name, ns, lbls & anns to have spec.replicas = 1": {
+			request: AssertRequest{
+				Assert: &types.Assert{
+					State: map[string]interface{}{
+						"kind":       "Deployment",
+						"apiVersion": "apps/v1",
+						"metadata": map[string]interface{}{
+							"name":      "my-deploy-1",
+							"namespace": "my-ns-1",
+							"labels": map[string]interface{}{
+								"hi": "there",
+							},
+							"annotations": map[string]interface{}{
+								"hi": "there",
+							},
+						},
+						"spec": map[string]interface{}{
+							"replicas": int64(1),
+						},
+					},
+				},
+				Resources: []*unstructured.Unstructured{
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Deployment",
+							"apiVersion": "apps/v1",
+							"metadata": map[string]interface{}{
+								"name":      "my-deploy-1",
+								"namespace": "my-ns-1",
+								"labels": map[string]interface{}{
+									"hi": "there",
+								},
+								"annotations": map[string]interface{}{
+									"hi": "there",
+								},
+							},
+							"spec": map[string]interface{}{
+								"replicas": int64(1),
+							},
+						},
+					},
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Deployment",
+							"apiVersion": "apps/v1",
+							"metadata": map[string]interface{}{
+								"name":      "my-deploy-1",
+								"namespace": "my-ns-2",
+								"labels": map[string]interface{}{
+									"hi": "there",
+								},
+								"annotations": map[string]interface{}{
+									"hi": "there",
+								},
+							},
+							"spec": map[string]interface{}{
+								"replicas": int64(1),
+							},
+						},
+					},
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Deployment",
+							"apiVersion": "apps/v1",
+							"metadata": map[string]interface{}{
+								"name":      "my-deploy-2",
+								"namespace": "my-ns-1",
+								"labels": map[string]interface{}{
+									"hi": "there",
+								},
+								"annotations": map[string]interface{}{
+									"hi": "there",
+								},
+							},
+							"spec": map[string]interface{}{
+								"replicas": int64(1),
+							},
+						},
+					},
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Deployment",
+							"apiVersion": "apps/v1",
+							"metadata": map[string]interface{}{
+								"name":      "my-deploy-1",
+								"namespace": "my-ns-1",
+								"labels": map[string]interface{}{
+									"hi": "there-1",
+								},
+								"annotations": map[string]interface{}{
+									"hi": "there",
+								},
+							},
+							"spec": map[string]interface{}{
+								"replicas": int64(1),
+							},
+						},
+					},
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Deployment",
+							"apiVersion": "apps/v1",
+							"metadata": map[string]interface{}{
+								"name":      "my-deploy-1",
+								"namespace": "my-ns-1",
+								"labels": map[string]interface{}{
+									"hi": "there",
+								},
+								"annotations": map[string]interface{}{
+									"hi": "there-1",
+								},
+							},
+							"spec": map[string]interface{}{
+								"replicas": int64(1),
+							},
+						},
+					},
+				},
+			},
+			expectedMatchCount: 1,
+			isSuccess:          true,
+		},
+		"match & no match + assert deploys with name, ns, lbls & anns to have spec.replicas = 1": {
+			request: AssertRequest{
+				Assert: &types.Assert{
+					State: map[string]interface{}{
+						"kind":       "Deployment",
+						"apiVersion": "apps/v1",
+						"metadata": map[string]interface{}{
+							"name":      "my-deploy-1",
+							"namespace": "my-ns-1",
+							"labels": map[string]interface{}{
+								"hi": "there",
+							},
+							"annotations": map[string]interface{}{
+								"hi": "there",
+							},
+						},
+						"spec": map[string]interface{}{
+							"replicas": int64(1),
+						},
+					},
+				},
+				Resources: []*unstructured.Unstructured{
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Deployment",
+							"apiVersion": "apps/v1",
+							"metadata": map[string]interface{}{
+								"name":      "my-deploy-1",
+								"namespace": "my-ns-1",
+								"labels": map[string]interface{}{
+									"hi": "there",
+								},
+								"annotations": map[string]interface{}{
+									"hi": "there",
+								},
+							},
+							"spec": map[string]interface{}{
+								"replicas": int64(1),
+							},
+						},
+					},
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Deployment",
+							"apiVersion": "apps/v1",
+							"metadata": map[string]interface{}{
+								"name":      "my-deploy-1",
+								"namespace": "my-ns-1",
+								"labels": map[string]interface{}{
+									"hi": "there",
+								},
+								"annotations": map[string]interface{}{
+									"hi": "there",
+								},
+							},
+							"spec": map[string]interface{}{
+								"replicas": int64(2),
+							},
+						},
+					},
+				},
+			},
+			expectedNoMatchCount: 1,
+			expectedMatchCount:   1,
+			isSuccess:            false,
+		},
+	}
+	for name, mock := range tests {
+		name := name
+		mock := mock
+		t.Run(name, func(t *testing.T) {
+			a := &Assertion{
+				Request: mock.request,
+			}
+			a.verifyState()
+			if mock.isErr && a.err == nil {
+				t.Fatalf("Expected error got none")
+			}
+			if !mock.isErr && a.err != nil {
+				t.Fatalf("Expected no error got [%+v]", a.err)
+			}
+			if mock.isErr {
+				return
+			}
+			if mock.expectedMatchCount != len(a.matches) {
+				t.Fatalf(
+					"Expected match count %d got %d",
+					mock.expectedMatchCount,
+					len(a.matches),
+				)
+			}
+			if mock.expectedNoMatchCount != len(a.nomatches) {
+				t.Fatalf(
+					"Expected no match count %d got %d",
+					mock.expectedNoMatchCount,
+					len(a.nomatches),
+				)
+			}
+			if mock.isSuccess != a.isSuccess {
+				t.Fatalf(
+					"Expected success %t got %t",
+					mock.isSuccess,
+					a.isSuccess,
 				)
 			}
 		})
