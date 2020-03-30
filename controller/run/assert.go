@@ -17,11 +17,16 @@ limitations under the License.
 package run
 
 import (
+	"fmt"
+	"reflect"
+
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"mayadata.io/d-operators/common/labels"
 	types "mayadata.io/d-operators/types/run"
 
 	"openebs.io/metac/controller/common/selector"
+	"openebs.io/metac/dynamic/apply"
 )
 
 // ResourceListCondition enables filtering, matching against
@@ -31,9 +36,13 @@ type ResourceListCondition struct {
 	Items     []*unstructured.Unstructured
 	Condition *types.IfCondition
 
+	matches           []string
+	nomatches         []string
 	successfulMatches map[*unstructured.Unstructured]bool
-	isSuccess         bool
-	err               error
+	successCount      int
+
+	isSuccess bool
+	err       error
 }
 
 // NewResourceListCondition returns a new instance of ResourceCondition
@@ -85,10 +94,8 @@ func NewResourceListCondition(
 	return rc
 }
 
-// verify if the provided resource matches the condition
-func (c *ResourceListCondition) tryMatchAndRegisterFor(
-	resource *unstructured.Unstructured,
-) {
+// verify if condition matches the provided resource matches the condition
+func (c *ResourceListCondition) runMatchFor(resource *unstructured.Unstructured) {
 	e := selector.Evaluation{
 		Terms:  c.Condition.ResourceSelector.SelectorTerms,
 		Target: resource,
@@ -100,6 +107,26 @@ func (c *ResourceListCondition) tryMatchAndRegisterFor(
 	}
 	if isSuccess {
 		c.successfulMatches[resource] = true
+		c.successCount++
+		c.matches = append(
+			c.matches,
+			fmt.Sprintf(
+				"Assert matched for %q / %q: %s",
+				resource.GetNamespace(),
+				resource.GetName(),
+				resource.GetObjectKind().GroupVersionKind().String(),
+			),
+		)
+	} else {
+		c.nomatches = append(
+			c.nomatches,
+			fmt.Sprintf(
+				"Assert failed for %q / %q: %s",
+				resource.GetNamespace(),
+				resource.GetName(),
+				resource.GetObjectKind().GroupVersionKind().String(),
+			),
+		)
 	}
 }
 
@@ -124,26 +151,25 @@ func (c *ResourceListCondition) IsSuccess() (bool, error) {
 				"Can't match resource condition: Nil resource found",
 			)
 		}
-		c.tryMatchAndRegisterFor(resource)
+		c.runMatchFor(resource)
 		if c.err != nil {
 			return false, c.err
 		}
-		if isOperatorExists && len(c.successfulMatches) > 0 {
+		if isOperatorExists && c.successCount > 0 {
 			// any resource match is a success
 			return true, nil
 		}
 	}
-	successfulCount := len(c.successfulMatches)
-	if isOperatorNotExist && successfulCount == 0 {
+	if isOperatorNotExist && c.successCount == 0 {
 		// success if there are no matches
 		c.isSuccess = true
-	} else if isOperatorEqualsCount && successfulCount == *c.Condition.Count {
+	} else if isOperatorEqualsCount && c.successCount == *c.Condition.Count {
 		// success if count matches the selected resources
 		c.isSuccess = true
-	} else if isOperatorLTE && successfulCount <= *c.Condition.Count {
+	} else if isOperatorLTE && c.successCount <= *c.Condition.Count {
 		// success if count is less than or equal to selected resource count
 		c.isSuccess = true
-	} else if isOperatorGTE && successfulCount >= *c.Condition.Count {
+	} else if isOperatorGTE && c.successCount >= *c.Condition.Count {
 		// success if count is greater than or equal to selected resource count
 		c.isSuccess = true
 	}
@@ -162,18 +188,22 @@ type AssertRequest struct {
 type Assertion struct {
 	Request AssertRequest
 
-	successfulConditions int
-	isSuccess            bool
-	err                  error
+	matches   []string
+	nomatches []string
+
+	isSuccess bool
+	err       error
 }
 
-func (a *Assertion) runAllConditions() {
+func (a *Assertion) verifyAllConditions() {
+	// flag OR operator if all conditions need to OR-ed
 	isOperatorOR :=
 		a.Request.Assert.IfOperator == types.IfOperatorOR
+	// flag AND operator if all conditions need to be AND-ed
 	isOperatorAND :=
 		a.Request.Assert.IfOperator == types.IfOperatorAND
 	var atleastOneSuccess bool
-	// run each condition against all the resources
+	// run each condition against all the available resources
 	for _, cond := range a.Request.Assert.IfConditions {
 		// check each condition
 		success, err := NewResourceListCondition(
@@ -201,38 +231,123 @@ func (a *Assertion) runAllConditions() {
 	a.isSuccess = atleastOneSuccess
 }
 
-// Assert verifies this assert condition
-func (a *Assertion) Assert() (bool, error) {
-	if a.Request.Assert == nil || len(a.Request.Assert.IfConditions) == 0 {
-		// nothing needs to be done
-		// return successful assert
-		return true, nil
+func (a *Assertion) verifyState() {
+	// transform state into an unstructured instance
+	state := &unstructured.Unstructured{
+		Object: a.Request.Assert.State,
 	}
-	if len(a.Request.Resources) == 0 {
-		// raise error if there were conditions without
-		// any resources since these conditions need to
-		// be executed against resources
-		return false, errors.Errorf(
-			"Can't assert: No resources provided",
+	// extract essentials to match provided resources
+	// with provided state
+	kind := state.GetKind()
+	apiVersion := state.GetAPIVersion()
+	name := state.GetName()
+	namespace := state.GetNamespace()
+	lbls := state.GetLabels()
+	anns := state.GetAnnotations()
+	// assert against all the available resources
+	for _, resource := range a.Request.Resources {
+		if resource == nil || resource.Object == nil {
+			a.err = errors.Errorf(
+				"Can't verify state: Nil resource found",
+			)
+			return
+		}
+		if resource.GetKind() != kind || resource.GetAPIVersion() != apiVersion {
+			// this is not the resource we want to assert against
+			continue
+		}
+		if name != "" && name != resource.GetName() {
+			// this is not the resource we want to assert against
+			continue
+		}
+		if namespace != "" && namespace != resource.GetNamespace() {
+			// this is not the resource we want to assert against
+			continue
+		}
+		if len(lbls) != 0 && !labels.New(resource.GetLabels()).Has(lbls) {
+			// this is not the resource we want to assert against
+			continue
+		}
+		if len(anns) != 0 && !labels.New(resource.GetAnnotations()).Has(anns) {
+			// this is not the resource we want to assert against
+			continue
+		}
+		// at this point we want to assert the given state with the
+		// current resource by running a 3 way merge & finally matching
+		// the resulting merge with the original resource
+		final, err := apply.Merge(
+			resource.UnstructuredContent(), // observed
+			state.UnstructuredContent(),    // last applied
+			state.UnstructuredContent(),    // desired
+		)
+		if err != nil {
+			a.err = errors.Wrapf(
+				err,
+				"Failed to assert state",
+			)
+			return
+		}
+		if !reflect.DeepEqual(final, resource.UnstructuredContent()) {
+			a.nomatches = append(
+				a.nomatches,
+				fmt.Sprintf(
+					"Assert failed for %q / %q: %s",
+					resource.GetNamespace(),
+					resource.GetName(),
+					resource.GetObjectKind().GroupVersionKind().String(),
+				),
+			)
+		} else {
+			a.matches = append(
+				a.matches,
+				fmt.Sprintf(
+					"Assert matched for %q / %q: %s",
+					resource.GetNamespace(),
+					resource.GetName(),
+					resource.GetObjectKind().GroupVersionKind().String(),
+				),
+			)
+		}
+	}
+	if len(a.matches) == 0 && len(a.nomatches) == 0 {
+		// its a failure if there are no successful matches
+		a.nomatches = append(
+			a.nomatches,
+			fmt.Sprintf(
+				"No assert matches found: Tried %d resources: Assert.State may be invalid",
+				len(a.Request.Resources),
+			),
 		)
 	}
-	// run all the conditions specified in this assertion
-	a.runAllConditions()
+	if len(a.nomatches) == 0 {
+		// assert is a success if there were no failed matches
+		a.isSuccess = true
+	}
+}
+
+// AssertAllConditions asserts the provided conditions
+func (a *Assertion) AssertAllConditions() (bool, error) {
+	// assert all the conditions specified in this assertion
+	a.verifyAllConditions()
 	return a.isSuccess, a.err
 }
 
-// ExecuteAssert executes the assert based on the provided request
-func ExecuteAssert(req AssertRequest) (bool, error) {
-	if req.Assert == nil {
-		return false, errors.Errorf(
-			"Can't assert: Missing assert specs",
-		)
-	}
+// AssertState asserts the provided state
+func (a *Assertion) AssertState() (bool, error) {
+	// assert the provided state with resources
+	a.verifyState()
+	return a.isSuccess, a.err
+}
+
+// ExecuteAssertConditions asserts based on the provided
+// conditions and resources
+func ExecuteAssertConditions(req AssertRequest) (bool, error) {
 	var op = req.Assert.IfOperator
 	if op == "" {
 		// OR is the default AssertOperator
 		op = types.IfOperatorOR
 	}
+	// a new & updated copy of AssertRequest
 	var newreq = AssertRequest{
 		Assert: &types.Assert{
 			If: types.If{
@@ -245,5 +360,46 @@ func ExecuteAssert(req AssertRequest) (bool, error) {
 	a := &Assertion{
 		Request: newreq,
 	}
-	return a.Assert()
+	return a.AssertAllConditions()
+}
+
+// ExecuteAssertState asserts based on the provided state
+func ExecuteAssertState(req AssertRequest) (bool, error) {
+	a := &Assertion{
+		Request: req,
+	}
+	return a.AssertState()
+}
+
+// ExecuteAssert executes the assert based on the provided request
+func ExecuteAssert(req AssertRequest) (bool, error) {
+	if req.Assert == nil {
+		return false, errors.Errorf(
+			"Can't assert: Missing assert specs",
+		)
+	}
+	if len(req.Assert.State) != 0 && len(req.Assert.IfConditions) != 0 {
+		return false, errors.Errorf(
+			"Can't assert: Both assert state & conditions can't be together",
+		)
+	}
+	if len(req.Assert.State) == 0 && len(req.Assert.IfConditions) == 0 {
+		return false, errors.Errorf(
+			"Can't assert: Either assert state or conditions need to be set",
+		)
+	}
+	if len(req.Resources) == 0 {
+		// raise error if there were conditions without
+		// any resources since these conditions need to
+		// be executed against resources
+		return false, errors.Errorf(
+			"Can't assert: No resources provided",
+		)
+	}
+	// assertion can be either be done against the provided state
+	// or with the provided conditions
+	if len(req.Assert.State) != 0 {
+		return ExecuteAssertState(req)
+	}
+	return ExecuteAssertConditions(req)
 }

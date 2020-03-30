@@ -231,6 +231,10 @@ type Run struct {
 // RunSpec defines the configuration required
 // to operate against one or more Kubernetes resources
 type RunSpec struct {
+	// If verbose is true then more details get published
+	// in the status
+	Verbose *bool `json:"verbose,omitempty"`
+
 	// Tasks represents a set of tasks that are executed
 	// in a level triggered reconciliation loop
 	//
