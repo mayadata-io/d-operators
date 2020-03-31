@@ -275,16 +275,15 @@ type Task struct {
 	// 	Apply is optional
 	Apply map[string]interface{} `json:"desired,omitempty"`
 
-	// Action that needs to be taken against the specified state
+	// Replicas when set to 0 implies **deletion** of resource
+	// at the cluster. Similarly, when set to some value that is
+	// greater than 1, implies applying multiple copies of the
+	// resource specified in **state** field.
 	//
-	// NOTE:
-	// 	Action acts upon the state. Action depends on Assert
-	// if set. If Assert fails, then action won't be executed
-	// on the state.
+	// Default value is 1
 	//
-	// NOTE:
-	// 	Action is optional
-	Action *Action `json:"action,omitempty"`
+	// Replicas is optional
+	Replicas *int `json:"replicas,omitempty"`
 
 	// The target(s) that get updated. Desired state found in
 	// Apply will be applied against the resources selected
@@ -310,18 +309,18 @@ type Task struct {
 	Assert *Assert `json:"assert,omitempty"`
 }
 
-// Action to be taken against the resource
-type Action struct {
-	// Replicas when set to 0 implies **deletion** of resource
-	// at the cluster. Similarly, when set to some value that is
-	// greater than 1, implies applying multiple copies of the
-	// resource specified in **state** field.
-	//
-	// Default value is 1
-	//
-	// Replicas is optional
-	Replicas *int `json:"replicas,omitempty"`
-}
+// // Action to be taken against the resource
+// type Action struct {
+// 	// Replicas when set to 0 implies **deletion** of resource
+// 	// at the cluster. Similarly, when set to some value that is
+// 	// greater than 1, implies applying multiple copies of the
+// 	// resource specified in **state** field.
+// 	//
+// 	// Default value is 1
+// 	//
+// 	// Replicas is optional
+// 	Replicas *int `json:"replicas,omitempty"`
+// }
 
 // Assert any condition or state of resource
 type Assert struct {

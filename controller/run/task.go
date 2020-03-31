@@ -49,7 +49,6 @@ type RunnableTask struct {
 
 	isNilApply  bool
 	isNilUpdate bool
-	isNilAction bool
 	isNilAssert bool
 
 	isIfCondSuccess bool
@@ -67,9 +66,6 @@ func (r *RunnableTask) validate() {
 	}
 	if len(r.Request.Task.Apply) == 0 {
 		r.isNilApply = true
-	}
-	if r.Request.Task.Action == nil {
-		r.isNilAction = true
 	}
 	if r.Request.Task.Assert == nil {
 		r.isNilAssert = true
@@ -179,8 +175,8 @@ func (r *RunnableTask) runCreateOrDelete() {
 	resp, err := BuildCreateOrDeleteStates(CreateOrDeleteRequest{
 		Run:               r.Request.Run,
 		Watch:             r.Request.Watch,
-		Action:            r.Request.Task.Action,
 		Apply:             r.Request.Task.Apply,
+		Replicas:          r.Request.Task.Replicas,
 		ObservedResources: r.Request.ObservedResources,
 		TaskKey:           r.Request.Task.Key,
 	})

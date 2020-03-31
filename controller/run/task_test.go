@@ -648,9 +648,7 @@ func TestExecuteCreateTask(t *testing.T) {
 							},
 						},
 					},
-					Action: &types.Action{
-						Replicas: ptr.Int(5),
-					},
+					Replicas: ptr.Int(5),
 				},
 				ObservedResources: []*unstructured.Unstructured{
 					&unstructured.Unstructured{
@@ -690,9 +688,7 @@ func TestExecuteCreateTask(t *testing.T) {
 							},
 						},
 					},
-					Action: &types.Action{
-						Replicas: ptr.Int(5),
-					},
+					Replicas: ptr.Int(5),
 				},
 			},
 			expectedResp: TaskResponse{
@@ -768,9 +764,7 @@ func TestExecuteCreateTask(t *testing.T) {
 						"kind":       "Pod",
 						"apiVersion": "v1",
 					},
-					Action: &types.Action{
-						Replicas: ptr.Int(0), // 0 implies delete
-					},
+					Replicas: ptr.Int(0), // 0 implies delete
 				},
 				ObservedResources: []*unstructured.Unstructured{
 					&unstructured.Unstructured{
@@ -950,9 +944,7 @@ func TestExecuteCreateTask(t *testing.T) {
 						"kind":       "Pod",
 						"apiVersion": "v1",
 					},
-					Action: &types.Action{
-						Replicas: ptr.Int(0), // 0 implies delete
-					},
+					Replicas: ptr.Int(0), // 0 implies delete
 				},
 				ObservedResources: []*unstructured.Unstructured{},
 			},
