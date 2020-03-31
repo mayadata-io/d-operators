@@ -40,9 +40,9 @@ type CreateOrDeleteRequest struct {
 // needs to be applied against the cluster
 type CreateOrDeleteResponse struct {
 	DesiredResources []*unstructured.Unstructured
-	DesiredDeletes   []*unstructured.Unstructured
+	ExplicitDeletes  []*unstructured.Unstructured
 	Message          string
-	Phase            types.TaskStatusPhase
+	Phase            types.TaskResultPhase
 }
 
 // CreateOrDeleteBuilder builds the desired resource(s)
@@ -54,7 +54,7 @@ type CreateOrDeleteBuilder struct {
 	desiredName      string
 	desiredTemplate  *unstructured.Unstructured
 	desiredResources []*unstructured.Unstructured
-	desiredDeletes   []*unstructured.Unstructured
+	explicitDeletes  []*unstructured.Unstructured
 
 	err error
 }
@@ -105,26 +105,6 @@ func (r *CreateOrDeleteBuilder) setDesiredTemplate() {
 	r.desiredTemplate = obj
 }
 
-func (r *CreateOrDeleteBuilder) generateDesiredName() {
-	// start with generate name if any
-	name := r.desiredTemplate.GetGenerateName()
-	// reset desired state's generate name to empty
-	r.desiredTemplate.SetGenerateName("")
-	if name == "" {
-		// use name from specified desired state
-		name = r.desiredTemplate.GetName()
-	}
-	if name == "" {
-		r.err = errors.Errorf(
-			"Invalid desired state: Missing name: %q",
-			r.Request.TaskKey,
-		)
-		return
-	}
-	// final desired name
-	r.desiredName = name
-}
-
 func (r *CreateOrDeleteBuilder) trySetDeleteFlag() {
 	if r.replicas == 0 {
 		// when replicas is set to 0, it implies deleting
@@ -142,6 +122,26 @@ func (r *CreateOrDeleteBuilder) trySetDeleteFlag() {
 		// hence no need to build the desired states
 		return
 	}
+}
+
+func (r *CreateOrDeleteBuilder) generateDesiredName() {
+	// start with generate name if any
+	name := r.desiredTemplate.GetGenerateName()
+	// **reset** desired state's generate name to empty
+	r.desiredTemplate.SetGenerateName("")
+	if name == "" {
+		// use name from specified desired state
+		name = r.desiredTemplate.GetName()
+	}
+	if name == "" && !r.isDelete {
+		r.err = errors.Errorf(
+			"Invalid desired state: Missing name: %q",
+			r.Request.TaskKey,
+		)
+		return
+	}
+	// final desired name
+	r.desiredName = name
 }
 
 func (r *CreateOrDeleteBuilder) updateDesiredTemplateAnnotations() {
@@ -195,7 +195,7 @@ func (r *CreateOrDeleteBuilder) buildDesiredStates() {
 }
 
 func (r *CreateOrDeleteBuilder) markResourcesForExplicitDelete() {
-	if !r.isDelete || r.desiredName == "" {
+	if !r.isDelete {
 		// nothing to do for non delete operation
 		// as well as for the cases when resource name
 		// is not available
@@ -215,8 +215,8 @@ func (r *CreateOrDeleteBuilder) markResourcesForExplicitDelete() {
 			observedAnns["metac.openebs.io/created-due-to-watch"] != watchuid {
 			// Observed resource was not created by this watch resource.
 			// Hence, this needs to be deleted explicitly by metac
-			r.desiredDeletes = append(
-				r.desiredDeletes,
+			r.explicitDeletes = append(
+				r.explicitDeletes,
 				observed.DeepCopy(),
 			)
 		}
@@ -251,8 +251,8 @@ func (r *CreateOrDeleteBuilder) Build() (CreateOrDeleteResponse, error) {
 	fns := []func(){
 		r.init,
 		r.setDesiredTemplate,
-		r.generateDesiredName,
 		r.trySetDeleteFlag,
+		r.generateDesiredName,
 		r.updateDesiredTemplateAnnotations,
 		r.buildDesiredStates,
 		r.markResourcesForExplicitDelete,
@@ -264,9 +264,14 @@ func (r *CreateOrDeleteBuilder) Build() (CreateOrDeleteResponse, error) {
 		}
 	}
 	return CreateOrDeleteResponse{
-		DesiredDeletes:   r.desiredDeletes,
+		ExplicitDeletes:  r.explicitDeletes,
 		DesiredResources: r.desiredResources,
-		Phase:            types.TaskStatusPhaseOnline,
+		Phase:            types.TaskResultPhaseOnline,
+		Message: fmt.Sprintf(
+			"Create/Delete was successful: Desired resources %d: Explicit deletes %d",
+			len(r.desiredResources),
+			len(r.explicitDeletes),
+		),
 	}, nil
 }
 

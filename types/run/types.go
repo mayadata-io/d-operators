@@ -56,9 +56,9 @@ import (
 // kind: Run
 // spec:
 //   tasks:
-//   - if:           # update if condition passes
+//   - if:           # if condition
 //     apply:        # desired state to update
-//     target:       # resource on which update will be run
+//     target:       # if (cond) then (update target)
 //
 // UseCase: Assert presence of a resource
 //
@@ -88,6 +88,23 @@ import (
 // - Run can be applied as CR as well
 //	 - GenericController's sync will invoke run.Sync
 //	 - GenericController's finalize will invoke run.Finalize
+
+// TODO (@amitkumardas):
+// Refactor create & delete into separate files & structures
+// Add more informative messages to create & delete actions
+// Add AssertResponse to assert action
+
+// TODO (@amitkumardas):
+// Ensure a single Watch is able to make use of more than one Run
+// resources.
+
+// TODO (@amitkumardas):
+// annotations:
+//   run.dao.mayadata.io/use-watch-for-result: true
+// - If Run is a custom resource then its status is set with task results
+// - If Run is not a custom resource then RunResult CR is set with task results
+//   - RunResult namespace is set to namespace of watch if watch is namespaced
+//   - RunResult namespace is set to namespace of operator if watch is cluster scoped
 
 const (
 	// AnnotationKeyMetacCreatedDueToWatch is the annotation key
@@ -129,52 +146,36 @@ const (
 	RunStatusPhaseOnline RunStatusPhase = "Online"
 
 	// RunStatusPhaseExited indicates Run was exited
-	RunStatusPhaseExited TaskStatusPhase = "Exited"
+	RunStatusPhaseExited TaskResultPhase = "Exited"
 )
 
-// TaskStatusPhase determines the current phase of a Task
-type TaskStatusPhase string
+// TaskResultPhase determines the current result of a Task
+type TaskResultPhase string
 
 const (
-	// TaskStatusPhaseInProgress indicates task is in progress
-	TaskStatusPhaseInProgress TaskStatusPhase = "InProgress"
+	// TaskResultPhaseInProgress indicates task is in progress
+	TaskResultPhaseInProgress TaskResultPhase = "InProgress"
 
-	// TaskStatusPhaseCompleted indicates task is completed
-	TaskStatusPhaseCompleted TaskStatusPhase = "Completed"
+	// TaskResultPhaseCompleted indicates task is completed
+	TaskResultPhaseCompleted TaskResultPhase = "Completed"
 
-	// TaskStatusPhaseError indicates error in Task execution
-	TaskStatusPhaseError TaskStatusPhase = "Error"
+	// TaskResultPhaseError indicates error in Task execution
+	TaskResultPhaseError TaskResultPhase = "Error"
 
-	// TaskStatusPhaseOnline indicates Task executed without any errors
-	TaskStatusPhaseOnline TaskStatusPhase = "Online"
+	// TaskResultPhaseOnline indicates Task executed without any errors
+	TaskResultPhaseOnline TaskResultPhase = "Online"
 
-	// TaskStatusPhaseSkipped indicates Task was skipped
+	// TaskResultPhaseSkipped indicates Task was skipped
 	//
 	// NOTE:
 	//  This can happen if condition to run this task was not met
-	TaskStatusPhaseSkipped TaskStatusPhase = "Skipped"
+	TaskResultPhaseSkipped TaskResultPhase = "Skipped"
 
-	// TaskStatusPhaseAssertFailed indicates assertion failed
-	TaskStatusPhaseAssertFailed TaskStatusPhase = "AssertFailed"
+	// TaskResultPhaseAssertFailed indicates assertion failed
+	TaskResultPhaseAssertFailed TaskResultPhase = "AssertFailed"
 
-	// TaskStatusPhaseAssertPassed indicates assertion passed
-	TaskStatusPhaseAssertPassed TaskStatusPhase = "AssertPassed"
-)
-
-// ExecuteStrategy determines if Run tasks need to be executed
-// sequentially or without any sequence
-type ExecuteStrategy string
-
-const (
-	// ExecuteStrategyParallel executes the run tasks in parallel
-	//
-	// NOTE:
-	//	This is the default mode of execution
-	ExecuteStrategyParallel ExecuteStrategy = "Parallel"
-
-	// ExecuteStrategySequential executes the run tasks one after
-	// the other
-	ExecuteStrategySequential ExecuteStrategy = "Sequential"
+	// TaskResultPhaseAssertPassed indicates assertion passed
+	TaskResultPhaseAssertPassed TaskResultPhase = "AssertPassed"
 )
 
 // ResourceOperator is a typed definition of operator
@@ -234,6 +235,12 @@ type RunSpec struct {
 	// If verbose is true then more details get published
 	// in the status
 	Verbose *bool `json:"verbose,omitempty"`
+
+	// Proceed with Run only if this condition succeeds
+	//
+	// NOTE:
+	// 	RunIf is optional
+	RunIf *If `json:"runIf,omitempty"`
 
 	// Tasks represents a set of tasks that are executed
 	// in a level triggered reconciliation loop
@@ -365,9 +372,23 @@ type RunStatus struct {
 	// A descriptive statement about failure
 	Reason string `json:"reason,omitempty"`
 
-	// Warning messages if any
-	Warn string `json:"warn,omitempty"`
+	// Results provides current status of each task
+	Results map[string]TaskResult `json:"results,omitempty"`
+}
 
-	// Completion provides current status of each task
-	Completion map[string]interface{} `json:"completion"`
+type TaskResult struct {
+	TaskAssertResult TaskActionResult `json:"assertResult,omitempty"`
+	TaskUpdateResult TaskActionResult `json:"updateResult,omitempty"`
+	TaskCreateResult TaskActionResult `json:"createResult,omitempty"`
+	TaskDeleteResult TaskActionResult `json:"deleteResult,omitempty"`
+}
+
+type TaskActionResult struct {
+	Phase          TaskResultPhase `json:"phase,omitempty"`
+	Message        string          `json:"message,omitempty"`
+	Warns          []string        `json:"warns,omitempty"`
+	Matches        []string        `json:"matches,omitempty"`
+	NoMatches      []string        `json:"nomatches,omitempty"`
+	HasRunOnce     bool            `json:"hasRunOnce,omitempty"`
+	HasSkippedOnce bool            `json:"hasSkippedOnce,omitempty"`
 }
