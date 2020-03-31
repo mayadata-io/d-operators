@@ -39,39 +39,31 @@ func TestInit(t *testing.T) {
 		},
 		"nil action": {
 			config: CreateOrDeleteRequest{
-				Action: nil,
+				Replicas: nil,
 			},
 			expectReplicas: 1,
 		},
 		"nil replicas": {
 			config: CreateOrDeleteRequest{
-				Action: &types.Action{
-					Replicas: nil,
-				},
+				Replicas: nil,
 			},
 			expectReplicas: 1,
 		},
 		"0 replicas": {
 			config: CreateOrDeleteRequest{
-				Action: &types.Action{
-					Replicas: ptr.Int(0),
-				},
+				Replicas: ptr.Int(0),
 			},
 			expectReplicas: 0,
 		},
 		"1 replicas": {
 			config: CreateOrDeleteRequest{
-				Action: &types.Action{
-					Replicas: ptr.Int(1),
-				},
+				Replicas: ptr.Int(1),
 			},
 			expectReplicas: 1,
 		},
 		"2 replicas": {
 			config: CreateOrDeleteRequest{
-				Action: &types.Action{
-					Replicas: ptr.Int(2),
-				},
+				Replicas: ptr.Int(2),
 			},
 			expectReplicas: 2,
 		},
@@ -769,7 +761,7 @@ func TestBuildCreateOrDeleteStates(t *testing.T) {
 						},
 					},
 				},
-				Action: &types.Action{},
+				Replicas: nil,
 				Apply: map[string]interface{}{
 					"kind":       "Pod",
 					"apiVersion": "v1",
@@ -816,9 +808,7 @@ func TestBuildCreateOrDeleteStates(t *testing.T) {
 						},
 					},
 				},
-				Action: &types.Action{
-					Replicas: ptr.Int(0),
-				},
+				Replicas: ptr.Int(0),
 				Apply: map[string]interface{}{
 					"kind":       "Pod",
 					"apiVersion": "v1",
@@ -854,9 +844,7 @@ func TestBuildCreateOrDeleteStates(t *testing.T) {
 						},
 					},
 				},
-				Action: &types.Action{
-					Replicas: ptr.Int(1),
-				},
+				Replicas: ptr.Int(1),
 				Apply: map[string]interface{}{
 					"kind":       "Pod",
 					"apiVersion": "v1",
@@ -903,9 +891,7 @@ func TestBuildCreateOrDeleteStates(t *testing.T) {
 						},
 					},
 				},
-				Action: &types.Action{
-					Replicas: ptr.Int(2),
-				},
+				Replicas: ptr.Int(2),
 				Apply: map[string]interface{}{
 					"kind":       "Pod",
 					"apiVersion": "v1",
@@ -986,9 +972,7 @@ func TestBuildCreateOrDeleteStates(t *testing.T) {
 						},
 					},
 				},
-				Action: &types.Action{
-					Replicas: ptr.Int(2), // replicas really dont matter
-				},
+				Replicas: ptr.Int(2), // replicas really dont matter
 				Apply: map[string]interface{}{
 					"kind":       "Pod",
 					"apiVersion": "v1",
@@ -1070,9 +1054,7 @@ func TestBuildCreateOrDeleteStates(t *testing.T) {
 						},
 					},
 				},
-				Action: &types.Action{
-					Replicas: ptr.Int(2), // replicas really dont matter
-				},
+				Replicas: ptr.Int(2), // replicas really dont matter
 				Apply: map[string]interface{}{
 					"kind":       "Pod",
 					"apiVersion": "v1",
@@ -1144,9 +1126,7 @@ func TestBuildCreateOrDeleteStates(t *testing.T) {
 						},
 					},
 				},
-				Action: &types.Action{
-					Replicas: ptr.Int(0), // implies delete
-				},
+				Replicas: ptr.Int(0), // implies delete
 				Apply: map[string]interface{}{
 					"kind":       "Pod",
 					"apiVersion": "v1",
@@ -1217,9 +1197,7 @@ func TestBuildCreateOrDeleteStates(t *testing.T) {
 						},
 					},
 				},
-				Action: &types.Action{
-					Replicas: ptr.Int(0), // implies delete
-				},
+				Replicas: ptr.Int(0), // implies delete
 				Apply: map[string]interface{}{
 					"kind":       "Pod",
 					"apiVersion": "v1",
@@ -1310,9 +1288,7 @@ func TestBuildCreateOrDeleteStates(t *testing.T) {
 						},
 					},
 				},
-				Action: &types.Action{
-					Replicas: ptr.Int(0), // implies delete
-				},
+				Replicas: ptr.Int(0), // implies delete
 				Apply: map[string]interface{}{
 					"kind":       "Pod",
 					"apiVersion": "v1",

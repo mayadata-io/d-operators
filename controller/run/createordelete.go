@@ -32,7 +32,7 @@ type CreateOrDeleteRequest struct {
 	Watch             *unstructured.Unstructured
 	TaskKey           string
 	Apply             map[string]interface{}
-	Action            *types.Action
+	Replicas          *int
 	ObservedResources []*unstructured.Unstructured
 }
 
@@ -60,11 +60,11 @@ type CreateOrDeleteBuilder struct {
 }
 
 func (r *CreateOrDeleteBuilder) init() {
-	if r.Request.Action == nil || r.Request.Action.Replicas == nil {
+	if r.Request.Replicas == nil {
 		// default to single replica of the desired state
 		r.replicas = 1
 	} else {
-		r.replicas = *r.Request.Action.Replicas
+		r.replicas = *r.Request.Replicas
 	}
 }
 
