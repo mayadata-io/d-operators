@@ -17,8 +17,6 @@ limitations under the License.
 package run
 
 import (
-	"fmt"
-
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -40,7 +38,8 @@ type TaskResponse struct {
 	DesiredResources []*unstructured.Unstructured
 	DesiredUpdates   []*unstructured.Unstructured
 	DesiredDeletes   []*unstructured.Unstructured
-	Message          string
+
+	Results map[string]interface{}
 }
 
 // RunnableTask forms the unit of execution
@@ -56,6 +55,9 @@ type RunnableTask struct {
 	isIfCondSuccess bool
 	isAssertSuccess bool
 
+	execPhase   types.TaskResultPhase
+	execMessage string
+
 	err error
 }
 
@@ -69,8 +71,7 @@ func (r *RunnableTask) validate() {
 	if r.Request.Task.Action == nil {
 		r.isNilAction = true
 	}
-	if r.Request.Task.Assert == nil ||
-		len(r.Request.Task.Assert.IfConditions) == 0 {
+	if r.Request.Task.Assert == nil {
 		r.isNilAssert = true
 	}
 	if r.isNilAssert && r.isNilApply {
@@ -87,13 +88,6 @@ func (r *RunnableTask) validate() {
 		)
 		return
 	}
-	if !r.isNilUpdate && r.isNilApply {
-		r.err = errors.Errorf(
-			"Apply can't be nil with update action: %q",
-			r.Request.Task.Key,
-		)
-		return
-	}
 	if !r.isNilAssert && !r.isNilUpdate {
 		r.err = errors.Errorf(
 			"Both Assert & Update can't be used together: %q",
@@ -101,9 +95,17 @@ func (r *RunnableTask) validate() {
 		)
 		return
 	}
+	if !r.isNilUpdate && r.isNilApply {
+		r.err = errors.Errorf(
+			"Update requires not nil Apply: %q",
+			r.Request.Task.Key,
+		)
+		return
+	}
 }
 
-// execute condition needed to run further action
+// execute further action only when **IF** condition
+// succeeds
 func (r *RunnableTask) runIfCondition() {
 	if r.Request.Task.If == nil {
 		r.isIfCondSuccess = true
@@ -111,7 +113,9 @@ func (r *RunnableTask) runIfCondition() {
 	}
 	r.isIfCondSuccess, r.err = ExecuteAssert(
 		AssertRequest{
-			Assert:    r.Request.Task.Assert,
+			Assert: &types.Assert{
+				If: *r.Request.Task.If,
+			},
 			Resources: r.Request.ObservedResources,
 		},
 	)
@@ -119,10 +123,12 @@ func (r *RunnableTask) runIfCondition() {
 
 // update the desired resource(s)
 func (r *RunnableTask) runUpdate() {
-	if r.isNilUpdate || r.isNilApply {
+	if r.isNilUpdate {
 		// nothing to be updated
 		return
 	}
+	// update can be executed only when its **IF** condition
+	// has succeeded
 	if !r.isIfCondSuccess {
 		return
 	}
@@ -154,6 +160,9 @@ func (r *RunnableTask) runUpdate() {
 		r.Response.DesiredUpdates,
 		resp.ExplicitUpdates...,
 	)
+	// set the received phase & message
+	r.execPhase = resp.Phase
+	r.execMessage = resp.Message
 }
 
 // create or delete the desired resource(s)
@@ -162,6 +171,8 @@ func (r *RunnableTask) runCreateOrDelete() {
 		// nothing to create or delete
 		return
 	}
+	// create / delete can be executed only when its
+	// **IF** condition has succeeded
 	if !r.isIfCondSuccess {
 		return
 	}
@@ -187,8 +198,11 @@ func (r *RunnableTask) runCreateOrDelete() {
 	// created due to this task
 	r.Response.DesiredDeletes = append(
 		r.Response.DesiredDeletes,
-		resp.DesiredDeletes...,
+		resp.ExplicitDeletes...,
 	)
+	// set the received phase & message
+	r.execPhase = resp.Phase
+	r.execMessage = resp.Message
 }
 
 // execute task as an assertion
@@ -197,45 +211,56 @@ func (r *RunnableTask) runAssert() {
 		// nothing to be done
 		return
 	}
+	// create / delete can be executed only when its
+	// **IF** condition has succeeded
+	if !r.isIfCondSuccess {
+		return
+	}
+	// TODO (@amitkumardas):
+	// Return arg should be a response structure
 	r.isAssertSuccess, r.err = ExecuteAssert(
 		AssertRequest{
 			Assert:    r.Request.Task.Assert,
 			Resources: r.Request.ObservedResources,
 		},
 	)
+	if r.isAssertSuccess {
+		r.execPhase = types.TaskResultPhaseAssertPassed
+	} else {
+		r.execPhase = types.TaskResultPhaseAssertFailed
+	}
 }
 
-func (r *RunnableTask) finalMessage() {
-	var msg string
+func (r *RunnableTask) buildResponseMessage() {
+	var msg, resultkey string
+	var phase types.TaskResultPhase
+	var failedIfMsg = "Task didn't run: If cond failed"
+	r.Response.Results = make(map[string]interface{})
+	// derive the result key
 	if !r.isNilAssert {
-		if r.isAssertSuccess {
-			msg = "Assert was successful"
-		} else {
-			msg = "Assert failed"
-		}
+		resultkey = "assert"
 	}
-	if !r.isNilApply {
-		if r.isIfCondSuccess {
-			msg = fmt.Sprintf(
-				"Apply was successful: Desired resources %d: Explicit deletes %d",
-				len(r.Response.DesiredResources),
-				len(r.Response.DesiredDeletes),
-			)
-		} else {
-			msg = "Apply did't run: If cond failed"
-		}
+	if !r.isNilApply && r.isNilUpdate {
+		resultkey = "createOrDelete"
 	}
 	if !r.isNilUpdate {
-		if r.isIfCondSuccess {
-			msg = fmt.Sprintf(
-				"Update was successful: Updated resources %d",
-				len(r.Response.DesiredResources),
-			)
-		} else {
-			msg = "Update didn't run: If cond failed"
-		}
+		resultkey = "update"
 	}
-	r.Response.Message = msg
+	// set message & phase based on if cond
+	if r.isIfCondSuccess {
+		// use the message & phase from relevant action
+		msg = r.execMessage
+		phase = r.execPhase
+	} else {
+		// use if condition failure message as well as its phase
+		msg = failedIfMsg
+		phase = types.TaskResultPhaseSkipped
+	}
+	// build the response results
+	r.Response.Results[resultkey] = map[string]interface{}{
+		"message": msg,
+		"phase":   phase,
+	}
 }
 
 // Run executes this task
@@ -254,11 +279,11 @@ func (r *RunnableTask) Run() error {
 	}
 	fns := []func(){
 		r.validate,
-		r.runIfCondition,    // verify if condition passes
-		r.runUpdate,         // if (cond) then (update)
-		r.runCreateOrDelete, // if (cond) then (create or delete)
-		r.runAssert,         // assert in itself is a complete task
-		r.finalMessage,      // this should be the last function
+		r.runIfCondition,       // if condition
+		r.runUpdate,            // if (cond) then (update)
+		r.runCreateOrDelete,    // if (cond) then (create or delete)
+		r.runAssert,            // if (cond) then (assert)
+		r.buildResponseMessage, // this should be the last function
 	}
 	// above functions are invoked here
 	for _, fn := range fns {

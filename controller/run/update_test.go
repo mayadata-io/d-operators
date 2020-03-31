@@ -2013,17 +2013,17 @@ func TestBuildUpdateStates(t *testing.T) {
 			if mock.isErr {
 				return
 			}
-			if mock.isSkip && got.Phase != types.TaskStatusPhaseSkipped {
+			if mock.isSkip && got.Phase != types.TaskResultPhaseSkipped {
 				t.Fatalf(
 					"Expected phase %q got %q",
-					types.TaskStatusPhaseSkipped,
+					types.TaskResultPhaseSkipped,
 					got.Phase,
 				)
 			}
-			if !mock.isSkip && got.Phase == types.TaskStatusPhaseSkipped {
+			if !mock.isSkip && got.Phase == types.TaskResultPhaseSkipped {
 				t.Fatalf(
 					"Didn't expect phase %q ",
-					types.TaskStatusPhaseSkipped,
+					types.TaskResultPhaseSkipped,
 				)
 			}
 			if len(got.ExplicitUpdates) != len(mock.ExplicitUpdates) {

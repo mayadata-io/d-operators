@@ -17,6 +17,8 @@ limitations under the License.
 package run
 
 import (
+	"fmt"
+
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	types "mayadata.io/d-operators/types/run"
@@ -42,7 +44,7 @@ type UpdateResponse struct {
 	DesiredUpdates  []*unstructured.Unstructured
 	ExplicitUpdates []*unstructured.Unstructured
 	Message         string
-	Phase           types.TaskStatusPhase
+	Phase           types.TaskResultPhase
 }
 
 // UpdateBuilder builds the desired resource(s) to
@@ -268,7 +270,7 @@ func (r *UpdateBuilder) Build() (UpdateResponse, error) {
 		}
 		if r.isSkip {
 			return UpdateResponse{
-				Phase:   types.TaskStatusPhaseSkipped,
+				Phase:   types.TaskResultPhaseSkipped,
 				Message: "No eligible resources to update",
 			}, nil
 		}
@@ -276,7 +278,12 @@ func (r *UpdateBuilder) Build() (UpdateResponse, error) {
 	return UpdateResponse{
 		ExplicitUpdates: r.explicitUpdates,
 		DesiredUpdates:  r.desiredUpdates,
-		Phase:           types.TaskStatusPhaseOnline,
+		Phase:           types.TaskResultPhaseOnline,
+		Message: fmt.Sprintf(
+			"Update was successful: Desired updates %d: Explicit updates %d",
+			len(r.desiredUpdates),
+			len(r.explicitUpdates),
+		),
 	}, nil
 }
 

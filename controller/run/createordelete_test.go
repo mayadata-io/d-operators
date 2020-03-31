@@ -1374,17 +1374,17 @@ func TestBuildCreateOrDeleteStates(t *testing.T) {
 					cmp.Diff(got.DesiredResources, mock.expectStates),
 				)
 			}
-			if len(got.DesiredDeletes) != len(mock.expectDeletes) {
+			if len(got.ExplicitDeletes) != len(mock.expectDeletes) {
 				t.Fatalf(
 					"Expected delete count %d got %d",
 					len(mock.expectDeletes),
-					len(got.DesiredDeletes),
+					len(got.ExplicitDeletes),
 				)
 			}
-			if !unstruct.List(got.DesiredDeletes).IdentifiesAll(mock.expectDeletes) {
+			if !unstruct.List(got.ExplicitDeletes).IdentifiesAll(mock.expectDeletes) {
 				t.Fatalf(
 					"Expected no diff in deletes got\n%s",
-					cmp.Diff(got.DesiredDeletes, mock.expectDeletes),
+					cmp.Diff(got.ExplicitDeletes, mock.expectDeletes),
 				)
 			}
 		})
@@ -1411,18 +1411,20 @@ func TestMarkResourcesForExplicitDelete(t *testing.T) {
 			observed: []*unstructured.Unstructured{
 				&unstructured.Unstructured{
 					Object: map[string]interface{}{
-						"kind":     "Pod",
-						"metadata": map[string]interface{}{},
+						"kind": "Pod",
+						"metadata": map[string]interface{}{
+							"name": "my-pod",
+						},
 					},
 				},
 			},
 			template: &unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"kind":     "Pod",
-					"metadata": map[string]interface{}{},
+					"metadata": map[string]interface{}{}, // spec is nil; hence delete
 				},
 			},
-			expectDeleteCount: 0,
+			expectDeleteCount: 1,
 		},
 		"watch didn't create observed + observed != template + empty reource name": {
 			watch: &unstructured.Unstructured{
@@ -1634,11 +1636,11 @@ func TestMarkResourcesForExplicitDelete(t *testing.T) {
 				desiredName:     mock.resourceName,
 			}
 			b.markResourcesForExplicitDelete()
-			if mock.expectDeleteCount != len(b.desiredDeletes) {
+			if mock.expectDeleteCount != len(b.explicitDeletes) {
 				t.Fatalf(
 					"Expected deletes %d got %d",
 					mock.expectDeleteCount,
-					len(b.desiredDeletes),
+					len(b.explicitDeletes),
 				)
 			}
 		})
