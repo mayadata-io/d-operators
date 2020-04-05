@@ -25,11 +25,12 @@ import (
 	"openebs.io/metac/apis/metacontroller/v1alpha1"
 )
 
-func TestExecuteAssertTask(t *testing.T) {
+func TestExecuteAssertByExecTask(t *testing.T) {
 	var tests = map[string]struct {
-		req          TaskRequest
-		expectedResp TaskResponse
-		isErr        bool
+		req           TaskRequest
+		expectedPhase types.TaskResultPhase
+		isSkip        bool
+		isErr         bool
 	}{
 		"assert all pods are running if pods exist - pass": {
 			req: TaskRequest{
@@ -50,7 +51,7 @@ func TestExecuteAssertTask(t *testing.T) {
 							},
 						},
 					},
-					Assert: &types.Assert{
+					Assert: &types.Assert{ // Assert State Based Task
 						State: map[string]interface{}{
 							"kind":       "Pod",
 							"apiVersion": "v1",
@@ -78,14 +79,7 @@ func TestExecuteAssertTask(t *testing.T) {
 					},
 				},
 			},
-			expectedResp: TaskResponse{
-				Results: map[string]interface{}{
-					"assert": map[string]interface{}{
-						"message": "",
-						"phase":   types.TaskResultPhaseAssertPassed,
-					},
-				},
-			},
+			expectedPhase: types.TaskResultPhaseAssertPassed,
 		},
 		"assert all pods are running if pods exist - skipped": {
 			req: TaskRequest{
@@ -106,7 +100,7 @@ func TestExecuteAssertTask(t *testing.T) {
 							},
 						},
 					},
-					Assert: &types.Assert{
+					Assert: &types.Assert{ // Assert State Based Task
 						State: map[string]interface{}{
 							"kind":       "Pod",
 							"apiVersion": "v1",
@@ -131,20 +125,14 @@ func TestExecuteAssertTask(t *testing.T) {
 					},
 				},
 			},
-			expectedResp: TaskResponse{
-				Results: map[string]interface{}{
-					"assert": map[string]interface{}{
-						"message": "Task didn't run: If cond failed",
-						"phase":   types.TaskResultPhaseSkipped,
-					},
-				},
-			},
+			isSkip:        true,
+			expectedPhase: types.TaskResultPhaseSkipped,
 		},
 		"assert all pods are running - pass": {
 			req: TaskRequest{
 				Task: types.Task{
 					Key: "assert-all-pods-are-running",
-					Assert: &types.Assert{
+					Assert: &types.Assert{ // Assert State Based Task
 						State: map[string]interface{}{
 							"kind":       "Pod",
 							"apiVersion": "v1",
@@ -199,20 +187,13 @@ func TestExecuteAssertTask(t *testing.T) {
 					},
 				},
 			},
-			expectedResp: TaskResponse{
-				Results: map[string]interface{}{
-					"assert": map[string]interface{}{
-						"message": "",
-						"phase":   types.TaskResultPhaseAssertPassed,
-					},
-				},
-			},
+			expectedPhase: types.TaskResultPhaseAssertPassed,
 		},
 		"assert pod-1 is running - pass": {
 			req: TaskRequest{
 				Task: types.Task{
 					Key: "assert-all-pods-are-running",
-					Assert: &types.Assert{
+					Assert: &types.Assert{ // Assert State Based Task
 						State: map[string]interface{}{
 							"kind":       "Pod",
 							"apiVersion": "v1",
@@ -270,20 +251,13 @@ func TestExecuteAssertTask(t *testing.T) {
 					},
 				},
 			},
-			expectedResp: TaskResponse{
-				Results: map[string]interface{}{
-					"assert": map[string]interface{}{
-						"message": "",
-						"phase":   types.TaskResultPhaseAssertPassed,
-					},
-				},
-			},
+			expectedPhase: types.TaskResultPhaseAssertPassed,
 		},
 		"assert pod-1 is running - fail": {
 			req: TaskRequest{
 				Task: types.Task{
 					Key: "assert-all-pods-are-running",
-					Assert: &types.Assert{
+					Assert: &types.Assert{ // Assert State Based Task
 						State: map[string]interface{}{
 							"kind":       "Pod",
 							"apiVersion": "v1",
@@ -341,20 +315,13 @@ func TestExecuteAssertTask(t *testing.T) {
 					},
 				},
 			},
-			expectedResp: TaskResponse{
-				Results: map[string]interface{}{
-					"assert": map[string]interface{}{
-						"message": "",
-						"phase":   types.TaskResultPhaseAssertFailed,
-					},
-				},
-			},
+			expectedPhase: types.TaskResultPhaseAssertFailed,
 		},
 		"assert pod-1 is error - pass": {
 			req: TaskRequest{
 				Task: types.Task{
 					Key: "assert-all-pods-are-running",
-					Assert: &types.Assert{
+					Assert: &types.Assert{ // Assert State Based Task
 						State: map[string]interface{}{
 							"kind":       "Pod",
 							"apiVersion": "v1",
@@ -385,20 +352,13 @@ func TestExecuteAssertTask(t *testing.T) {
 					},
 				},
 			},
-			expectedResp: TaskResponse{
-				Results: map[string]interface{}{
-					"assert": map[string]interface{}{
-						"message": "",
-						"phase":   types.TaskResultPhaseAssertPassed,
-					},
-				},
-			},
+			expectedPhase: types.TaskResultPhaseAssertPassed,
 		},
 		"assert pod-1 is error - fail": {
 			req: TaskRequest{
 				Task: types.Task{
 					Key: "assert-all-pods-are-running",
-					Assert: &types.Assert{
+					Assert: &types.Assert{ // Assert State Based Task
 						State: map[string]interface{}{
 							"kind":       "Pod",
 							"apiVersion": "v1",
@@ -429,20 +389,13 @@ func TestExecuteAssertTask(t *testing.T) {
 					},
 				},
 			},
-			expectedResp: TaskResponse{
-				Results: map[string]interface{}{
-					"assert": map[string]interface{}{
-						"message": "",
-						"phase":   types.TaskResultPhaseAssertFailed,
-					},
-				},
-			},
+			expectedPhase: types.TaskResultPhaseAssertFailed,
 		},
 		"assert all pods are running - fail": {
 			req: TaskRequest{
 				Task: types.Task{
 					Key: "assert-all-pods-are-running",
-					Assert: &types.Assert{
+					Assert: &types.Assert{ // Assert State Based Task
 						State: map[string]interface{}{
 							"kind":       "Pod",
 							"apiVersion": "v1",
@@ -479,20 +432,13 @@ func TestExecuteAssertTask(t *testing.T) {
 					},
 				},
 			},
-			expectedResp: TaskResponse{
-				Results: map[string]interface{}{
-					"assert": map[string]interface{}{
-						"message": "",
-						"phase":   types.TaskResultPhaseAssertFailed,
-					},
-				},
-			},
+			expectedPhase: types.TaskResultPhaseAssertFailed,
 		},
 		"assert all pods are Error - fail": {
 			req: TaskRequest{
 				Task: types.Task{
 					Key: "assert-all-pods-are-error",
-					Assert: &types.Assert{
+					Assert: &types.Assert{ // Assert State Based Task
 						State: map[string]interface{}{
 							"kind":       "Pod",
 							"apiVersion": "v1",
@@ -547,14 +493,7 @@ func TestExecuteAssertTask(t *testing.T) {
 					},
 				},
 			},
-			expectedResp: TaskResponse{
-				Results: map[string]interface{}{
-					"assert": map[string]interface{}{
-						"message": "",
-						"phase":   types.TaskResultPhaseAssertFailed,
-					},
-				},
-			},
+			expectedPhase: types.TaskResultPhaseAssertFailed,
 		},
 	}
 	for name, mock := range tests {
@@ -581,37 +520,34 @@ func TestExecuteAssertTask(t *testing.T) {
 			if mock.isErr {
 				return
 			}
-			expected := mock.expectedResp.Results["assert"].(map[string]interface{})
-			actual := got.Results["assert"].(map[string]interface{})
-			// extract phase
-			expectedphase := expected["phase"].(types.TaskResultPhase)
-			actualphase := actual["phase"].(types.TaskResultPhase)
-			if actualphase != expectedphase {
+			if mock.isSkip {
+				if got.Result.Skipped.Phase != mock.expectedPhase {
+					t.Fatalf(
+						"Expected phase %q got %q",
+						mock.expectedPhase,
+						got.Result.Skipped.Phase,
+					)
+				}
+				return
+			}
+			if got.Result.TaskAssertResult.Phase !=
+				mock.expectedPhase {
 				t.Fatalf(
 					"Expected phase %q got %q",
-					expectedphase,
-					actualphase,
-				)
-			}
-			// extract message
-			expectedmsg := expected["message"].(string)
-			actualmsg := actual["message"].(string)
-			if actualmsg != expectedmsg {
-				t.Fatalf(
-					"Expected message %q got %q",
-					expectedmsg,
-					actualmsg,
+					mock.expectedPhase,
+					got.Result.TaskAssertResult.Phase,
 				)
 			}
 		})
 	}
 }
 
-func TestExecuteCreateTask(t *testing.T) {
+func TestExecuteCreateOrDeleteTask(t *testing.T) {
 	var tests = map[string]struct {
-		req          TaskRequest
-		expectedResp TaskResponse
-		isErr        bool
+		req             TaskRequest
+		expectedPhase   types.TaskResultPhase
+		expectedMessage string
+		isErr           bool
 	}{
 		"create 5 pods if service exist - pass": {
 			req: TaskRequest{
@@ -648,7 +584,7 @@ func TestExecuteCreateTask(t *testing.T) {
 							},
 						},
 					},
-					Replicas: ptr.Int(5),
+					Replicas: ptr.Int(5), // Create Task
 				},
 				ObservedResources: []*unstructured.Unstructured{
 					&unstructured.Unstructured{
@@ -659,14 +595,8 @@ func TestExecuteCreateTask(t *testing.T) {
 					},
 				},
 			},
-			expectedResp: TaskResponse{
-				Results: map[string]interface{}{
-					"createOrDelete": map[string]interface{}{
-						"message": "Create/Delete was successful: Desired resources 5: Explicit deletes 0",
-						"phase":   types.TaskResultPhaseOnline,
-					},
-				},
-			},
+			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedMessage: "Create action was successful for 5 resource(s)",
 		},
 		"create 5 pods - pass": {
 			req: TaskRequest{
@@ -688,17 +618,11 @@ func TestExecuteCreateTask(t *testing.T) {
 							},
 						},
 					},
-					Replicas: ptr.Int(5),
+					Replicas: ptr.Int(5), // Create Task
 				},
 			},
-			expectedResp: TaskResponse{
-				Results: map[string]interface{}{
-					"createOrDelete": map[string]interface{}{
-						"message": "Create/Delete was successful: Desired resources 5: Explicit deletes 0",
-						"phase":   types.TaskResultPhaseOnline,
-					},
-				},
-			},
+			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedMessage: "Create action was successful for 5 resource(s)",
 		},
 		"delete all pods by setting spec to nil - pass": {
 			req: TaskRequest{
@@ -747,14 +671,8 @@ func TestExecuteCreateTask(t *testing.T) {
 					},
 				},
 			},
-			expectedResp: TaskResponse{
-				Results: map[string]interface{}{
-					"createOrDelete": map[string]interface{}{
-						"message": "Create/Delete was successful: Desired resources 0: Explicit deletes 2",
-						"phase":   types.TaskResultPhaseOnline,
-					},
-				},
-			},
+			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 2",
 		},
 		"delete all pods by setting replicas to 0 - pass": {
 			req: TaskRequest{
@@ -803,14 +721,8 @@ func TestExecuteCreateTask(t *testing.T) {
 					},
 				},
 			},
-			expectedResp: TaskResponse{
-				Results: map[string]interface{}{
-					"createOrDelete": map[string]interface{}{
-						"message": "Create/Delete was successful: Desired resources 0: Explicit deletes 2",
-						"phase":   types.TaskResultPhaseOnline,
-					},
-				},
-			},
+			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 2",
 		},
 		"delete all owned pods - pass": {
 			req: TaskRequest{
@@ -819,7 +731,7 @@ func TestExecuteCreateTask(t *testing.T) {
 					Apply: map[string]interface{}{
 						"kind":       "Pod",
 						"apiVersion": "v1",
-						"spec":       nil,
+						"spec":       nil, // Delete Task
 					},
 				},
 				ObservedResources: []*unstructured.Unstructured{
@@ -865,14 +777,8 @@ func TestExecuteCreateTask(t *testing.T) {
 					},
 				},
 			},
-			expectedResp: TaskResponse{
-				Results: map[string]interface{}{
-					"createOrDelete": map[string]interface{}{
-						"message": "Create/Delete was successful: Desired resources 0: Explicit deletes 0",
-						"phase":   types.TaskResultPhaseOnline,
-					},
-				},
-			},
+			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedMessage: "Delete action was successful: Desired deletes 2: Explicit deletes 0",
 		},
 		"delete 1 owned & 1 not owned pod - pass": {
 			req: TaskRequest{
@@ -881,7 +787,7 @@ func TestExecuteCreateTask(t *testing.T) {
 					Apply: map[string]interface{}{
 						"kind":       "Pod",
 						"apiVersion": "v1",
-						"spec":       nil,
+						"spec":       nil, // Delete Task
 					},
 				},
 				ObservedResources: []*unstructured.Unstructured{
@@ -927,14 +833,8 @@ func TestExecuteCreateTask(t *testing.T) {
 					},
 				},
 			},
-			expectedResp: TaskResponse{
-				Results: map[string]interface{}{
-					"createOrDelete": map[string]interface{}{
-						"message": "Create/Delete was successful: Desired resources 0: Explicit deletes 1",
-						"phase":   types.TaskResultPhaseOnline,
-					},
-				},
-			},
+			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedMessage: "Delete action was successful: Desired deletes 1: Explicit deletes 1",
 		},
 		"delete all pods from none by setting replicas to 0 - pass": {
 			req: TaskRequest{
@@ -948,14 +848,8 @@ func TestExecuteCreateTask(t *testing.T) {
 				},
 				ObservedResources: []*unstructured.Unstructured{},
 			},
-			expectedResp: TaskResponse{
-				Results: map[string]interface{}{
-					"createOrDelete": map[string]interface{}{
-						"message": "Create/Delete was successful: Desired resources 0: Explicit deletes 0",
-						"phase":   types.TaskResultPhaseOnline,
-					},
-				},
-			},
+			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 0",
 		},
 		"delete no pods due to mismatch - pass": {
 			req: TaskRequest{
@@ -1004,14 +898,448 @@ func TestExecuteCreateTask(t *testing.T) {
 					},
 				},
 			},
-			expectedResp: TaskResponse{
-				Results: map[string]interface{}{
-					"createOrDelete": map[string]interface{}{
-						"message": "Create/Delete was successful: Desired resources 0: Explicit deletes 0",
-						"phase":   types.TaskResultPhaseOnline,
+			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 0",
+		},
+	}
+	for name, mock := range tests {
+		name := name
+		mock := mock
+		t.Run(name, func(t *testing.T) {
+			newreq := TaskRequest{
+				Run: &unstructured.Unstructured{
+					Object: map[string]interface{}{},
+				},
+				Watch: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"metadata": map[string]interface{}{
+							"uid": "watch-101",
+						},
+					},
+				},
+				Task:              mock.req.Task,
+				ObservedResources: mock.req.ObservedResources,
+			}
+			r := &RunnableTask{
+				Request: newreq,
+				Response: &TaskResponse{
+					Result: &types.TaskResult{},
+				},
+			}
+			r.runCreateOrDelete()
+			if mock.isErr && r.err == nil {
+				t.Fatalf("Expected error got none")
+			}
+			if !mock.isErr && r.err != nil {
+				t.Fatalf("Expected no error got [%+v]", r.err)
+			}
+			if mock.isErr {
+				return
+			}
+			if r.Response.Result.TaskDeleteResult == nil &&
+				r.Response.Result.TaskCreateResult == nil {
+				t.Fatalf("Expected either delete result or create result got none")
+			}
+			// delete checks
+			if r.Response.Result.TaskDeleteResult != nil {
+				if r.Response.Result.TaskDeleteResult.Phase !=
+					mock.expectedPhase {
+					t.Fatalf(
+						"Expected phase %q got %q",
+						mock.expectedPhase,
+						r.Response.Result.TaskDeleteResult.Phase,
+					)
+				}
+				if r.Response.Result.TaskDeleteResult.Message !=
+					mock.expectedMessage {
+					t.Fatalf(
+						"Expected message %q got %q",
+						mock.expectedMessage,
+						r.Response.Result.TaskDeleteResult.Message,
+					)
+				}
+			}
+			// create checks
+			if r.Response.Result.TaskCreateResult != nil {
+				if r.Response.Result.TaskCreateResult.Phase !=
+					mock.expectedPhase {
+					t.Fatalf(
+						"Expected phase %q got %q",
+						mock.expectedPhase,
+						r.Response.Result.TaskCreateResult.Phase,
+					)
+				}
+				if r.Response.Result.TaskCreateResult.Message !=
+					mock.expectedMessage {
+					t.Fatalf(
+						"Expected message %q got %q",
+						mock.expectedMessage,
+						r.Response.Result.TaskCreateResult.Message,
+					)
+				}
+			}
+		})
+	}
+}
+
+func TestCreateOrDeleteByExecTask(t *testing.T) {
+	var tests = map[string]struct {
+		req             TaskRequest
+		expectedPhase   types.TaskResultPhase
+		expectedMessage string
+		isErr           bool
+	}{
+		"create 5 pods if service exist - pass": {
+			req: TaskRequest{
+				Task: types.Task{
+					Key: "create-5-pods-if-service-exist",
+					If: &types.If{
+						IfConditions: []types.IfCondition{
+							types.IfCondition{
+								ResourceSelector: v1alpha1.ResourceSelector{
+									SelectorTerms: []*v1alpha1.SelectorTerm{
+										&v1alpha1.SelectorTerm{
+											MatchFields: map[string]string{
+												"kind": "Service",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					Apply: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"name":      "my-pod",
+							"namespace": "dope",
+						},
+						"spec": map[string]interface{}{
+							"containers": []interface{}{
+								map[string]interface{}{
+									"name":  "nginx",
+									"image": "nginx",
+								},
+							},
+						},
+					},
+					Replicas: ptr.Int(5), // Create Task
+				},
+				ObservedResources: []*unstructured.Unstructured{
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Service",
+							"apiVersion": "v1",
+						},
 					},
 				},
 			},
+			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedMessage: "Create action was successful for 5 resource(s)",
+		},
+		"create 5 pods - pass": {
+			req: TaskRequest{
+				Task: types.Task{
+					Key: "create-5-pods",
+					Apply: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"name":      "my-pod",
+							"namespace": "dope",
+						},
+						"spec": map[string]interface{}{
+							"containers": []interface{}{
+								map[string]interface{}{
+									"name":  "nginx",
+									"image": "nginx",
+								},
+							},
+						},
+					},
+					Replicas: ptr.Int(5), // Create Task
+				},
+			},
+			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedMessage: "Create action was successful for 5 resource(s)",
+		},
+		"delete all pods by setting spec to nil - pass": {
+			req: TaskRequest{
+				Task: types.Task{
+					Key: "delete-all-pods",
+					Apply: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"spec":       nil, // this implies delete
+					},
+				},
+				ObservedResources: []*unstructured.Unstructured{
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Pod",
+							"apiVersion": "v1",
+							"metadata": map[string]interface{}{
+								"name": "my-pod-1",
+							},
+							"spec": map[string]interface{}{
+								"containers": []interface{}{
+									map[string]interface{}{
+										"name":  "nginx",
+										"image": "nginx",
+									},
+								},
+							},
+						},
+					},
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Pod",
+							"apiVersion": "v1",
+							"metadata": map[string]interface{}{
+								"name": "my-pod-2",
+							},
+							"spec": map[string]interface{}{
+								"containers": []interface{}{
+									map[string]interface{}{
+										"name":  "nginx-2",
+										"image": "nginx:latest",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 2",
+		},
+		"delete all pods by setting replicas to 0 - pass": {
+			req: TaskRequest{
+				Task: types.Task{
+					Key: "delete-all-pods",
+					Apply: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+					},
+					Replicas: ptr.Int(0), // 0 implies delete
+				},
+				ObservedResources: []*unstructured.Unstructured{
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Pod",
+							"apiVersion": "v1",
+							"metadata": map[string]interface{}{
+								"name": "my-pod-1",
+							},
+							"spec": map[string]interface{}{
+								"containers": []interface{}{
+									map[string]interface{}{
+										"name":  "nginx",
+										"image": "nginx",
+									},
+								},
+							},
+						},
+					},
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Pod",
+							"apiVersion": "v1",
+							"metadata": map[string]interface{}{
+								"name": "my-pod-2",
+							},
+							"spec": map[string]interface{}{
+								"containers": []interface{}{
+									map[string]interface{}{
+										"name":  "nginx-2",
+										"image": "nginx:latest",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 2",
+		},
+		"delete all owned pods - pass": {
+			req: TaskRequest{
+				Task: types.Task{
+					Key: "delete-all-pods",
+					Apply: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"spec":       nil, // Delete Task
+					},
+				},
+				ObservedResources: []*unstructured.Unstructured{
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Pod",
+							"apiVersion": "v1",
+							"metadata": map[string]interface{}{
+								"name": "my-pod-1",
+								"annotations": map[string]interface{}{
+									types.AnnotationKeyMetacCreatedDueToWatch: "watch-101",
+								},
+							},
+							"spec": map[string]interface{}{
+								"containers": []interface{}{
+									map[string]interface{}{
+										"name":  "nginx",
+										"image": "nginx",
+									},
+								},
+							},
+						},
+					},
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Pod",
+							"apiVersion": "v1",
+							"metadata": map[string]interface{}{
+								"name": "my-pod-2",
+								"annotations": map[string]interface{}{
+									types.AnnotationKeyMetacCreatedDueToWatch: "watch-101",
+								},
+							},
+							"spec": map[string]interface{}{
+								"containers": []interface{}{
+									map[string]interface{}{
+										"name":  "nginx-2",
+										"image": "nginx:latest",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedMessage: "Delete action was successful: Desired deletes 2: Explicit deletes 0",
+		},
+		"delete 1 owned & 1 not owned pod - pass": {
+			req: TaskRequest{
+				Task: types.Task{
+					Key: "delete-all-pods",
+					Apply: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"spec":       nil, // Delete Task
+					},
+				},
+				ObservedResources: []*unstructured.Unstructured{
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Pod",
+							"apiVersion": "v1",
+							"metadata": map[string]interface{}{
+								"name": "my-pod-1",
+								"annotations": map[string]interface{}{
+									types.AnnotationKeyMetacCreatedDueToWatch: "watch-101",
+								},
+							},
+							"spec": map[string]interface{}{
+								"containers": []interface{}{
+									map[string]interface{}{
+										"name":  "nginx",
+										"image": "nginx",
+									},
+								},
+							},
+						},
+					},
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Pod",
+							"apiVersion": "v1",
+							"metadata": map[string]interface{}{
+								"name": "my-pod-2",
+								"annotations": map[string]interface{}{
+									types.AnnotationKeyMetacCreatedDueToWatch: "watch-102",
+								},
+							},
+							"spec": map[string]interface{}{
+								"containers": []interface{}{
+									map[string]interface{}{
+										"name":  "nginx-2",
+										"image": "nginx:latest",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedMessage: "Delete action was successful: Desired deletes 1: Explicit deletes 1",
+		},
+		"delete all pods from none by setting replicas to 0 - pass": {
+			req: TaskRequest{
+				Task: types.Task{
+					Key: "delete-all-pods",
+					Apply: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+					},
+					Replicas: ptr.Int(0), // 0 implies delete
+				},
+				ObservedResources: []*unstructured.Unstructured{},
+			},
+			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 0",
+		},
+		"delete no pods due to mismatch - pass": {
+			req: TaskRequest{
+				Task: types.Task{
+					Key: "delete-all-pods",
+					Apply: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v2", // mismatch
+						"spec":       nil,
+					},
+				},
+				ObservedResources: []*unstructured.Unstructured{
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Pod",
+							"apiVersion": "v1",
+							"metadata": map[string]interface{}{
+								"name": "my-pod-1",
+							},
+							"spec": map[string]interface{}{
+								"containers": []interface{}{
+									map[string]interface{}{
+										"name":  "nginx",
+										"image": "nginx",
+									},
+								},
+							},
+						},
+					},
+					&unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"kind":       "Pod",
+							"apiVersion": "v1",
+							"metadata": map[string]interface{}{
+								"name": "my-pod-2",
+							},
+							"spec": map[string]interface{}{
+								"containers": []interface{}{
+									map[string]interface{}{
+										"name":  "nginx-2",
+										"image": "nginx:latest",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 0",
 		},
 	}
 	for name, mock := range tests {
@@ -1042,27 +1370,47 @@ func TestExecuteCreateTask(t *testing.T) {
 			if mock.isErr {
 				return
 			}
-			expected := mock.expectedResp.Results["createOrDelete"].(map[string]interface{})
-			actual := got.Results["createOrDelete"].(map[string]interface{})
-			// extract phase
-			expectedphase := expected["phase"].(types.TaskResultPhase)
-			actualphase := actual["phase"].(types.TaskResultPhase)
-			if actualphase != expectedphase {
-				t.Fatalf(
-					"Expected phase %q got %q",
-					expectedphase,
-					actualphase,
-				)
+			if got.Result.TaskDeleteResult == nil &&
+				got.Result.TaskCreateResult == nil {
+				t.Fatalf("Expected either delete result or create result got none")
 			}
-			// extract message
-			expectedmsg := expected["message"].(string)
-			actualmsg := actual["message"].(string)
-			if actualmsg != expectedmsg {
-				t.Fatalf(
-					"Expected message %q got %q",
-					expectedmsg,
-					actualmsg,
-				)
+			// delete checks
+			if got.Result.TaskDeleteResult != nil {
+				if got.Result.TaskDeleteResult.Phase !=
+					mock.expectedPhase {
+					t.Fatalf(
+						"Expected phase %q got %q",
+						mock.expectedPhase,
+						got.Result.TaskDeleteResult.Phase,
+					)
+				}
+				if got.Result.TaskDeleteResult.Message !=
+					mock.expectedMessage {
+					t.Fatalf(
+						"Expected message %q got %q",
+						mock.expectedMessage,
+						got.Result.TaskDeleteResult.Message,
+					)
+				}
+			}
+			// create checks
+			if got.Result.TaskCreateResult != nil {
+				if got.Result.TaskCreateResult.Phase !=
+					mock.expectedPhase {
+					t.Fatalf(
+						"Expected phase %q got %q",
+						mock.expectedPhase,
+						got.Result.TaskCreateResult.Phase,
+					)
+				}
+				if got.Result.TaskCreateResult.Message !=
+					mock.expectedMessage {
+					t.Fatalf(
+						"Expected message %q got %q",
+						mock.expectedMessage,
+						got.Result.TaskCreateResult.Message,
+					)
+				}
 			}
 		})
 	}

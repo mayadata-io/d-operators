@@ -26,6 +26,7 @@ import (
 // TaskRequest forms the input required to execute a
 // task
 type TaskRequest struct {
+	IncludeInfo       map[types.IncludeInfoKey]bool
 	Task              types.Task
 	Run               *unstructured.Unstructured
 	Watch             *unstructured.Unstructured
@@ -36,10 +37,10 @@ type TaskRequest struct {
 // the task
 type TaskResponse struct {
 	DesiredResources []*unstructured.Unstructured
-	DesiredUpdates   []*unstructured.Unstructured
-	DesiredDeletes   []*unstructured.Unstructured
+	ExplicitUpdates  []*unstructured.Unstructured
+	ExplicitDeletes  []*unstructured.Unstructured
 
-	Results map[string]interface{}
+	Result *types.TaskResult
 }
 
 // RunnableTask forms the unit of execution
@@ -60,7 +61,23 @@ type RunnableTask struct {
 	err error
 }
 
-func (r *RunnableTask) validate() {
+func (r *RunnableTask) validateArgs() error {
+	if r.Request.Task.Key == "" {
+		return errors.New("Invalid run task: Missing task key")
+	}
+	if r.Request.Run == nil {
+		return errors.New("Invalid run task: Nil run resource")
+	}
+	if r.Request.Watch == nil {
+		return errors.New("Invalid run task: Nil watch resource")
+	}
+	if r.Response == nil {
+		return errors.New("Invalid run task: Nil response")
+	}
+	return nil
+}
+
+func (r *RunnableTask) init() error {
 	if len(r.Request.Task.Target.SelectorTerms) == 0 {
 		r.isNilUpdate = true
 	}
@@ -71,43 +88,41 @@ func (r *RunnableTask) validate() {
 		r.isNilAssert = true
 	}
 	if r.isNilAssert && r.isNilApply {
-		r.err = errors.Errorf(
-			"Both Assert & Apply can't be nil: %q",
+		return errors.Errorf(
+			"Both Assert & Apply can't be nil in a task: %q",
 			r.Request.Task.Key,
 		)
-		return
 	}
 	if !r.isNilAssert && !r.isNilApply {
-		r.err = errors.Errorf(
-			"Both Assert & Apply can't be used together: %q",
+		return errors.Errorf(
+			"Both Assert & Apply can't be used together in a task: %q",
 			r.Request.Task.Key,
 		)
-		return
 	}
 	if !r.isNilAssert && !r.isNilUpdate {
-		r.err = errors.Errorf(
-			"Both Assert & Update can't be used together: %q",
+		return errors.Errorf(
+			"Both Assert & Update can't be used together in a task: %q",
 			r.Request.Task.Key,
 		)
-		return
 	}
 	if !r.isNilUpdate && r.isNilApply {
-		r.err = errors.Errorf(
-			"Update requires not nil Apply: %q",
+		return errors.Errorf(
+			"Update action needs Apply to be set in a task: %q",
 			r.Request.Task.Key,
 		)
-		return
 	}
+	return nil
 }
 
 // execute further action only when **IF** condition
 // succeeds
 func (r *RunnableTask) runIfCondition() {
 	if r.Request.Task.If == nil {
+		// defaults to true if no condition is set
 		r.isIfCondSuccess = true
 		return
 	}
-	r.isIfCondSuccess, r.err = ExecuteAssert(
+	got, err := ExecuteCondition(
 		AssertRequest{
 			Assert: &types.Assert{
 				If: *r.Request.Task.If,
@@ -115,6 +130,16 @@ func (r *RunnableTask) runIfCondition() {
 			Resources: r.Request.ObservedResources,
 		},
 	)
+	if err != nil {
+		r.err = err
+		return
+	}
+	// save the result
+	r.Response.Result.TaskIfCondResult = got.AssertResult
+	// did If condition pass
+	if got.AssertResult.Phase == types.TaskResultPhaseAssertPassed {
+		r.isIfCondSuccess = true
+	}
 }
 
 // update the desired resource(s)
@@ -123,12 +148,8 @@ func (r *RunnableTask) runUpdate() {
 		// nothing to be updated
 		return
 	}
-	// update can be executed only when its **IF** condition
-	// has succeeded
-	if !r.isIfCondSuccess {
-		return
-	}
 	resp, err := BuildUpdateStates(UpdateRequest{
+		IncludeInfo:       r.Request.IncludeInfo,
 		Run:               r.Request.Run,
 		Watch:             r.Request.Watch,
 		Apply:             r.Request.Task.Apply,
@@ -152,24 +173,18 @@ func (r *RunnableTask) runUpdate() {
 	//
 	// NOTE:
 	//	These resources were not created by this controller
-	r.Response.DesiredDeletes = append(
-		r.Response.DesiredUpdates,
+	r.Response.ExplicitDeletes = append(
+		r.Response.ExplicitUpdates,
 		resp.ExplicitUpdates...,
 	)
-	// set the received phase & message
-	r.execPhase = resp.Phase
-	r.execMessage = resp.Message
+	// set the received result
+	r.Response.Result.TaskUpdateResult = resp.Result
 }
 
 // create or delete the desired resource(s)
 func (r *RunnableTask) runCreateOrDelete() {
 	if r.isNilApply {
 		// nothing to create or delete
-		return
-	}
-	// create / delete can be executed only when its
-	// **IF** condition has succeeded
-	if !r.isIfCondSuccess {
 		return
 	}
 	resp, err := BuildCreateOrDeleteStates(CreateOrDeleteRequest{
@@ -192,94 +207,55 @@ func (r *RunnableTask) runCreateOrDelete() {
 	)
 	// add the explicit deletes i.e. resources that were not
 	// created due to this task
-	r.Response.DesiredDeletes = append(
-		r.Response.DesiredDeletes,
+	//
+	// NOTE:
+	//	Creates are never explicit. The resources that get
+	// created by this controller are considered as desired
+	// resources which get applied (server side k8s apply)
+	// over & over in subsequent reconciliations.
+	r.Response.ExplicitDeletes = append(
+		r.Response.ExplicitDeletes,
 		resp.ExplicitDeletes...,
 	)
-	// set the received phase & message
-	r.execPhase = resp.Phase
-	r.execMessage = resp.Message
+	// set the received result
+	r.Response.Result.TaskCreateResult = resp.CreateResult
+	r.Response.Result.TaskDeleteResult = resp.DeleteResult
 }
 
 // execute task as an assertion
 func (r *RunnableTask) runAssert() {
-	if r.Request.Task.Assert == nil {
+	if r.isNilAssert {
 		// nothing to be done
 		return
 	}
-	// create / delete can be executed only when its
-	// **IF** condition has succeeded
-	if !r.isIfCondSuccess {
-		return
-	}
-	// TODO (@amitkumardas):
-	// Return arg should be a response structure
-	r.isAssertSuccess, r.err = ExecuteAssert(
+	got, err := ExecuteCondition(
 		AssertRequest{
 			Assert:    r.Request.Task.Assert,
 			Resources: r.Request.ObservedResources,
 		},
 	)
-	if r.isAssertSuccess {
-		r.execPhase = types.TaskResultPhaseAssertPassed
-	} else {
-		r.execPhase = types.TaskResultPhaseAssertFailed
+	if err != nil {
+		r.err = err
+		return
 	}
-}
-
-func (r *RunnableTask) buildResponseMessage() {
-	var msg, resultkey string
-	var phase types.TaskResultPhase
-	var failedIfMsg = "Task didn't run: If cond failed"
-	r.Response.Results = make(map[string]interface{})
-	// derive the result key
-	if !r.isNilAssert {
-		resultkey = "assert"
-	}
-	if !r.isNilApply && r.isNilUpdate {
-		resultkey = "createOrDelete"
-	}
-	if !r.isNilUpdate {
-		resultkey = "update"
-	}
-	// set message & phase based on if cond
-	if r.isIfCondSuccess {
-		// use the message & phase from relevant action
-		msg = r.execMessage
-		phase = r.execPhase
-	} else {
-		// use if condition failure message as well as its phase
-		msg = failedIfMsg
-		phase = types.TaskResultPhaseSkipped
-	}
-	// build the response results
-	r.Response.Results[resultkey] = map[string]interface{}{
-		"message": msg,
-		"phase":   phase,
-	}
+	r.Response.Result.TaskAssertResult = got.AssertResult
 }
 
 // Run executes this task
 func (r *RunnableTask) Run() error {
-	if r.Request.Task.Key == "" {
-		return errors.New("Invalid run task: Missing task key")
+	err := r.validateArgs()
+	if err != nil {
+		return err
 	}
-	if r.Request.Run == nil {
-		return errors.New("Invalid run task: Nil run resource")
-	}
-	if r.Request.Watch == nil {
-		return errors.New("Invalid run task: Nil watch resource")
-	}
-	if r.Response == nil {
-		return errors.New("Invalid run task: Nil response")
+	err = r.init()
+	if err != nil {
+		return err
 	}
 	fns := []func(){
-		r.validate,
-		r.runIfCondition,       // if condition
-		r.runUpdate,            // if (cond) then (update)
-		r.runCreateOrDelete,    // if (cond) then (create or delete)
-		r.runAssert,            // if (cond) then (assert)
-		r.buildResponseMessage, // this should be the last function
+		r.runIfCondition,    // if-cond
+		r.runUpdate,         // if (if-cond) then (update)
+		r.runCreateOrDelete, // if (if-cond) then (create or delete)
+		r.runAssert,         // if (if-cond) then (assert)
 	}
 	// above functions are invoked here
 	for _, fn := range fns {
@@ -287,20 +263,30 @@ func (r *RunnableTask) Run() error {
 		if r.err != nil {
 			return r.err
 		}
+		// task can be executed only when its **IF** condition succeededs
+		if !r.isIfCondSuccess {
+			r.Response.Result.Skipped = &types.TaskSkippedResult{
+				Phase:   types.TaskResultPhaseSkipped,
+				Message: "Task didn't run: If cond failed",
+			}
+			return nil
+		}
 	}
 	return nil
 }
 
 // ExecTask executes the task based on the provided request
 // and response
-func ExecTask(req TaskRequest) (TaskResponse, error) {
+func ExecTask(req TaskRequest) (*TaskResponse, error) {
 	r := &RunnableTask{
-		Request:  req,
-		Response: &TaskResponse{},
+		Request: req,
+		Response: &TaskResponse{
+			Result: &types.TaskResult{},
+		},
 	}
 	err := r.Run()
 	if err != nil {
-		return TaskResponse{}, err
+		return nil, err
 	}
-	return *r.Response, nil
+	return r.Response, nil
 }
