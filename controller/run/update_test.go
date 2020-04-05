@@ -289,7 +289,7 @@ func TestUpdateBuilderFilterResources(t *testing.T) {
 		name := name
 		mock := mock
 		t.Run(name, func(t *testing.T) {
-			b := &UpdateBuilder{
+			b := &UpdateStatesBuilder{
 				Request: UpdateRequest{
 					ObservedResources: mock.observed,
 					Target:            mock.forselect,
@@ -325,6 +325,228 @@ func TestUpdateBuilderFilterResources(t *testing.T) {
 	}
 }
 
+func TestFilterResourcesWithSkipInfo(t *testing.T) {
+	var tests = map[string]struct {
+		Resources           []*unstructured.Unstructured
+		Target              metac.ResourceSelector
+		expectSkipCount     int
+		expectFilteredCount int
+		isErr               bool
+	}{
+		"nil object in observed": {
+			Resources: []*unstructured.Unstructured{
+				&unstructured.Unstructured{
+					Object: nil,
+				},
+			},
+			isErr: true,
+		},
+		"1 observed Pod + Service as target": {
+			Resources: []*unstructured.Unstructured{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind": "Pod",
+					},
+				},
+			},
+			Target: metac.ResourceSelector{
+				SelectorTerms: []*metac.SelectorTerm{
+					&metac.SelectorTerm{
+						MatchFields: map[string]string{
+							"kind": "Service",
+						},
+					},
+				},
+			},
+			expectSkipCount: 1,
+		},
+		"2 observed Pods + Pod + Namespace + Labels + Anns as target - all filtered": {
+			Resources: []*unstructured.Unstructured{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"name":      "my-pod-1",
+							"namespace": "my-ns",
+							"labels": map[string]interface{}{
+								"app": "pod",
+							},
+							"annotations": map[string]interface{}{
+								"app": "pod",
+							},
+						},
+					},
+				},
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"name":      "my-pod-2",
+							"namespace": "my-ns",
+							"labels": map[string]interface{}{
+								"app": "pod",
+							},
+							"annotations": map[string]interface{}{
+								"app": "pod",
+							},
+						},
+					},
+				},
+			},
+			Target: metac.ResourceSelector{
+				SelectorTerms: []*metac.SelectorTerm{
+					// all conditions in a SelectorTerm must be satisfied
+					&metac.SelectorTerm{
+						MatchFields: map[string]string{
+							"kind":               "Pod",
+							"apiVersion":         "v1",
+							"metadata.namespace": "my-ns",
+						},
+						MatchLabels: map[string]string{
+							"app": "pod",
+						},
+						MatchAnnotations: map[string]string{
+							"app": "pod",
+						},
+					},
+				},
+			},
+			expectFilteredCount: 2,
+		},
+		"2 observed Pods + Pod + Namespace + Labels + Anns as target - all skipped": {
+			Resources: []*unstructured.Unstructured{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"name":      "my-pod-1",
+							"namespace": "my-ns",
+							"labels": map[string]interface{}{
+								"app": "pod",
+							},
+							"annotations": map[string]interface{}{
+								"app": "pod",
+							},
+						},
+					},
+				},
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"name":      "my-pod-2",
+							"namespace": "my-ns",
+							"labels": map[string]interface{}{
+								"app": "pod",
+							},
+							"annotations": map[string]interface{}{
+								"app": "pod",
+							},
+						},
+					},
+				},
+			},
+			Target: metac.ResourceSelector{
+				SelectorTerms: []*metac.SelectorTerm{
+					// all conditions in a SelectorTerm must be satisfied
+					&metac.SelectorTerm{
+						MatchFields: map[string]string{
+							"kind":               "Pod",
+							"apiVersion":         "v1",
+							"metadata.namespace": "my-ns",
+						},
+						MatchLabels: map[string]string{
+							"app": "no-pod",
+						},
+						MatchAnnotations: map[string]string{
+							"app": "no-pod",
+						},
+					},
+				},
+			},
+			expectSkipCount: 2,
+		},
+		"0 observed + Service as target": {
+			Resources: []*unstructured.Unstructured{},
+			Target: metac.ResourceSelector{
+				SelectorTerms: []*metac.SelectorTerm{
+					&metac.SelectorTerm{
+						MatchFields: map[string]string{
+							"kind": "Service",
+						},
+					},
+				},
+			},
+		},
+		"0 observed + 0 target": {
+			Resources: []*unstructured.Unstructured{},
+			Target: metac.ResourceSelector{
+				SelectorTerms: []*metac.SelectorTerm{},
+			},
+		},
+		"1 observed Pod + Any resource is valid target": {
+			Resources: []*unstructured.Unstructured{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind": "Pod",
+					},
+				},
+			},
+			Target: metac.ResourceSelector{
+				SelectorTerms: []*metac.SelectorTerm{},
+			},
+			expectFilteredCount: 1,
+		},
+	}
+	for name, mock := range tests {
+		name := name
+		mock := mock
+		t.Run(name, func(t *testing.T) {
+			b := &UpdateStatesBuilder{
+				Request: UpdateRequest{
+					IncludeInfo: map[types.IncludeInfoKey]bool{
+						"*": true, // will include skipped info
+					},
+					Target:            mock.Target,
+					ObservedResources: mock.Resources,
+					Watch: &unstructured.Unstructured{
+						Object: map[string]interface{}{},
+					},
+				},
+				Result: &types.TaskActionResult{},
+			}
+			b.filterResources()
+			if mock.isErr && b.err == nil {
+				t.Fatalf("Expected error got none")
+			}
+			if !mock.isErr && b.err != nil {
+				t.Fatalf("Expected no error got [%+v]", b.err)
+			}
+			if mock.isErr {
+				return
+			}
+			if mock.expectSkipCount != len(b.Result.SkippedInfo) {
+				t.Fatalf(
+					"Expected skip count %d got %d",
+					mock.expectSkipCount,
+					len(b.Result.SkippedInfo),
+				)
+			}
+			if mock.expectFilteredCount != len(b.filteredResources) {
+				t.Fatalf(
+					"Expected filtered count %d got %d",
+					mock.expectFilteredCount,
+					len(b.filteredResources),
+				)
+			}
+		})
+	}
+}
+
 func TestIsSkipUpdate(t *testing.T) {
 	var tests = map[string]struct {
 		filtered []*unstructured.Unstructured
@@ -350,7 +572,7 @@ func TestIsSkipUpdate(t *testing.T) {
 		name := name
 		mock := mock
 		t.Run(name, func(t *testing.T) {
-			b := UpdateBuilder{
+			b := UpdateStatesBuilder{
 				filteredResources: mock.filtered,
 			}
 			b.isSkipUpdate()
@@ -556,7 +778,7 @@ func TestUpdateBuilderGroupResourcesByUpdateType(t *testing.T) {
 		name := name
 		mock := mock
 		t.Run(name, func(t *testing.T) {
-			b := UpdateBuilder{
+			b := UpdateStatesBuilder{
 				filteredResources: mock.filteredResources,
 				Request: UpdateRequest{
 					Watch: watch,
@@ -1092,7 +1314,7 @@ func TestUpdateBuilderRunApplyForDesiredUpdates(t *testing.T) {
 		name := name
 		mock := mock
 		t.Run(name, func(t *testing.T) {
-			b := UpdateBuilder{
+			b := UpdateStatesBuilder{
 				markedForDesiredUpdates: mock.original,
 				Request: UpdateRequest{
 					Apply: mock.apply,
@@ -1616,7 +1838,7 @@ func TestUpdateBuilderRunApplyForExplicitUpdates(t *testing.T) {
 		name := name
 		mock := mock
 		t.Run(name, func(t *testing.T) {
-			b := UpdateBuilder{
+			b := UpdateStatesBuilder{
 				markedForExplicitUpdates: mock.original,
 				Request: UpdateRequest{
 					Apply: mock.apply,
@@ -2013,14 +2235,14 @@ func TestBuildUpdateStates(t *testing.T) {
 			if mock.isErr {
 				return
 			}
-			if mock.isSkip && got.Phase != types.TaskResultPhaseSkipped {
+			if mock.isSkip && got.Result.Phase != types.TaskResultPhaseSkipped {
 				t.Fatalf(
 					"Expected phase %q got %q",
 					types.TaskResultPhaseSkipped,
-					got.Phase,
+					got.Result.Phase,
 				)
 			}
-			if !mock.isSkip && got.Phase == types.TaskResultPhaseSkipped {
+			if !mock.isSkip && got.Result.Phase == types.TaskResultPhaseSkipped {
 				t.Fatalf(
 					"Didn't expect phase %q ",
 					types.TaskResultPhaseSkipped,
@@ -2056,6 +2278,246 @@ func TestBuildUpdateStates(t *testing.T) {
 						got.DesiredUpdates,
 						mock.DesiredUpdates,
 					),
+				)
+			}
+		})
+	}
+}
+
+func TestUpdateBuilderIncludeSkippedInfoIfEnabled(t *testing.T) {
+	var tests = map[string]struct {
+		IncludeInfo       map[types.IncludeInfoKey]bool
+		expectedSkipCount int
+	}{
+		"include all": {
+			IncludeInfo: map[types.IncludeInfoKey]bool{
+				types.IncludeAllInfo: true,
+			},
+			expectedSkipCount: 1,
+		},
+		"exclude all": {
+			IncludeInfo: map[types.IncludeInfoKey]bool{
+				types.IncludeAllInfo: false,
+			},
+			expectedSkipCount: 0,
+		},
+		"include *": {
+			IncludeInfo: map[types.IncludeInfoKey]bool{
+				"*": true,
+			},
+			expectedSkipCount: 1,
+		},
+		"exclude *": {
+			IncludeInfo: map[types.IncludeInfoKey]bool{
+				"*": false,
+			},
+			expectedSkipCount: 0,
+		},
+		"include none": {
+			IncludeInfo:       map[types.IncludeInfoKey]bool{},
+			expectedSkipCount: 0,
+		},
+		"include nil": {
+			expectedSkipCount: 0,
+		},
+		"include skip": {
+			IncludeInfo: map[types.IncludeInfoKey]bool{
+				types.IncludeSkippedInfo: true,
+			},
+			expectedSkipCount: 1,
+		},
+		"exclude skip": {
+			IncludeInfo: map[types.IncludeInfoKey]bool{
+				types.IncludeSkippedInfo: false,
+			},
+			expectedSkipCount: 0,
+		},
+	}
+	for name, mock := range tests {
+		name := name
+		mock := mock
+		t.Run(name, func(t *testing.T) {
+			b := &UpdateStatesBuilder{
+				Request: UpdateRequest{
+					IncludeInfo: mock.IncludeInfo,
+				},
+				Result: &types.TaskActionResult{},
+			}
+			b.includeSkippedInfoIfEnabled(&unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       "Pod",
+					"apiVersion": "v1",
+					"metadata": map[string]interface{}{
+						"name":      "my-pod",
+						"namespace": "my-ns",
+					},
+				},
+			}, "Skip this")
+			if mock.expectedSkipCount != len(b.Result.SkippedInfo) {
+				t.Fatalf(
+					"Expected skip count %d got %d",
+					mock.expectedSkipCount,
+					len(b.Result.SkippedInfo),
+				)
+			}
+		})
+	}
+}
+
+func TestUpdateBuilderIncludeDesiredInfoIfEnabled(t *testing.T) {
+	var tests = map[string]struct {
+		IncludeInfo          map[types.IncludeInfoKey]bool
+		expectedDesiredCount int
+	}{
+		"include all": {
+			IncludeInfo: map[types.IncludeInfoKey]bool{
+				types.IncludeAllInfo: true,
+			},
+			expectedDesiredCount: 1,
+		},
+		"exclude all": {
+			IncludeInfo: map[types.IncludeInfoKey]bool{
+				types.IncludeAllInfo: false,
+			},
+			expectedDesiredCount: 0,
+		},
+		"include *": {
+			IncludeInfo: map[types.IncludeInfoKey]bool{
+				"*": true,
+			},
+			expectedDesiredCount: 1,
+		},
+		"exclude *": {
+			IncludeInfo: map[types.IncludeInfoKey]bool{
+				"*": false,
+			},
+			expectedDesiredCount: 0,
+		},
+		"include none": {
+			IncludeInfo:          map[types.IncludeInfoKey]bool{},
+			expectedDesiredCount: 0,
+		},
+		"include nil": {
+			expectedDesiredCount: 0,
+		},
+		"include desired": {
+			IncludeInfo: map[types.IncludeInfoKey]bool{
+				types.IncludeDesiredInfo: true,
+			},
+			expectedDesiredCount: 1,
+		},
+		"exclude desired": {
+			IncludeInfo: map[types.IncludeInfoKey]bool{
+				types.IncludeDesiredInfo: false,
+			},
+			expectedDesiredCount: 0,
+		},
+	}
+	for name, mock := range tests {
+		name := name
+		mock := mock
+		t.Run(name, func(t *testing.T) {
+			b := &UpdateStatesBuilder{
+				Request: UpdateRequest{
+					IncludeInfo: mock.IncludeInfo,
+				},
+				Result: &types.TaskActionResult{},
+			}
+			b.includeDesiredInfoIfEnabled(&unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       "Pod",
+					"apiVersion": "v1",
+					"metadata": map[string]interface{}{
+						"name":      "my-pod",
+						"namespace": "my-ns",
+					},
+				},
+			}, "Desired info")
+			if mock.expectedDesiredCount != len(b.Result.DesiredInfo) {
+				t.Fatalf(
+					"Expected desired count %d got %d",
+					mock.expectedDesiredCount,
+					len(b.Result.DesiredInfo),
+				)
+			}
+		})
+	}
+}
+
+func TestUpdateBuilderIncludeExplicitInfoIfEnabled(t *testing.T) {
+	var tests = map[string]struct {
+		IncludeInfo           map[types.IncludeInfoKey]bool
+		expectedExplicitCount int
+	}{
+		"include all": {
+			IncludeInfo: map[types.IncludeInfoKey]bool{
+				types.IncludeAllInfo: true,
+			},
+			expectedExplicitCount: 1,
+		},
+		"exclude all": {
+			IncludeInfo: map[types.IncludeInfoKey]bool{
+				types.IncludeAllInfo: false,
+			},
+			expectedExplicitCount: 0,
+		},
+		"include *": {
+			IncludeInfo: map[types.IncludeInfoKey]bool{
+				"*": true,
+			},
+			expectedExplicitCount: 1,
+		},
+		"exclude *": {
+			IncludeInfo: map[types.IncludeInfoKey]bool{
+				"*": false,
+			},
+			expectedExplicitCount: 0,
+		},
+		"include none": {
+			IncludeInfo:           map[types.IncludeInfoKey]bool{},
+			expectedExplicitCount: 0,
+		},
+		"include nil": {
+			expectedExplicitCount: 0,
+		},
+		"include explicit": {
+			IncludeInfo: map[types.IncludeInfoKey]bool{
+				types.IncludeExplicitInfo: true,
+			},
+			expectedExplicitCount: 1,
+		},
+		"exclude explicit": {
+			IncludeInfo: map[types.IncludeInfoKey]bool{
+				types.IncludeExplicitInfo: false,
+			},
+			expectedExplicitCount: 0,
+		},
+	}
+	for name, mock := range tests {
+		name := name
+		mock := mock
+		t.Run(name, func(t *testing.T) {
+			b := &UpdateStatesBuilder{
+				Request: UpdateRequest{
+					IncludeInfo: mock.IncludeInfo,
+				},
+				Result: &types.TaskActionResult{},
+			}
+			b.includeExplicitInfoIfEnabled(&unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       "Pod",
+					"apiVersion": "v1",
+					"metadata": map[string]interface{}{
+						"name":      "my-pod",
+						"namespace": "my-ns",
+					},
+				},
+			}, "Explicit info")
+			if mock.expectedExplicitCount != len(b.Result.ExplicitInfo) {
+				t.Fatalf(
+					"Expected explicit count %d got %d",
+					mock.expectedExplicitCount,
+					len(b.Result.ExplicitInfo),
 				)
 			}
 		})

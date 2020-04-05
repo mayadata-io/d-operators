@@ -30,6 +30,7 @@ import (
 // UpdateRequest provides various data required to
 // build the update state(s)
 type UpdateRequest struct {
+	IncludeInfo       map[types.IncludeInfoKey]bool
 	Run               *unstructured.Unstructured
 	Watch             *unstructured.Unstructured
 	TaskKey           string
@@ -43,14 +44,14 @@ type UpdateRequest struct {
 type UpdateResponse struct {
 	DesiredUpdates  []*unstructured.Unstructured
 	ExplicitUpdates []*unstructured.Unstructured
-	Message         string
-	Phase           types.TaskResultPhase
+	Result          *types.TaskActionResult
 }
 
-// UpdateBuilder builds the desired resource(s) to
+// UpdateStatesBuilder builds the desired resource(s) to
 // be updated at the cluster
-type UpdateBuilder struct {
+type UpdateStatesBuilder struct {
 	Request UpdateRequest
+	Result  *types.TaskActionResult
 
 	// filtered resources that need to be updated
 	filteredResources []*unstructured.Unstructured
@@ -72,7 +73,76 @@ type UpdateBuilder struct {
 	err error
 }
 
-func (r *UpdateBuilder) filterResources() {
+func (r *UpdateStatesBuilder) includeDesiredInfoIfEnabled(
+	resource *unstructured.Unstructured,
+	message string,
+) {
+	if r.Request.IncludeInfo == nil {
+		return
+	}
+	if !r.Request.IncludeInfo[types.IncludeDesiredInfo] &&
+		!r.Request.IncludeInfo[types.IncludeAllInfo] {
+		return
+	}
+	r.Result.DesiredInfo = append(
+		r.Result.DesiredInfo,
+		fmt.Sprintf(
+			"%s: %q / %q: %s",
+			message,
+			resource.GetNamespace(),
+			resource.GetName(),
+			resource.GroupVersionKind().String(),
+		),
+	)
+}
+
+func (r *UpdateStatesBuilder) includeExplicitInfoIfEnabled(
+	resource *unstructured.Unstructured,
+	message string,
+) {
+	if r.Request.IncludeInfo == nil {
+		return
+	}
+	if !r.Request.IncludeInfo[types.IncludeExplicitInfo] &&
+		!r.Request.IncludeInfo[types.IncludeAllInfo] {
+		return
+	}
+	r.Result.ExplicitInfo = append(
+		r.Result.ExplicitInfo,
+		fmt.Sprintf(
+			"%s: %q / %q: %s",
+			message,
+			resource.GetNamespace(),
+			resource.GetName(),
+			resource.GroupVersionKind().String(),
+		),
+	)
+}
+
+func (r *UpdateStatesBuilder) includeSkippedInfoIfEnabled(
+	resource *unstructured.Unstructured,
+	message string,
+) {
+	if r.Request.IncludeInfo == nil {
+		return
+	}
+	if !r.Request.IncludeInfo[types.IncludeSkippedInfo] &&
+		!r.Request.IncludeInfo[types.IncludeAllInfo] {
+		return
+	}
+	r.Result.SkippedInfo = append(
+		r.Result.SkippedInfo,
+		fmt.Sprintf(
+			"%s: %q / %q: %s",
+			message,
+			resource.GetNamespace(),
+			resource.GetName(),
+			resource.GroupVersionKind().String(),
+		),
+	)
+}
+
+func (r *UpdateStatesBuilder) filterResources() {
 	for _, observed := range r.Request.ObservedResources {
 		if observed == nil || observed.Object == nil {
 			r.err = errors.Errorf(
@@ -91,6 +161,7 @@ func (r *UpdateBuilder) filterResources() {
 			return
 		}
 		if !isMatch {
+			r.includeSkippedInfoIfEnabled(observed, "Skipped for update")
 			continue
 		}
 		r.filteredResources = append(
@@ -100,13 +171,16 @@ func (r *UpdateBuilder) filterResources() {
 	}
 }
 
-func (r *UpdateBuilder) isSkipUpdate() {
+func (r *UpdateStatesBuilder) isSkipUpdate() {
 	if len(r.filteredResources) == 0 {
+		// no resources matched i.e. none were filtered
+		// so the entire update task will be skipped
 		r.isSkip = true
 	}
 }
 
-func (r *UpdateBuilder) groupResourcesByUpdateType() {
+// group resources by explicit updates or desired updates
+func (r *UpdateStatesBuilder) groupResourcesByUpdateType() {
 	var watchuid = string(r.Request.Watch.GetUID())
 	for _, filtered := range r.filteredResources {
 		observedAnns := filtered.GetAnnotations()
@@ -118,14 +192,16 @@ func (r *UpdateBuilder) groupResourcesByUpdateType() {
 				r.markedForDesiredUpdates,
 				filtered,
 			)
-			continue
+			r.includeDesiredInfoIfEnabled(filtered, "Marked for desired update")
+		} else {
+			// This observed resource was not created by this controller.
+			// Hence, this resource needs to be **updated explicitly** by metac.
+			r.markedForExplicitUpdates = append(
+				r.markedForExplicitUpdates,
+				filtered,
+			)
+			r.includeExplicitInfoIfEnabled(filtered, "Marked for explicit update")
 		}
-		// This observed resource was not created by this controller.
-		// Hence, this resource needs to be **updated explicitly** by metac.
-		r.markedForExplicitUpdates = append(
-			r.markedForExplicitUpdates,
-			filtered,
-		)
 	}
 }
 
@@ -151,7 +227,7 @@ func (r *UpdateBuilder) groupResourcesByUpdateType() {
 //	This logic is essentially a 2 way merge since last applied &
 // desired state are same. Both last applied & desired state
 // equals the desired state.
-func (r *UpdateBuilder) runApplyForDesiredUpdates() {
+func (r *UpdateStatesBuilder) runApplyForDesiredUpdates() {
 	for _, obj := range r.markedForDesiredUpdates {
 		final, err := apply.Merge(
 			obj.UnstructuredContent(), // observed
@@ -161,10 +237,10 @@ func (r *UpdateBuilder) runApplyForDesiredUpdates() {
 		if err != nil {
 			r.err = errors.Wrapf(
 				err,
-				"Can't update: %s: %q / %q",
-				obj.GroupVersionKind().String(),
+				"Can't update %q / %q: %s",
 				obj.GetNamespace(),
 				obj.GetName(),
+				obj.GroupVersionKind().String(),
 			)
 			return
 		}
@@ -199,7 +275,7 @@ func (r *UpdateBuilder) runApplyForDesiredUpdates() {
 //	This logic is essentially a 2 way merge since last applied &
 // desired state are same. Both last applied & desired state
 // equals the desired state.
-func (r *UpdateBuilder) runApplyForExplicitUpdates() {
+func (r *UpdateStatesBuilder) runApplyForExplicitUpdates() {
 	for _, obj := range r.markedForExplicitUpdates {
 		final, err := apply.Merge(
 			obj.UnstructuredContent(), // observed
@@ -209,10 +285,10 @@ func (r *UpdateBuilder) runApplyForExplicitUpdates() {
 		if err != nil {
 			r.err = errors.Wrapf(
 				err,
-				"Can't update: %s: %q / %q",
-				obj.GroupVersionKind().String(),
+				"Can't update %q / %q: %s",
 				obj.GetNamespace(),
 				obj.GetName(),
+				obj.GroupVersionKind().String(),
 			)
 			return
 		}
@@ -225,34 +301,35 @@ func (r *UpdateBuilder) runApplyForExplicitUpdates() {
 	}
 }
 
-// Build returns the built up desired resource
-func (r *UpdateBuilder) Build() (UpdateResponse, error) {
+// Build builds the desired resources to be updated
+// at the cluster
+func (r *UpdateStatesBuilder) Build() (*UpdateResponse, error) {
 	if r.Request.TaskKey == "" {
-		return UpdateResponse{}, errors.Errorf(
+		return nil, errors.Errorf(
 			"Can't update: Missing task key",
 		)
 	}
 	if r.Request.Run == nil {
-		return UpdateResponse{}, errors.Errorf(
+		return nil, errors.Errorf(
 			"Can't update: Missing run: %q",
 			r.Request.TaskKey,
 		)
 	}
 	if r.Request.Watch == nil {
-		return UpdateResponse{}, errors.Errorf(
+		return nil, errors.Errorf(
 			"Can't update: Missing watch: %q",
 			r.Request.TaskKey,
 		)
 	}
 	if len(r.Request.Apply) == 0 {
-		return UpdateResponse{}, errors.Errorf(
+		return nil, errors.Errorf(
 			"Can't update: Missing update state: %q",
 			r.Request.TaskKey,
 		)
 	}
 	if len(r.Request.Target.SelectorTerms) == 0 {
-		return UpdateResponse{}, errors.Errorf(
-			"Can't update: Missing target: %q",
+		return nil, errors.Errorf(
+			"Can't update: Missing target selector: %q",
 			r.Request.TaskKey,
 		)
 	}
@@ -266,34 +343,40 @@ func (r *UpdateBuilder) Build() (UpdateResponse, error) {
 	for _, fn := range fns {
 		fn()
 		if r.err != nil {
-			return UpdateResponse{}, r.err
+			return nil, r.err
 		}
 		if r.isSkip {
-			return UpdateResponse{
-				Phase:   types.TaskResultPhaseSkipped,
-				Message: "No eligible resources to update",
+			return &UpdateResponse{
+				Result: &types.TaskActionResult{
+					Phase:   types.TaskResultPhaseSkipped,
+					Message: "No eligible resources found to update",
+				},
 			}, nil
 		}
 	}
-	return UpdateResponse{
+	return &UpdateResponse{
 		ExplicitUpdates: r.explicitUpdates,
 		DesiredUpdates:  r.desiredUpdates,
-		Phase:           types.TaskResultPhaseOnline,
-		Message: fmt.Sprintf(
-			"Update was successful: Desired updates %d: Explicit updates %d",
-			len(r.desiredUpdates),
-			len(r.explicitUpdates),
-		),
+		Result: &types.TaskActionResult{
+			SkippedInfo:  r.Result.SkippedInfo,  // is set if enabled
+			DesiredInfo:  r.Result.DesiredInfo,  // is set if enabled
+			ExplicitInfo: r.Result.ExplicitInfo, // is set if enabled
+			Phase:        types.TaskResultPhaseOnline,
+			Message: fmt.Sprintf(
+				"Update action was successful: Desired updates %d: Explicit updates %d",
+				len(r.desiredUpdates),
+				len(r.explicitUpdates),
+			),
+		},
 	}, nil
 }
 
 // BuildUpdateStates returns the desired resources
 // that need to be updated at the k8s cluster
-func BuildUpdateStates(
-	request UpdateRequest,
-) (UpdateResponse, error) {
-	r := &UpdateBuilder{
+func BuildUpdateStates(request UpdateRequest) (*UpdateResponse, error) {
+	r := &UpdateStatesBuilder{
 		Request: request,
+		Result:  &types.TaskActionResult{},
 	}
 	return r.Build()
 }

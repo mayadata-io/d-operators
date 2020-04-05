@@ -200,8 +200,10 @@ func TestNewResourceListCondition(t *testing.T) {
 		mock := mock
 		t.Run(name, func(t *testing.T) {
 			rc := NewResourceListCondition(
-				mock.condition,
-				mock.resources,
+				ResourceListConditionConfig{
+					Condition: mock.condition,
+					Resources: mock.resources,
+				},
 			)
 			if mock.isErr && rc.err == nil {
 				t.Fatalf("Expected error got none")
@@ -522,9 +524,11 @@ func TestResourceListConditionTryMatchAndRegister(t *testing.T) {
 		mock := mock
 		t.Run(name, func(t *testing.T) {
 			rc := NewResourceListCondition(
-				mock.condition,
-				[]*unstructured.Unstructured{
-					mock.resource,
+				ResourceListConditionConfig{
+					Condition: mock.condition,
+					Resources: []*unstructured.Unstructured{
+						mock.resource,
+					},
 				},
 			)
 			rc.runMatchFor(mock.resource)
@@ -1232,8 +1236,10 @@ func TestResourceListConditionIsSuccess(t *testing.T) {
 		mock := mock
 		t.Run(name, func(t *testing.T) {
 			rc := NewResourceListCondition(
-				mock.condition,
-				mock.resources,
+				ResourceListConditionConfig{
+					Condition: mock.condition,
+					Resources: mock.resources,
+				},
 			)
 			got, err := rc.IsSuccess()
 			if mock.isErr && err == nil {
@@ -2346,9 +2352,9 @@ func TestVerifyAssert(t *testing.T) {
 
 func TestExecuteAssert(t *testing.T) {
 	var tests = map[string]struct {
-		request   AssertRequest
-		isSuccess bool
-		isErr     bool
+		request       AssertRequest
+		expectedPhase types.TaskResultPhase
+		isErr         bool
 	}{
 		"successful match + OR operator + 1 condition + matchlabels": {
 			request: AssertRequest{
@@ -2381,7 +2387,7 @@ func TestExecuteAssert(t *testing.T) {
 					},
 				},
 			},
-			isSuccess: true,
+			expectedPhase: types.TaskResultPhaseAssertPassed,
 		},
 		"successful match + OR operator + 2 conditions + matchlabels": {
 			request: AssertRequest{
@@ -2425,7 +2431,7 @@ func TestExecuteAssert(t *testing.T) {
 					},
 				},
 			},
-			isSuccess: true,
+			expectedPhase: types.TaskResultPhaseAssertPassed,
 		},
 		"successful match + AND operator + 1 condition + matchlabels": {
 			request: AssertRequest{
@@ -2459,7 +2465,7 @@ func TestExecuteAssert(t *testing.T) {
 					},
 				},
 			},
-			isSuccess: true,
+			expectedPhase: types.TaskResultPhaseAssertPassed,
 		},
 		"successful match + AND operator + 2 conditions + matchlabels": {
 			request: AssertRequest{
@@ -2505,7 +2511,7 @@ func TestExecuteAssert(t *testing.T) {
 					},
 				},
 			},
-			isSuccess: true,
+			expectedPhase: types.TaskResultPhaseAssertPassed,
 		},
 		"failed match + OR operator + 1 condition + matchlabels": {
 			request: AssertRequest{
@@ -2538,7 +2544,7 @@ func TestExecuteAssert(t *testing.T) {
 					},
 				},
 			},
-			isSuccess: false,
+			expectedPhase: types.TaskResultPhaseAssertFailed,
 		},
 		"failed match + AND operator + 2 conditions + matchlabels": {
 			request: AssertRequest{
@@ -2583,7 +2589,7 @@ func TestExecuteAssert(t *testing.T) {
 					},
 				},
 			},
-			isSuccess: false,
+			expectedPhase: types.TaskResultPhaseAssertFailed,
 		},
 		"failed match + AND operator + 1 condition + matchlabels": {
 			request: AssertRequest{
@@ -2617,7 +2623,7 @@ func TestExecuteAssert(t *testing.T) {
 					},
 				},
 			},
-			isSuccess: false,
+			expectedPhase: types.TaskResultPhaseAssertFailed,
 		},
 		"successful match + OR operator + 2 condition + 2 resources": {
 			request: AssertRequest{
@@ -2671,7 +2677,7 @@ func TestExecuteAssert(t *testing.T) {
 					},
 				},
 			},
-			isSuccess: true,
+			expectedPhase: types.TaskResultPhaseAssertPassed,
 		},
 		"successful match + AND operator + 2 condition + 2 resources": {
 			request: AssertRequest{
@@ -2725,14 +2731,14 @@ func TestExecuteAssert(t *testing.T) {
 					},
 				},
 			},
-			isSuccess: true,
+			expectedPhase: types.TaskResultPhaseAssertPassed,
 		},
 	}
 	for name, mock := range tests {
 		name := name
 		mock := mock
 		t.Run(name, func(t *testing.T) {
-			got, err := ExecuteAssert(mock.request)
+			got, err := ExecuteCondition(mock.request)
 			if mock.isErr && err == nil {
 				t.Fatalf("Expected error got none")
 			}
@@ -2742,11 +2748,11 @@ func TestExecuteAssert(t *testing.T) {
 					err,
 				)
 			}
-			if got != mock.isSuccess {
+			if got.AssertResult.Phase != mock.expectedPhase {
 				t.Fatalf(
-					"Expected success %t got %t",
-					mock.isSuccess,
-					got,
+					"Expected phase %q got %q",
+					mock.expectedPhase,
+					got.AssertResult.Phase,
 				)
 			}
 		})

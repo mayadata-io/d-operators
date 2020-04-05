@@ -218,6 +218,29 @@ const (
 	IfOperatorOR IfOperator = "OR"
 )
 
+// IncludeInfoKey determines the information type that gets
+// added to Run status
+type IncludeInfoKey string
+
+const (
+	// IncludeAllInfo if true will include info on all
+	// resources participating in Run controller
+	IncludeAllInfo IncludeInfoKey = "*"
+
+	// IncludeSkippedInfo includes info on skipped resources
+	IncludeSkippedInfo IncludeInfoKey = "skipped-resources"
+
+	// IncludeDesiredInfo includes info on desired resources
+	IncludeDesiredInfo IncludeInfoKey = "desired-resources"
+
+	// IncludeExplicitInfo includes info on resources that are
+	// handled explicitly i.e. explicit delete or explicit update
+	IncludeExplicitInfo IncludeInfoKey = "explicit-resources"
+
+	// IncludeWarnInfo includes warnings
+	IncludeWarnInfo IncludeInfoKey = "warnings"
+)
+
 // Run is a Kubernetes custom resource that defines
 // the specifications to operate on various Kubernetes
 // resources
@@ -232,10 +255,6 @@ type Run struct {
 // RunSpec defines the configuration required
 // to operate against one or more Kubernetes resources
 type RunSpec struct {
-	// If verbose is true then more details get published
-	// in the status
-	Verbose *bool `json:"verbose,omitempty"`
-
 	// Proceed with Run only if this condition succeeds
 	//
 	// NOTE:
@@ -248,6 +267,13 @@ type RunSpec struct {
 	// Tasks is used to achieve the desired state(s) of
 	// this Run spec
 	Tasks []Task `json:"tasks"`
+
+	// If set then details on resources participating in
+	// Run controller get published in the status
+	//
+	// NOTE:
+	//	This is useful for debugging purposes
+	IncludeInfo map[IncludeInfoKey]bool `json:"includeInfoOn,omitempty"`
 }
 
 // Task represents the unit of execution for the Run resource
@@ -258,8 +284,8 @@ type Task struct {
 	// A short or verbose description of this task
 	Desc string `json:"desc,omitempty"`
 
-	// Proceed with Create or Delete or Update only if this
-	// condition succeeds
+	// Proceed either with Create, Delete, Update or Assert
+	// if this condition succeeds
 	//
 	// NOTE:
 	// 	If is optional
@@ -309,28 +335,16 @@ type Task struct {
 	Assert *Assert `json:"assert,omitempty"`
 }
 
-// // Action to be taken against the resource
-// type Action struct {
-// 	// Replicas when set to 0 implies **deletion** of resource
-// 	// at the cluster. Similarly, when set to some value that is
-// 	// greater than 1, implies applying multiple copies of the
-// 	// resource specified in **state** field.
-// 	//
-// 	// Default value is 1
-// 	//
-// 	// Replicas is optional
-// 	Replicas *int `json:"replicas,omitempty"`
-// }
-
 // Assert any condition or state of resource
 type Assert struct {
-	// State of resource that gets asserted
+	// State of any resource is asserted as a whole
 	//
 	// This must have the kind & apiVersion as its
 	// identifying fields
 	State map[string]interface{} `json:"state,omitempty"`
 
-	// Embed If structure
+	// Embed If structure which in turn plays the
+	// role of assertion condition(s)
 	If
 }
 
@@ -375,19 +389,35 @@ type RunStatus struct {
 	Results map[string]TaskResult `json:"results,omitempty"`
 }
 
+// TaskResult provide details of a task execution
+//
+// NOTE:
+//	One of the result(s) should get filled once the task
+// gets executed
 type TaskResult struct {
-	TaskAssertResult TaskActionResult `json:"assertResult,omitempty"`
-	TaskUpdateResult TaskActionResult `json:"updateResult,omitempty"`
-	TaskCreateResult TaskActionResult `json:"createResult,omitempty"`
-	TaskDeleteResult TaskActionResult `json:"deleteResult,omitempty"`
+	Skipped          *TaskSkippedResult `json:"skipped,omitempty"`
+	TaskIfCondResult *TaskActionResult  `json:"ifcondResult,omitempty"`
+	TaskAssertResult *TaskActionResult  `json:"assertResult,omitempty"`
+	TaskUpdateResult *TaskActionResult  `json:"updateResult,omitempty"`
+	TaskCreateResult *TaskActionResult  `json:"createResult,omitempty"`
+	TaskDeleteResult *TaskActionResult  `json:"deleteResult,omitempty"`
 }
 
+// TaskActionResult provides details of a task execution. For
+// example a assert task will have assert results filled up.
 type TaskActionResult struct {
 	Phase          TaskResultPhase `json:"phase,omitempty"`
 	Message        string          `json:"message,omitempty"`
 	Warns          []string        `json:"warns,omitempty"`
-	Matches        []string        `json:"matches,omitempty"`
-	NoMatches      []string        `json:"nomatches,omitempty"`
-	HasRunOnce     bool            `json:"hasRunOnce,omitempty"`
-	HasSkippedOnce bool            `json:"hasSkippedOnce,omitempty"`
+	ExplicitInfo   []string        `json:"explicitInfo,omitempty"`
+	DesiredInfo    []string        `json:"desiredInfo,omitempty"`
+	SkippedInfo    []string        `json:"skippedInfo,omitempty"`
+	HasRunOnce     *bool           `json:"hasRunOnce,omitempty"`
+	HasSkippedOnce *bool           `json:"hasSkippedOnce,omitempty"`
+}
+
+// TaskSkippedResult provides details of the task which was not executed
+type TaskSkippedResult struct {
+	Phase   TaskResultPhase `json:"phase,omitempty"`
+	Message string          `json:"message,omitempty"`
 }

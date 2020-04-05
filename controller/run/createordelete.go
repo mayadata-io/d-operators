@@ -17,9 +17,6 @@ limitations under the License.
 package run
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	types "mayadata.io/d-operators/types/run"
@@ -28,6 +25,7 @@ import (
 // CreateOrDeleteRequest provides various data required to
 // build the desired state(s)
 type CreateOrDeleteRequest struct {
+	IncludeInfo       map[types.IncludeInfoKey]bool
 	Run               *unstructured.Unstructured
 	Watch             *unstructured.Unstructured
 	TaskKey           string
@@ -41,20 +39,17 @@ type CreateOrDeleteRequest struct {
 type CreateOrDeleteResponse struct {
 	DesiredResources []*unstructured.Unstructured
 	ExplicitDeletes  []*unstructured.Unstructured
-	Message          string
-	Phase            types.TaskResultPhase
+	CreateResult     *types.TaskActionResult
+	DeleteResult     *types.TaskActionResult
 }
 
 // CreateOrDeleteBuilder builds the desired resource(s)
 type CreateOrDeleteBuilder struct {
 	Request CreateOrDeleteRequest
 
-	replicas         int
-	isDelete         bool
-	desiredName      string
-	desiredTemplate  *unstructured.Unstructured
-	desiredResources []*unstructured.Unstructured
-	explicitDeletes  []*unstructured.Unstructured
+	replicas        int
+	isDelete        bool
+	desiredTemplate *unstructured.Unstructured
 
 	err error
 }
@@ -68,7 +63,7 @@ func (r *CreateOrDeleteBuilder) init() {
 	}
 }
 
-func (r *CreateOrDeleteBuilder) setDesiredTemplate() {
+func (r *CreateOrDeleteBuilder) evalDesiredTemplate() {
 	obj := &unstructured.Unstructured{}
 	obj.SetUnstructuredContent(r.Request.Apply)
 	// verify if its a proper unstructured instance
@@ -83,7 +78,7 @@ func (r *CreateOrDeleteBuilder) setDesiredTemplate() {
 	}
 	if len(obj.Object) == 0 {
 		r.err = errors.Errorf(
-			"Empty desired state: %q",
+			"Invalid desired state: Nil Object: %q",
 			r.Request.TaskKey,
 		)
 		return
@@ -105,7 +100,7 @@ func (r *CreateOrDeleteBuilder) setDesiredTemplate() {
 	r.desiredTemplate = obj
 }
 
-func (r *CreateOrDeleteBuilder) trySetDeleteFlag() {
+func (r *CreateOrDeleteBuilder) isDeleteAction() {
 	if r.replicas == 0 {
 		// when replicas is set to 0, it implies deleting
 		// this resource from cluster
@@ -117,161 +112,85 @@ func (r *CreateOrDeleteBuilder) trySetDeleteFlag() {
 		"spec",
 	)
 	if found && spec == nil {
-		// a nil spec implies a delete operation
+		// a nil spec implies a delete operation as well
 		r.isDelete = true
-		// hence no need to build the desired states
-		return
-	}
-}
-
-func (r *CreateOrDeleteBuilder) generateDesiredName() {
-	// start with generate name if any
-	name := r.desiredTemplate.GetGenerateName()
-	// **reset** desired state's generate name to empty
-	r.desiredTemplate.SetGenerateName("")
-	if name == "" {
-		// use name from specified desired state
-		name = r.desiredTemplate.GetName()
-	}
-	if name == "" && !r.isDelete {
-		r.err = errors.Errorf(
-			"Invalid desired state: Missing name: %q",
-			r.Request.TaskKey,
-		)
-		return
-	}
-	// final desired name
-	r.desiredName = name
-}
-
-func (r *CreateOrDeleteBuilder) updateDesiredTemplateAnnotations() {
-	if r.isDelete {
-		// since this is a delete operation
-		// no need to update with desired annotations
-		return
-	}
-	anns := r.desiredTemplate.GetAnnotations()
-	if anns == nil {
-		anns = make(map[string]string)
-	}
-	// add various details as annotations
-	anns[types.AnnotationKeyRunUID] = string(r.Request.Run.GetUID())
-	anns[types.AnnotationKeyRunName] = r.Request.Run.GetName()
-	anns[types.AnnotationKeyWatchUID] = string(r.Request.Watch.GetUID())
-	anns[types.AnnotationKeyWatchName] = r.Request.Watch.GetName()
-	anns[types.AnnotationKeyTaskKey] = r.Request.TaskKey
-	// set the updated annotations
-	r.desiredTemplate.SetAnnotations(anns)
-}
-
-func (r *CreateOrDeleteBuilder) buildStateFromTemplateWithName(
-	name string,
-) *unstructured.Unstructured {
-	obj := r.desiredTemplate.DeepCopy()
-	obj.SetName(name)
-	return obj
-}
-
-func (r *CreateOrDeleteBuilder) buildDesiredStates() {
-	if r.isDelete {
-		// since this is a delete operation no need
-		// to build desired states
-		return
-	}
-	if r.replicas == 1 {
-		r.desiredResources = append(
-			r.desiredResources,
-			r.buildStateFromTemplateWithName(r.desiredName),
-		)
-		return
-	}
-	for i := 0; i < r.replicas; i++ {
-		name := fmt.Sprintf("%s-%d", r.desiredName, i)
-		r.desiredResources = append(
-			r.desiredResources,
-			r.buildStateFromTemplateWithName(name),
-		)
-	}
-}
-
-func (r *CreateOrDeleteBuilder) markResourcesForExplicitDelete() {
-	if !r.isDelete {
-		// nothing to do for non delete operation
-		// as well as for the cases when resource name
-		// is not available
-		return
-	}
-	var watchuid = string(r.Request.Watch.GetUID())
-	for _, observed := range r.Request.ObservedResources {
-		if !strings.HasPrefix(observed.GetName(), r.desiredName) ||
-			r.desiredTemplate.GetKind() != observed.GetKind() ||
-			r.desiredTemplate.GetAPIVersion() != observed.GetAPIVersion() ||
-			r.desiredTemplate.GetNamespace() != observed.GetNamespace() {
-			// not a match, so nothing to do
-			continue
-		}
-		observedAnns := observed.GetAnnotations()
-		if len(observedAnns) == 0 ||
-			observedAnns["metac.openebs.io/created-due-to-watch"] != watchuid {
-			// Observed resource was not created by this watch resource.
-			// Hence, this needs to be deleted explicitly by metac
-			r.explicitDeletes = append(
-				r.explicitDeletes,
-				observed.DeepCopy(),
-			)
-		}
 	}
 }
 
 // Build returns the built up desired resource
-func (r *CreateOrDeleteBuilder) Build() (CreateOrDeleteResponse, error) {
+func (r *CreateOrDeleteBuilder) Build() (*CreateOrDeleteResponse, error) {
 	if r.Request.TaskKey == "" {
-		return CreateOrDeleteResponse{}, errors.Errorf(
+		return nil, errors.Errorf(
 			"Can't build desired state: Empty task key",
 		)
 	}
 	if r.Request.Run == nil {
-		return CreateOrDeleteResponse{}, errors.Errorf(
+		return nil, errors.Errorf(
 			"Can't build desired state: Nil run: %q",
 			r.Request.TaskKey,
 		)
 	}
 	if r.Request.Watch == nil {
-		return CreateOrDeleteResponse{}, errors.Errorf(
+		return nil, errors.Errorf(
 			"Can't build desired state: Nil watch: %q",
 			r.Request.TaskKey,
 		)
 	}
 	if len(r.Request.Apply) == 0 {
-		return CreateOrDeleteResponse{}, errors.Errorf(
+		return nil, errors.Errorf(
 			"Can't build desired state: Nil desired state found: %q",
 			r.Request.TaskKey,
 		)
 	}
 	fns := []func(){
 		r.init,
-		r.setDesiredTemplate,
-		r.trySetDeleteFlag,
-		r.generateDesiredName,
-		r.updateDesiredTemplateAnnotations,
-		r.buildDesiredStates,
-		r.markResourcesForExplicitDelete,
+		r.evalDesiredTemplate,
+		r.isDeleteAction,
 	}
 	for _, fn := range fns {
 		fn()
 		if r.err != nil {
-			return CreateOrDeleteResponse{}, r.err
+			return nil, r.err
 		}
 	}
-	return CreateOrDeleteResponse{
-		ExplicitDeletes:  r.explicitDeletes,
-		DesiredResources: r.desiredResources,
-		Phase:            types.TaskResultPhaseOnline,
-		Message: fmt.Sprintf(
-			"Create/Delete was successful: Desired resources %d: Explicit deletes %d",
-			len(r.desiredResources),
-			len(r.explicitDeletes),
-		),
+	if r.isDelete {
+		// delete action
+		resp, err := BuildDeleteStates(
+			DeleteRequest{
+				IncludeInfo:       r.Request.IncludeInfo,
+				ObservedResources: r.Request.ObservedResources,
+				TaskKey:           r.Request.TaskKey,
+				Run:               r.Request.Run,
+				Watch:             r.Request.Watch,
+				DeleteTemplate:    r.desiredTemplate,
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
+		return &CreateOrDeleteResponse{
+			ExplicitDeletes: resp.ExplicitDeletes,
+			DeleteResult:    resp.Result,
+		}, nil
+	}
+	// create action
+	resp, err := BuildCreateStates(
+		CreateRequest{
+			IncludeInfo:       r.Request.IncludeInfo,
+			ObservedResources: r.Request.ObservedResources,
+			TaskKey:           r.Request.TaskKey,
+			Run:               r.Request.Run,
+			Watch:             r.Request.Watch,
+			DesiredTemplate:   r.desiredTemplate,
+			Replicas:          r.replicas,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &CreateOrDeleteResponse{
+		DesiredResources: resp.DesiredResources,
+		CreateResult:     resp.Result,
 	}, nil
 }
 
@@ -279,7 +198,7 @@ func (r *CreateOrDeleteBuilder) Build() (CreateOrDeleteResponse, error) {
 // that need to either applied or deleted from the k8s cluster
 func BuildCreateOrDeleteStates(
 	request CreateOrDeleteRequest,
-) (CreateOrDeleteResponse, error) {
+) (*CreateOrDeleteResponse, error) {
 	r := &CreateOrDeleteBuilder{
 		Request: request,
 	}
