@@ -55,9 +55,6 @@ type RunnableTask struct {
 	isIfCondSuccess bool
 	isAssertSuccess bool
 
-	execPhase   types.TaskResultPhase
-	execMessage string
-
 	err error
 }
 
@@ -78,7 +75,7 @@ func (r *RunnableTask) validateArgs() error {
 }
 
 func (r *RunnableTask) init() error {
-	if len(r.Request.Task.Target.SelectorTerms) == 0 {
+	if len(r.Request.Task.TargetSelector.SelectorTerms) == 0 {
 		r.isNilUpdate = true
 	}
 	if len(r.Request.Task.Apply) == 0 {
@@ -137,7 +134,7 @@ func (r *RunnableTask) runIfCondition() {
 	// save the result
 	r.Response.Result.TaskIfCondResult = got.AssertResult
 	// did If condition pass
-	if got.AssertResult.Phase == types.TaskResultPhaseAssertPassed {
+	if got.AssertResult.Phase == types.ResultPhaseAssertPassed {
 		r.isIfCondSuccess = true
 	}
 }
@@ -153,7 +150,7 @@ func (r *RunnableTask) runUpdate() {
 		Run:               r.Request.Run,
 		Watch:             r.Request.Watch,
 		Apply:             r.Request.Task.Apply,
-		Target:            r.Request.Task.Target,
+		TargetSelector:    r.Request.Task.TargetSelector,
 		ObservedResources: r.Request.ObservedResources,
 		TaskKey:           r.Request.Task.Key,
 	})
@@ -265,8 +262,8 @@ func (r *RunnableTask) Run() error {
 		}
 		// task can be executed only when its **IF** condition succeededs
 		if !r.isIfCondSuccess {
-			r.Response.Result.Skipped = &types.TaskSkippedResult{
-				Phase:   types.TaskResultPhaseSkipped,
+			r.Response.Result.Skipped = &types.SkippedResult{
+				Phase:   types.ResultPhaseSkipped,
 				Message: "Task didn't run: If cond failed",
 			}
 			return nil

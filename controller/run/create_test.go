@@ -370,7 +370,7 @@ func TestCreateBuilderIncludeDesiredInfoIfEnabled(t *testing.T) {
 				Request: CreateRequest{
 					IncludeInfo: mock.IncludeInfo,
 				},
-				Result: &types.TaskActionResult{},
+				Result: &types.Result{},
 			}
 			b.includeDesiredInfoIfEnabled(&unstructured.Unstructured{
 				Object: map[string]interface{}{
@@ -557,7 +557,7 @@ func TestCreateBuilderBuild(t *testing.T) {
 					},
 					TaskKey: "try-create",
 				},
-				Result: &types.TaskActionResult{}, // initialize
+				Result: &types.Result{}, // initialize
 			}
 			got, err := r.Build()
 			if mock.isErr && err == nil {
@@ -660,7 +660,7 @@ func TestCreateBuilderBuildNegative(t *testing.T) {
 					Watch:           mock.Watch,
 					TaskKey:         mock.TaskKey,
 				},
-				Result: &types.TaskActionResult{}, // initialize
+				Result: &types.Result{}, // initialize
 			}
 			_, err := r.Build()
 			if mock.isErr && err == nil {

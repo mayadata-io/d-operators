@@ -350,7 +350,7 @@ func TestDeleteBuilderIncludeDesiredInfoIfEnabled(t *testing.T) {
 				Request: DeleteRequest{
 					IncludeInfo: mock.IncludeInfo,
 				},
-				Result: &types.TaskActionResult{},
+				Result: &types.Result{},
 			}
 			b.includeDesiredInfoIfEnabled(&unstructured.Unstructured{
 				Object: map[string]interface{}{
@@ -430,7 +430,7 @@ func TestDeleteBuilderIncludeExplicitInfoIfEnabled(t *testing.T) {
 				Request: DeleteRequest{
 					IncludeInfo: mock.IncludeInfo,
 				},
-				Result: &types.TaskActionResult{},
+				Result: &types.Result{},
 			}
 			b.includeExplicitInfoIfEnabled(&unstructured.Unstructured{
 				Object: map[string]interface{}{
@@ -510,7 +510,7 @@ func TestDeleteBuilderIncludeSkippedInfoIfEnabled(t *testing.T) {
 				Request: DeleteRequest{
 					IncludeInfo: mock.IncludeInfo,
 				},
-				Result: &types.TaskActionResult{},
+				Result: &types.Result{},
 			}
 			b.includeSkippedInfoIfEnabled(&unstructured.Unstructured{
 				Object: map[string]interface{}{
@@ -748,7 +748,7 @@ func TestDeleteBuilderBuild(t *testing.T) {
 					},
 					TaskKey: "delete-it",
 				},
-				Result: &types.TaskActionResult{},
+				Result: &types.Result{},
 			}
 			got, err := b.Build()
 			if mock.isErr && err == nil {
@@ -836,7 +836,7 @@ func TestDeleteBuilderBuildNegative(t *testing.T) {
 					Watch:             mock.Watch,
 					TaskKey:           mock.TaskKey,
 				},
-				Result: &types.TaskActionResult{},
+				Result: &types.Result{},
 			}
 			_, err := b.Build()
 			if mock.isErr && err == nil {

@@ -39,8 +39,7 @@ import (
 // spec:
 //   tasks:
 //   - if:           # optional, create only if condition passes
-//     apply:        # resource to be created
-//     replicas: 1   # optional; default is 1 replicas
+//     apply:        # a single replica resource gets created
 //
 // UseCase: Delete a resource only once
 //
@@ -135,47 +134,47 @@ const (
 	AnnotationKeyTaskKey string = "run.dao.mayadata.io/task-key"
 )
 
-// RunStatusPhase determines the current phase of Run resource
-type RunStatusPhase string
+// // RunStatusPhase determines the current phase of Run resource
+// type RunStatusPhase string
+
+// const (
+// 	// RunStatusPhaseError indicates error during Run
+// 	RunStatusPhaseError RunStatusPhase = "Error"
+
+// 	// RunStatusPhaseOnline indicates last Run was successful
+// 	RunStatusPhaseOnline RunStatusPhase = "Online"
+
+// 	// RunStatusPhaseExited indicates Run's if cond failed
+// 	RunStatusPhaseExited RunStatusPhase = "Exited"
+// )
+
+// ResultPhase determines the current result of a Task
+type ResultPhase string
 
 const (
-	// RunStatusPhaseError indicates error during Run
-	RunStatusPhaseError RunStatusPhase = "Error"
+	// ResultPhaseInProgress indicates task is in progress
+	ResultPhaseInProgress ResultPhase = "InProgress"
 
-	// RunStatusPhaseOnline indicates last Run was successful
-	RunStatusPhaseOnline RunStatusPhase = "Online"
+	// ResultPhaseCompleted indicates task is completed
+	ResultPhaseCompleted ResultPhase = "Completed"
 
-	// RunStatusPhaseExited indicates Run was exited
-	RunStatusPhaseExited TaskResultPhase = "Exited"
-)
+	// ResultPhaseError indicates error in Task execution
+	ResultPhaseError ResultPhase = "Error"
 
-// TaskResultPhase determines the current result of a Task
-type TaskResultPhase string
+	// ResultPhaseOnline indicates Task executed without any errors
+	ResultPhaseOnline ResultPhase = "Online"
 
-const (
-	// TaskResultPhaseInProgress indicates task is in progress
-	TaskResultPhaseInProgress TaskResultPhase = "InProgress"
-
-	// TaskResultPhaseCompleted indicates task is completed
-	TaskResultPhaseCompleted TaskResultPhase = "Completed"
-
-	// TaskResultPhaseError indicates error in Task execution
-	TaskResultPhaseError TaskResultPhase = "Error"
-
-	// TaskResultPhaseOnline indicates Task executed without any errors
-	TaskResultPhaseOnline TaskResultPhase = "Online"
-
-	// TaskResultPhaseSkipped indicates Task was skipped
+	// ResultPhaseSkipped indicates Task was skipped
 	//
 	// NOTE:
 	//  This can happen if condition to run this task was not met
-	TaskResultPhaseSkipped TaskResultPhase = "Skipped"
+	ResultPhaseSkipped ResultPhase = "Skipped"
 
-	// TaskResultPhaseAssertFailed indicates assertion failed
-	TaskResultPhaseAssertFailed TaskResultPhase = "AssertFailed"
+	// ResultPhaseAssertFailed indicates assertion failed
+	ResultPhaseAssertFailed ResultPhase = "AssertFailed"
 
-	// TaskResultPhaseAssertPassed indicates assertion passed
-	TaskResultPhaseAssertPassed TaskResultPhase = "AssertPassed"
+	// ResultPhaseAssertPassed indicates assertion passed
+	ResultPhaseAssertPassed ResultPhase = "AssertPassed"
 )
 
 // ResourceOperator is a typed definition of operator
@@ -239,6 +238,22 @@ const (
 
 	// IncludeWarnInfo includes warnings
 	IncludeWarnInfo IncludeInfoKey = "warnings"
+)
+
+// TargetResourceType is a typed constant used to indicate the type
+// of resource to be updated
+type TargetResourceType string
+
+const (
+	// TargetResourceTypeObserved indicates updates to be applied
+	// against this Run's observed resources
+	//
+	// This is the default setting
+	TargetResourceTypeObserved TargetResourceType = "Observed"
+
+	// TargetResourceTypeDesired indicates update to be applied against
+	// this Run's desired resources
+	TargetResourceTypeDesired TargetResourceType = "Desired"
 )
 
 // Run is a Kubernetes custom resource that defines
@@ -311,17 +326,16 @@ type Task struct {
 	// Replicas is optional
 	Replicas *int `json:"replicas,omitempty"`
 
-	// The target(s) that get updated. Desired state found in
-	// Apply will be applied against the resources selected
-	// by this selector
+	// The target(s) to update. State found in Apply will be
+	// applied against the resources matched by this selector
 	//
 	// NOTE:
-	//	One should not try to create or delete along with update
-	// in a single task
+	//	Create, Delete & Update cannot be used together in a
+	// single task
 	//
 	// NOTE:
-	//	Target is optional
-	Target metac.ResourceSelector `json:"for,omitempty"`
+	//	TargetSelector is optional
+	TargetSelector TargetSelector `json:"targetSelector,omitempty"`
 
 	// Assert verifies the presence of, absence of one or more
 	// resources in the cluster.
@@ -333,6 +347,17 @@ type Task struct {
 	// NOTE:
 	// 	Assert is optional
 	Assert *Assert `json:"assert,omitempty"`
+}
+
+// TargetSelector selects one or more resources that need to be
+// updated
+type TargetSelector struct {
+	metac.ResourceSelector
+
+	// ResourceType to be considered for update
+	//
+	// Defaults to TargetResourceTypeObserved
+	ResourceType TargetResourceType `json:"resourceType,omitempty"`
 }
 
 // Assert any condition or state of resource
@@ -379,14 +404,10 @@ type IfCondition struct {
 
 // RunStatus has the operational state the Run resource
 type RunStatus struct {
-	// A single word state of Run resource
-	Phase string `json:"phase"`
-
-	// A descriptive statement about failure
-	Reason string `json:"reason,omitempty"`
+	Result
 
 	// Results provides current status of each task
-	Results map[string]TaskResult `json:"results,omitempty"`
+	TaskResults map[string]TaskResult `json:"taskResults,omitempty"`
 }
 
 // TaskResult provide details of a task execution
@@ -395,29 +416,30 @@ type RunStatus struct {
 //	One of the result(s) should get filled once the task
 // gets executed
 type TaskResult struct {
-	Skipped          *TaskSkippedResult `json:"skipped,omitempty"`
-	TaskIfCondResult *TaskActionResult  `json:"ifcondResult,omitempty"`
-	TaskAssertResult *TaskActionResult  `json:"assertResult,omitempty"`
-	TaskUpdateResult *TaskActionResult  `json:"updateResult,omitempty"`
-	TaskCreateResult *TaskActionResult  `json:"createResult,omitempty"`
-	TaskDeleteResult *TaskActionResult  `json:"deleteResult,omitempty"`
+	Skipped          *SkippedResult `json:"skipped,omitempty"`
+	TaskIfCondResult *Result        `json:"ifcondResult,omitempty"`
+	TaskAssertResult *Result        `json:"assertResult,omitempty"`
+	TaskUpdateResult *Result        `json:"updateResult,omitempty"`
+	TaskCreateResult *Result        `json:"createResult,omitempty"`
+	TaskDeleteResult *Result        `json:"deleteResult,omitempty"`
 }
 
-// TaskActionResult provides details of a task execution. For
+// Result provides details of a task execution. For
 // example a assert task will have assert results filled up.
-type TaskActionResult struct {
-	Phase          TaskResultPhase `json:"phase,omitempty"`
-	Message        string          `json:"message,omitempty"`
-	Warns          []string        `json:"warns,omitempty"`
-	ExplicitInfo   []string        `json:"explicitInfo,omitempty"`
-	DesiredInfo    []string        `json:"desiredInfo,omitempty"`
-	SkippedInfo    []string        `json:"skippedInfo,omitempty"`
-	HasRunOnce     *bool           `json:"hasRunOnce,omitempty"`
-	HasSkippedOnce *bool           `json:"hasSkippedOnce,omitempty"`
+type Result struct {
+	Phase          ResultPhase `json:"phase,omitempty"`
+	Message        string      `json:"message,omitempty"`
+	Errors         []error     `json:"errors,omitempty"`
+	Warns          []string    `json:"warns,omitempty"`
+	ExplicitInfo   []string    `json:"explicitInfo,omitempty"`
+	DesiredInfo    []string    `json:"desiredInfo,omitempty"`
+	SkippedInfo    []string    `json:"skippedInfo,omitempty"`
+	HasRunOnce     *bool       `json:"hasRunOnce,omitempty"`
+	HasSkippedOnce *bool       `json:"hasSkippedOnce,omitempty"`
 }
 
-// TaskSkippedResult provides details of the task which was not executed
-type TaskSkippedResult struct {
-	Phase   TaskResultPhase `json:"phase,omitempty"`
-	Message string          `json:"message,omitempty"`
+// SkippedResult provides details of the action which was not executed
+type SkippedResult struct {
+	Phase   ResultPhase `json:"phase,omitempty"`
+	Message string      `json:"message,omitempty"`
 }

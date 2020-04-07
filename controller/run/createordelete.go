@@ -39,8 +39,8 @@ type CreateOrDeleteRequest struct {
 type CreateOrDeleteResponse struct {
 	DesiredResources []*unstructured.Unstructured
 	ExplicitDeletes  []*unstructured.Unstructured
-	CreateResult     *types.TaskActionResult
-	DeleteResult     *types.TaskActionResult
+	CreateResult     *types.Result
+	DeleteResult     *types.Result
 }
 
 // CreateOrDeleteBuilder builds the desired resource(s)
