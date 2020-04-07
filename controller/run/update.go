@@ -83,8 +83,8 @@ func (r *UpdateStatesBuilder) includeDesiredInfoIfEnabled(
 		!r.Request.IncludeInfo[types.IncludeAllInfo] {
 		return
 	}
-	r.Result.DesiredInfo = append(
-		r.Result.DesiredInfo,
+	r.Result.DesiredResourcesInfo = append(
+		r.Result.DesiredResourcesInfo,
 		fmt.Sprintf(
 			"%s: %q / %q: %s",
 			message,
@@ -106,8 +106,8 @@ func (r *UpdateStatesBuilder) includeExplicitInfoIfEnabled(
 		!r.Request.IncludeInfo[types.IncludeAllInfo] {
 		return
 	}
-	r.Result.ExplicitInfo = append(
-		r.Result.ExplicitInfo,
+	r.Result.ExplicitResourcesInfo = append(
+		r.Result.ExplicitResourcesInfo,
 		fmt.Sprintf(
 			"%s: %q / %q: %s",
 			message,
@@ -129,8 +129,8 @@ func (r *UpdateStatesBuilder) includeSkippedInfoIfEnabled(
 		!r.Request.IncludeInfo[types.IncludeAllInfo] {
 		return
 	}
-	r.Result.SkippedInfo = append(
-		r.Result.SkippedInfo,
+	r.Result.SkippedResourcesInfo = append(
+		r.Result.SkippedResourcesInfo,
 		fmt.Sprintf(
 			"%s: %q / %q: %s",
 			message,
@@ -357,10 +357,10 @@ func (r *UpdateStatesBuilder) Build() (*UpdateResponse, error) {
 		ExplicitUpdates: r.explicitUpdates,
 		DesiredUpdates:  r.desiredUpdates,
 		Result: &types.Result{
-			SkippedInfo:  r.Result.SkippedInfo,  // is set if enabled
-			DesiredInfo:  r.Result.DesiredInfo,  // is set if enabled
-			ExplicitInfo: r.Result.ExplicitInfo, // is set if enabled
-			Phase:        types.ResultPhaseOnline,
+			SkippedResourcesInfo:  r.Result.SkippedResourcesInfo,  // is set if enabled
+			DesiredResourcesInfo:  r.Result.DesiredResourcesInfo,  // is set if enabled
+			ExplicitResourcesInfo: r.Result.ExplicitResourcesInfo, // is set if enabled
+			Phase:                 types.ResultPhaseOnline,
 			Message: fmt.Sprintf(
 				"Update action was successful: Desired updates %d: Explicit updates %d",
 				len(r.desiredUpdates),

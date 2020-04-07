@@ -17,6 +17,8 @@ limitations under the License.
 package types
 
 import (
+	"encoding/json"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	metac "openebs.io/metac/apis/metacontroller/v1alpha1"
@@ -406,9 +408,21 @@ type IfCondition struct {
 type RunStatus struct {
 	Result
 
-	// Results provides current status of each task
-	TaskResults map[string]TaskResult `json:"taskResults,omitempty"`
+	// TaskResultList provides status of each task
+	TaskResultList TaskResultList `json:"taskResults,omitempty"`
 }
+
+// String implements Stringer interface
+func (r RunStatus) String() string {
+	raw, err := json.MarshalIndent(r, "", ".")
+	if err != nil {
+		panic(err)
+	}
+	return string(raw)
+}
+
+// TaskResultList holds the results of all tasks in the Run resource
+type TaskResultList map[string]TaskResult
 
 // TaskResult provide details of a task execution
 //
@@ -416,30 +430,122 @@ type RunStatus struct {
 //	One of the result(s) should get filled once the task
 // gets executed
 type TaskResult struct {
-	Skipped          *SkippedResult `json:"skipped,omitempty"`
-	TaskIfCondResult *Result        `json:"ifcondResult,omitempty"`
-	TaskAssertResult *Result        `json:"assertResult,omitempty"`
-	TaskUpdateResult *Result        `json:"updateResult,omitempty"`
-	TaskCreateResult *Result        `json:"createResult,omitempty"`
-	TaskDeleteResult *Result        `json:"deleteResult,omitempty"`
+	SkipResult   *SkipResult `json:"skipResult,omitempty"`
+	IfCondResult *Result     `json:"ifCondResult,omitempty"`
+	AssertResult *Result     `json:"assertResult,omitempty"`
+	UpdateResult *Result     `json:"updateResult,omitempty"`
+	CreateResult *Result     `json:"createResult,omitempty"`
+	DeleteResult *Result     `json:"deleteResult,omitempty"`
+}
+
+// String implements Stringer interface
+func (r TaskResult) String() string {
+	raw, err := json.MarshalIndent(r, "", ".")
+	if err != nil {
+		panic(err)
+	}
+	return string(raw)
 }
 
 // Result provides details of a task execution. For
 // example a assert task will have assert results filled up.
 type Result struct {
-	Phase          ResultPhase `json:"phase,omitempty"`
-	Message        string      `json:"message,omitempty"`
-	Errors         []error     `json:"errors,omitempty"`
-	Warns          []string    `json:"warns,omitempty"`
-	ExplicitInfo   []string    `json:"explicitInfo,omitempty"`
-	DesiredInfo    []string    `json:"desiredInfo,omitempty"`
-	SkippedInfo    []string    `json:"skippedInfo,omitempty"`
-	HasRunOnce     *bool       `json:"hasRunOnce,omitempty"`
-	HasSkippedOnce *bool       `json:"hasSkippedOnce,omitempty"`
+	Phase                 ResultPhase `json:"phase,omitempty"`
+	Message               string      `json:"message,omitempty"`
+	Errors                []string    `json:"errors,omitempty"`
+	Warns                 []string    `json:"warns,omitempty"`
+	ExplicitResourcesInfo []string    `json:"explicitResourcesInfo,omitempty"`
+	DesiredResourcesInfo  []string    `json:"desiredResourcesInfo,omitempty"`
+	SkippedResourcesInfo  []string    `json:"skippedResourcesInfo,omitempty"`
+	HasRunOnce            *bool       `json:"hasRunOnce,omitempty"`
+	HasSkippedOnce        *bool       `json:"hasSkippedOnce,omitempty"`
 }
 
-// SkippedResult provides details of the action which was not executed
-type SkippedResult struct {
+// SkipResult provides details of the action which was not executed
+type SkipResult struct {
 	Phase   ResultPhase `json:"phase,omitempty"`
 	Message string      `json:"message,omitempty"`
+}
+
+// HasSkipTask returns true if any task was skipped due to
+// failing if condition
+func (l TaskResultList) HasSkipTask() bool {
+	for _, result := range l {
+		if result.SkipResult != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// SkipTaskCount returns the number of tasks in the Run resource
+// that were skipped due to failing if condition
+func (l TaskResultList) SkipTaskCount() int {
+	var count int
+	for _, result := range l {
+		if result.SkipResult != nil {
+			count++
+		}
+	}
+	return count
+}
+
+// IfCondTaskCount returns the number of tasks in the Run resource
+// that were executed as if cond action
+func (l TaskResultList) IfCondTaskCount() int {
+	var count int
+	for _, result := range l {
+		if result.IfCondResult != nil {
+			count++
+		}
+	}
+	return count
+}
+
+// AssertTaskCount returns the number of tasks in the Run resource
+// that were executed as assert action
+func (l TaskResultList) AssertTaskCount() int {
+	var count int
+	for _, result := range l {
+		if result.AssertResult != nil {
+			count++
+		}
+	}
+	return count
+}
+
+// CreateTaskCount returns the number of tasks in the Run resource
+// that were executed as create action
+func (l TaskResultList) CreateTaskCount() int {
+	var count int
+	for _, result := range l {
+		if result.CreateResult != nil {
+			count++
+		}
+	}
+	return count
+}
+
+// DeleteTaskCount returns the number of tasks in the Run resource
+// that were executed as delete action
+func (l TaskResultList) DeleteTaskCount() int {
+	var count int
+	for _, result := range l {
+		if result.DeleteResult != nil {
+			count++
+		}
+	}
+	return count
+}
+
+// UpdateTaskCount returns the number of tasks in the Run resource
+// that were executed as update action
+func (l TaskResultList) UpdateTaskCount() int {
+	var count int
+	for _, result := range l {
+		if result.UpdateResult != nil {
+			count++
+		}
+	}
+	return count
 }

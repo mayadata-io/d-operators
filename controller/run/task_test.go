@@ -521,21 +521,21 @@ func TestExecuteAssertByExecTask(t *testing.T) {
 				return
 			}
 			if mock.isSkip {
-				if got.Result.Skipped.Phase != mock.expectedPhase {
+				if got.Result.SkipResult.Phase != mock.expectedPhase {
 					t.Fatalf(
 						"Expected phase %q got %q",
 						mock.expectedPhase,
-						got.Result.Skipped.Phase,
+						got.Result.SkipResult.Phase,
 					)
 				}
 				return
 			}
-			if got.Result.TaskAssertResult.Phase !=
+			if got.Result.AssertResult.Phase !=
 				mock.expectedPhase {
 				t.Fatalf(
 					"Expected phase %q got %q",
 					mock.expectedPhase,
-					got.Result.TaskAssertResult.Phase,
+					got.Result.AssertResult.Phase,
 				)
 			}
 		})
@@ -672,7 +672,7 @@ func TestExecuteCreateOrDeleteTask(t *testing.T) {
 				},
 			},
 			expectedPhase:   types.ResultPhaseOnline,
-			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 2",
+			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 2: Total 2",
 		},
 		"delete all pods by setting replicas to 0 - pass": {
 			req: TaskRequest{
@@ -722,7 +722,7 @@ func TestExecuteCreateOrDeleteTask(t *testing.T) {
 				},
 			},
 			expectedPhase:   types.ResultPhaseOnline,
-			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 2",
+			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 2: Total 2",
 		},
 		"delete all owned pods - pass": {
 			req: TaskRequest{
@@ -778,7 +778,7 @@ func TestExecuteCreateOrDeleteTask(t *testing.T) {
 				},
 			},
 			expectedPhase:   types.ResultPhaseOnline,
-			expectedMessage: "Delete action was successful: Desired deletes 2: Explicit deletes 0",
+			expectedMessage: "Delete action was successful: Desired deletes 2: Explicit deletes 0: Total 2",
 		},
 		"delete 1 owned & 1 not owned pod - pass": {
 			req: TaskRequest{
@@ -834,7 +834,7 @@ func TestExecuteCreateOrDeleteTask(t *testing.T) {
 				},
 			},
 			expectedPhase:   types.ResultPhaseOnline,
-			expectedMessage: "Delete action was successful: Desired deletes 1: Explicit deletes 1",
+			expectedMessage: "Delete action was successful: Desired deletes 1: Explicit deletes 1: Total 2",
 		},
 		"delete all pods from none by setting replicas to 0 - pass": {
 			req: TaskRequest{
@@ -849,7 +849,7 @@ func TestExecuteCreateOrDeleteTask(t *testing.T) {
 				ObservedResources: []*unstructured.Unstructured{},
 			},
 			expectedPhase:   types.ResultPhaseOnline,
-			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 0",
+			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 0: Total 0",
 		},
 		"delete no pods due to mismatch - pass": {
 			req: TaskRequest{
@@ -899,7 +899,7 @@ func TestExecuteCreateOrDeleteTask(t *testing.T) {
 				},
 			},
 			expectedPhase:   types.ResultPhaseOnline,
-			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 0",
+			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 0: Total 2",
 		},
 	}
 	for name, mock := range tests {
@@ -925,56 +925,64 @@ func TestExecuteCreateOrDeleteTask(t *testing.T) {
 				Response: &TaskResponse{
 					Result: &types.TaskResult{},
 				},
+				isApplyAction:  true,  // create or delete needs Apply
+				isUpdateAction: false, // this is not update testing
 			}
 			r.runCreateOrDelete()
 			if mock.isErr && r.err == nil {
 				t.Fatalf("Expected error got none")
 			}
 			if !mock.isErr && r.err != nil {
-				t.Fatalf("Expected no error got [%+v]", r.err)
+				t.Fatalf(
+					"Expected no error got %+v: \n%s",
+					r.err,
+					r.Response.Result,
+				)
 			}
 			if mock.isErr {
 				return
 			}
-			if r.Response.Result.TaskDeleteResult == nil &&
-				r.Response.Result.TaskCreateResult == nil {
-				t.Fatalf("Expected either delete result or create result got none")
+			if r.Response.Result.DeleteResult == nil &&
+				r.Response.Result.CreateResult == nil {
+				t.Fatalf(
+					"Expected either delete result or create result got none",
+				)
 			}
 			// delete checks
-			if r.Response.Result.TaskDeleteResult != nil {
-				if r.Response.Result.TaskDeleteResult.Phase !=
+			if r.Response.Result.DeleteResult != nil {
+				if r.Response.Result.DeleteResult.Phase !=
 					mock.expectedPhase {
 					t.Fatalf(
 						"Expected phase %q got %q",
 						mock.expectedPhase,
-						r.Response.Result.TaskDeleteResult.Phase,
+						r.Response.Result.DeleteResult.Phase,
 					)
 				}
-				if r.Response.Result.TaskDeleteResult.Message !=
+				if r.Response.Result.DeleteResult.Message !=
 					mock.expectedMessage {
 					t.Fatalf(
 						"Expected message %q got %q",
 						mock.expectedMessage,
-						r.Response.Result.TaskDeleteResult.Message,
+						r.Response.Result.DeleteResult.Message,
 					)
 				}
 			}
 			// create checks
-			if r.Response.Result.TaskCreateResult != nil {
-				if r.Response.Result.TaskCreateResult.Phase !=
+			if r.Response.Result.CreateResult != nil {
+				if r.Response.Result.CreateResult.Phase !=
 					mock.expectedPhase {
 					t.Fatalf(
 						"Expected phase %q got %q",
 						mock.expectedPhase,
-						r.Response.Result.TaskCreateResult.Phase,
+						r.Response.Result.CreateResult.Phase,
 					)
 				}
-				if r.Response.Result.TaskCreateResult.Message !=
+				if r.Response.Result.CreateResult.Message !=
 					mock.expectedMessage {
 					t.Fatalf(
 						"Expected message %q got %q",
 						mock.expectedMessage,
-						r.Response.Result.TaskCreateResult.Message,
+						r.Response.Result.CreateResult.Message,
 					)
 				}
 			}
@@ -1112,7 +1120,7 @@ func TestCreateOrDeleteByExecTask(t *testing.T) {
 				},
 			},
 			expectedPhase:   types.ResultPhaseOnline,
-			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 2",
+			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 2: Total 2",
 		},
 		"delete all pods by setting replicas to 0 - pass": {
 			req: TaskRequest{
@@ -1162,7 +1170,7 @@ func TestCreateOrDeleteByExecTask(t *testing.T) {
 				},
 			},
 			expectedPhase:   types.ResultPhaseOnline,
-			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 2",
+			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 2: Total 2",
 		},
 		"delete all owned pods - pass": {
 			req: TaskRequest{
@@ -1218,7 +1226,7 @@ func TestCreateOrDeleteByExecTask(t *testing.T) {
 				},
 			},
 			expectedPhase:   types.ResultPhaseOnline,
-			expectedMessage: "Delete action was successful: Desired deletes 2: Explicit deletes 0",
+			expectedMessage: "Delete action was successful: Desired deletes 2: Explicit deletes 0: Total 2",
 		},
 		"delete 1 owned & 1 not owned pod - pass": {
 			req: TaskRequest{
@@ -1274,7 +1282,7 @@ func TestCreateOrDeleteByExecTask(t *testing.T) {
 				},
 			},
 			expectedPhase:   types.ResultPhaseOnline,
-			expectedMessage: "Delete action was successful: Desired deletes 1: Explicit deletes 1",
+			expectedMessage: "Delete action was successful: Desired deletes 1: Explicit deletes 1: Total 2",
 		},
 		"delete all pods from none by setting replicas to 0 - pass": {
 			req: TaskRequest{
@@ -1289,7 +1297,7 @@ func TestCreateOrDeleteByExecTask(t *testing.T) {
 				ObservedResources: []*unstructured.Unstructured{},
 			},
 			expectedPhase:   types.ResultPhaseOnline,
-			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 0",
+			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 0: Total 0",
 		},
 		"delete no pods due to mismatch - pass": {
 			req: TaskRequest{
@@ -1339,7 +1347,7 @@ func TestCreateOrDeleteByExecTask(t *testing.T) {
 				},
 			},
 			expectedPhase:   types.ResultPhaseOnline,
-			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 0",
+			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 0: Total 2",
 		},
 	}
 	for name, mock := range tests {
@@ -1370,45 +1378,45 @@ func TestCreateOrDeleteByExecTask(t *testing.T) {
 			if mock.isErr {
 				return
 			}
-			if got.Result.TaskDeleteResult == nil &&
-				got.Result.TaskCreateResult == nil {
+			if got.Result.DeleteResult == nil &&
+				got.Result.CreateResult == nil {
 				t.Fatalf("Expected either delete result or create result got none")
 			}
 			// delete checks
-			if got.Result.TaskDeleteResult != nil {
-				if got.Result.TaskDeleteResult.Phase !=
+			if got.Result.DeleteResult != nil {
+				if got.Result.DeleteResult.Phase !=
 					mock.expectedPhase {
 					t.Fatalf(
 						"Expected phase %q got %q",
 						mock.expectedPhase,
-						got.Result.TaskDeleteResult.Phase,
+						got.Result.DeleteResult.Phase,
 					)
 				}
-				if got.Result.TaskDeleteResult.Message !=
+				if got.Result.DeleteResult.Message !=
 					mock.expectedMessage {
 					t.Fatalf(
 						"Expected message %q got %q",
 						mock.expectedMessage,
-						got.Result.TaskDeleteResult.Message,
+						got.Result.DeleteResult.Message,
 					)
 				}
 			}
 			// create checks
-			if got.Result.TaskCreateResult != nil {
-				if got.Result.TaskCreateResult.Phase !=
+			if got.Result.CreateResult != nil {
+				if got.Result.CreateResult.Phase !=
 					mock.expectedPhase {
 					t.Fatalf(
 						"Expected phase %q got %q",
 						mock.expectedPhase,
-						got.Result.TaskCreateResult.Phase,
+						got.Result.CreateResult.Phase,
 					)
 				}
-				if got.Result.TaskCreateResult.Message !=
+				if got.Result.CreateResult.Message !=
 					mock.expectedMessage {
 					t.Fatalf(
 						"Expected message %q got %q",
 						mock.expectedMessage,
-						got.Result.TaskCreateResult.Message,
+						got.Result.CreateResult.Message,
 					)
 				}
 			}

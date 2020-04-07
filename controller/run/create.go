@@ -143,8 +143,8 @@ func (r *CreateStatesBuilder) includeDesiredInfoIfEnabled(
 		!r.Request.IncludeInfo[types.IncludeAllInfo] {
 		return
 	}
-	r.Result.DesiredInfo = append(
-		r.Result.DesiredInfo,
+	r.Result.DesiredResourcesInfo = append(
+		r.Result.DesiredResourcesInfo,
 		fmt.Sprintf(
 			"%s: %q / %q: %s",
 			message,
@@ -231,9 +231,9 @@ func (r *CreateStatesBuilder) Build() (*CreateResponse, error) {
 	return &CreateResponse{
 		DesiredResources: r.desiredResources,
 		Result: &types.Result{
-			DesiredInfo: r.Result.DesiredInfo, // is set if enabled
-			SkippedInfo: r.Result.SkippedInfo, // is set if enabled
-			Phase:       types.ResultPhaseOnline,
+			DesiredResourcesInfo: r.Result.DesiredResourcesInfo, // is set if enabled
+			SkippedResourcesInfo: r.Result.SkippedResourcesInfo, // is set if enabled
+			Phase:                types.ResultPhaseOnline,
 			Message: fmt.Sprintf(
 				"Create action was successful for %d resource(s)",
 				len(r.desiredResources),

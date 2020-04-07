@@ -553,11 +553,11 @@ func TestFilterResourcesWithSkipInfo(t *testing.T) {
 			if mock.isErr {
 				return
 			}
-			if mock.expectSkipCount != len(b.Result.SkippedInfo) {
+			if mock.expectSkipCount != len(b.Result.SkippedResourcesInfo) {
 				t.Fatalf(
 					"Expected skip count %d got %d",
 					mock.expectSkipCount,
-					len(b.Result.SkippedInfo),
+					len(b.Result.SkippedResourcesInfo),
 				)
 			}
 			if mock.expectFilteredCount != len(b.filteredResources) {
@@ -2387,11 +2387,11 @@ func TestUpdateBuilderIncludeSkippedInfoIfEnabled(t *testing.T) {
 					},
 				},
 			}, "Skip this")
-			if mock.expectedSkipCount != len(b.Result.SkippedInfo) {
+			if mock.expectedSkipCount != len(b.Result.SkippedResourcesInfo) {
 				t.Fatalf(
 					"Expected skip count %d got %d",
 					mock.expectedSkipCount,
-					len(b.Result.SkippedInfo),
+					len(b.Result.SkippedResourcesInfo),
 				)
 			}
 		})
@@ -2467,11 +2467,11 @@ func TestUpdateBuilderIncludeDesiredInfoIfEnabled(t *testing.T) {
 					},
 				},
 			}, "Desired info")
-			if mock.expectedDesiredCount != len(b.Result.DesiredInfo) {
+			if mock.expectedDesiredCount != len(b.Result.DesiredResourcesInfo) {
 				t.Fatalf(
 					"Expected desired count %d got %d",
 					mock.expectedDesiredCount,
-					len(b.Result.DesiredInfo),
+					len(b.Result.DesiredResourcesInfo),
 				)
 			}
 		})
@@ -2547,11 +2547,11 @@ func TestUpdateBuilderIncludeExplicitInfoIfEnabled(t *testing.T) {
 					},
 				},
 			}, "Explicit info")
-			if mock.expectedExplicitCount != len(b.Result.ExplicitInfo) {
+			if mock.expectedExplicitCount != len(b.Result.ExplicitResourcesInfo) {
 				t.Fatalf(
 					"Expected explicit count %d got %d",
 					mock.expectedExplicitCount,
-					len(b.Result.ExplicitInfo),
+					len(b.Result.ExplicitResourcesInfo),
 				)
 			}
 		})

@@ -382,11 +382,11 @@ func TestCreateBuilderIncludeDesiredInfoIfEnabled(t *testing.T) {
 					},
 				},
 			}, "Desired info")
-			if mock.expectedDesiredCount != len(b.Result.DesiredInfo) {
+			if mock.expectedDesiredCount != len(b.Result.DesiredResourcesInfo) {
 				t.Fatalf(
 					"Expected desired count %d got %d",
 					mock.expectedDesiredCount,
-					len(b.Result.DesiredInfo),
+					len(b.Result.DesiredResourcesInfo),
 				)
 			}
 		})
@@ -577,19 +577,19 @@ func TestCreateBuilderBuild(t *testing.T) {
 				)
 			}
 			if mock.expectedDesiredInfoCount !=
-				len(got.Result.DesiredInfo) {
+				len(got.Result.DesiredResourcesInfo) {
 				t.Fatalf(
 					"Expected desired info count %d got %d",
 					mock.expectedDesiredInfoCount,
-					len(got.Result.DesiredInfo),
+					len(got.Result.DesiredResourcesInfo),
 				)
 			}
 			if mock.expectedSkippedInfoCount !=
-				len(got.Result.SkippedInfo) {
+				len(got.Result.SkippedResourcesInfo) {
 				t.Fatalf(
 					"Expected skipped info count %d got %d",
 					mock.expectedSkippedInfoCount,
-					len(got.Result.SkippedInfo),
+					len(got.Result.SkippedResourcesInfo),
 				)
 			}
 		})

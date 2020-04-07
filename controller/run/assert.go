@@ -113,8 +113,8 @@ func (c *ResourceListCondition) includeMatchInfoIfEnabled(message ...string) {
 		!c.IncludeInfo[types.IncludeAllInfo] {
 		return
 	}
-	c.Result.DesiredInfo = append(
-		c.Result.DesiredInfo,
+	c.Result.DesiredResourcesInfo = append(
+		c.Result.DesiredResourcesInfo,
 		message...,
 	)
 }
@@ -127,8 +127,8 @@ func (c *ResourceListCondition) includeNoMatchInfoIfEnabled(message ...string) {
 		!c.IncludeInfo[types.IncludeAllInfo] {
 		return
 	}
-	c.Result.SkippedInfo = append(
-		c.Result.SkippedInfo,
+	c.Result.SkippedResourcesInfo = append(
+		c.Result.SkippedResourcesInfo,
 		message...,
 	)
 }
@@ -248,8 +248,8 @@ func (a *Assertion) includeMatchInfoIfEnabled(message ...string) {
 		!a.Request.IncludeInfo[types.IncludeAllInfo] {
 		return
 	}
-	a.Result.DesiredInfo = append(
-		a.Result.DesiredInfo,
+	a.Result.DesiredResourcesInfo = append(
+		a.Result.DesiredResourcesInfo,
 		message...,
 	)
 }
@@ -262,8 +262,8 @@ func (a *Assertion) includeNoMatchInfoIfEnabled(message ...string) {
 		!a.Request.IncludeInfo[types.IncludeAllInfo] {
 		return
 	}
-	a.Result.SkippedInfo = append(
-		a.Result.SkippedInfo,
+	a.Result.SkippedResourcesInfo = append(
+		a.Result.SkippedResourcesInfo,
 		message...,
 	)
 }
@@ -306,9 +306,9 @@ func (a *Assertion) verifyAllConditions() {
 			return
 		}
 		// add matching conditions to info
-		a.includeMatchInfoIfEnabled(listCond.Result.DesiredInfo...)
+		a.includeMatchInfoIfEnabled(listCond.Result.DesiredResourcesInfo...)
 		// add non-matching conditions to info
-		a.includeNoMatchInfoIfEnabled(listCond.Result.SkippedInfo...)
+		a.includeNoMatchInfoIfEnabled(listCond.Result.SkippedResourcesInfo...)
 		if success && !atleastOneSuccess {
 			atleastOneSuccess = true
 		}
@@ -470,21 +470,21 @@ func ExecuteAssertConditions(req AssertRequest) (*AssertResponse, error) {
 	if ok {
 		return &AssertResponse{
 			AssertResult: &types.Result{
-				Phase:       types.ResultPhaseAssertPassed, // passed
-				DesiredInfo: a.Result.DesiredInfo,
-				SkippedInfo: a.Result.SkippedInfo,
-				HasRunOnce:  pointer.Bool(true),
-				Warns:       a.Result.Warns,
+				Phase:                types.ResultPhaseAssertPassed, // passed
+				DesiredResourcesInfo: a.Result.DesiredResourcesInfo,
+				SkippedResourcesInfo: a.Result.SkippedResourcesInfo,
+				HasRunOnce:           pointer.Bool(true),
+				Warns:                a.Result.Warns,
 			},
 		}, nil
 	}
 	return &AssertResponse{
 		AssertResult: &types.Result{
-			Phase:       types.ResultPhaseAssertFailed, // failed
-			DesiredInfo: a.Result.DesiredInfo,
-			SkippedInfo: a.Result.SkippedInfo,
-			HasRunOnce:  pointer.Bool(true),
-			Warns:       a.Result.Warns,
+			Phase:                types.ResultPhaseAssertFailed, // failed
+			DesiredResourcesInfo: a.Result.DesiredResourcesInfo,
+			SkippedResourcesInfo: a.Result.SkippedResourcesInfo,
+			HasRunOnce:           pointer.Bool(true),
+			Warns:                a.Result.Warns,
 		},
 	}, nil
 }
@@ -502,21 +502,21 @@ func ExecuteAssertState(req AssertRequest) (*AssertResponse, error) {
 	if ok {
 		return &AssertResponse{
 			AssertResult: &types.Result{
-				Phase:       types.ResultPhaseAssertPassed, // passed
-				DesiredInfo: a.Result.DesiredInfo,
-				SkippedInfo: a.Result.SkippedInfo,
-				Warns:       a.Result.Warns,
-				HasRunOnce:  pointer.Bool(true),
+				Phase:                types.ResultPhaseAssertPassed, // passed
+				DesiredResourcesInfo: a.Result.DesiredResourcesInfo,
+				SkippedResourcesInfo: a.Result.SkippedResourcesInfo,
+				Warns:                a.Result.Warns,
+				HasRunOnce:           pointer.Bool(true),
 			},
 		}, nil
 	}
 	return &AssertResponse{
 		AssertResult: &types.Result{
-			Phase:       types.ResultPhaseAssertFailed, // failed
-			DesiredInfo: a.Result.DesiredInfo,
-			SkippedInfo: a.Result.SkippedInfo,
-			Warns:       a.Result.Warns,
-			HasRunOnce:  pointer.Bool(true),
+			Phase:                types.ResultPhaseAssertFailed, // failed
+			DesiredResourcesInfo: a.Result.DesiredResourcesInfo,
+			SkippedResourcesInfo: a.Result.SkippedResourcesInfo,
+			Warns:                a.Result.Warns,
+			HasRunOnce:           pointer.Bool(true),
 		},
 	}, nil
 }
