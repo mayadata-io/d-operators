@@ -1,2 +1,2 @@
 # d-controllers
-Home for most DAO controllers
+Declarative patterns to write your kubernetes controllers. This uses [metac](https://github.com/AmitKumarDas/metac/) under the hood to help users to write their specific kubernetes controllers. One will be able to create, delete, update, assert one or more kubernetes resources using just a yaml file. This yaml file is in turn a kubernetes custom resource that enables one to use these CRUD operations to build a new controller.
