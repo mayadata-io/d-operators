@@ -2353,7 +2353,7 @@ func TestVerifyAssert(t *testing.T) {
 func TestExecuteAssert(t *testing.T) {
 	var tests = map[string]struct {
 		request       AssertRequest
-		expectedPhase types.TaskResultPhase
+		expectedPhase types.ResultPhase
 		isErr         bool
 	}{
 		"successful match + OR operator + 1 condition + matchlabels": {
@@ -2387,7 +2387,7 @@ func TestExecuteAssert(t *testing.T) {
 					},
 				},
 			},
-			expectedPhase: types.TaskResultPhaseAssertPassed,
+			expectedPhase: types.ResultPhaseAssertPassed,
 		},
 		"successful match + OR operator + 2 conditions + matchlabels": {
 			request: AssertRequest{
@@ -2431,7 +2431,7 @@ func TestExecuteAssert(t *testing.T) {
 					},
 				},
 			},
-			expectedPhase: types.TaskResultPhaseAssertPassed,
+			expectedPhase: types.ResultPhaseAssertPassed,
 		},
 		"successful match + AND operator + 1 condition + matchlabels": {
 			request: AssertRequest{
@@ -2465,7 +2465,7 @@ func TestExecuteAssert(t *testing.T) {
 					},
 				},
 			},
-			expectedPhase: types.TaskResultPhaseAssertPassed,
+			expectedPhase: types.ResultPhaseAssertPassed,
 		},
 		"successful match + AND operator + 2 conditions + matchlabels": {
 			request: AssertRequest{
@@ -2511,7 +2511,7 @@ func TestExecuteAssert(t *testing.T) {
 					},
 				},
 			},
-			expectedPhase: types.TaskResultPhaseAssertPassed,
+			expectedPhase: types.ResultPhaseAssertPassed,
 		},
 		"failed match + OR operator + 1 condition + matchlabels": {
 			request: AssertRequest{
@@ -2544,7 +2544,7 @@ func TestExecuteAssert(t *testing.T) {
 					},
 				},
 			},
-			expectedPhase: types.TaskResultPhaseAssertFailed,
+			expectedPhase: types.ResultPhaseAssertFailed,
 		},
 		"failed match + AND operator + 2 conditions + matchlabels": {
 			request: AssertRequest{
@@ -2589,7 +2589,7 @@ func TestExecuteAssert(t *testing.T) {
 					},
 				},
 			},
-			expectedPhase: types.TaskResultPhaseAssertFailed,
+			expectedPhase: types.ResultPhaseAssertFailed,
 		},
 		"failed match + AND operator + 1 condition + matchlabels": {
 			request: AssertRequest{
@@ -2623,7 +2623,7 @@ func TestExecuteAssert(t *testing.T) {
 					},
 				},
 			},
-			expectedPhase: types.TaskResultPhaseAssertFailed,
+			expectedPhase: types.ResultPhaseAssertFailed,
 		},
 		"successful match + OR operator + 2 condition + 2 resources": {
 			request: AssertRequest{
@@ -2677,7 +2677,7 @@ func TestExecuteAssert(t *testing.T) {
 					},
 				},
 			},
-			expectedPhase: types.TaskResultPhaseAssertPassed,
+			expectedPhase: types.ResultPhaseAssertPassed,
 		},
 		"successful match + AND operator + 2 condition + 2 resources": {
 			request: AssertRequest{
@@ -2731,7 +2731,7 @@ func TestExecuteAssert(t *testing.T) {
 					},
 				},
 			},
-			expectedPhase: types.TaskResultPhaseAssertPassed,
+			expectedPhase: types.ResultPhaseAssertPassed,
 		},
 	}
 	for name, mock := range tests {

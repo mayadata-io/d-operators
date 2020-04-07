@@ -28,17 +28,17 @@ import (
 
 func TestUpdateBuilderFilterResources(t *testing.T) {
 	var tests = map[string]struct {
-		observed  []*unstructured.Unstructured
-		forselect metac.ResourceSelector
-		expected  []*unstructured.Unstructured
-		isErr     bool
+		Observed       []*unstructured.Unstructured
+		TargetSelector types.TargetSelector
+		expected       []*unstructured.Unstructured
+		isErr          bool
 	}{
 		"no observed list": {},
 		"nil observed list": {
-			observed: nil,
+			Observed: nil,
 		},
 		"1 observed + no select + 1 expected": {
-			observed: []*unstructured.Unstructured{
+			Observed: []*unstructured.Unstructured{
 				&unstructured.Unstructured{
 					Object: map[string]interface{}{
 						"kind": "Pod",
@@ -54,36 +54,40 @@ func TestUpdateBuilderFilterResources(t *testing.T) {
 			},
 		},
 		"1 observed + 1 select + 0 expected": {
-			observed: []*unstructured.Unstructured{
+			Observed: []*unstructured.Unstructured{
 				&unstructured.Unstructured{
 					Object: map[string]interface{}{
 						"kind": "Pod",
 					},
 				},
 			},
-			forselect: metac.ResourceSelector{
-				SelectorTerms: []*metac.SelectorTerm{
-					&metac.SelectorTerm{
-						MatchFields: map[string]string{
-							"kind": "Service",
+			TargetSelector: types.TargetSelector{
+				ResourceSelector: metac.ResourceSelector{
+					SelectorTerms: []*metac.SelectorTerm{
+						&metac.SelectorTerm{
+							MatchFields: map[string]string{
+								"kind": "Service",
+							},
 						},
 					},
 				},
 			},
 		},
 		"1 observed + 1 select + 1 expected": {
-			observed: []*unstructured.Unstructured{
+			Observed: []*unstructured.Unstructured{
 				&unstructured.Unstructured{
 					Object: map[string]interface{}{
 						"kind": "Pod",
 					},
 				},
 			},
-			forselect: metac.ResourceSelector{
-				SelectorTerms: []*metac.SelectorTerm{
-					&metac.SelectorTerm{
-						MatchFields: map[string]string{
-							"kind": "Pod",
+			TargetSelector: types.TargetSelector{
+				ResourceSelector: metac.ResourceSelector{
+					SelectorTerms: []*metac.SelectorTerm{
+						&metac.SelectorTerm{
+							MatchFields: map[string]string{
+								"kind": "Pod",
+							},
 						},
 					},
 				},
@@ -97,7 +101,7 @@ func TestUpdateBuilderFilterResources(t *testing.T) {
 			},
 		},
 		"2 observed + 1 match + 1 expected": {
-			observed: []*unstructured.Unstructured{
+			Observed: []*unstructured.Unstructured{
 				&unstructured.Unstructured{
 					Object: map[string]interface{}{
 						"kind": "Pod",
@@ -109,17 +113,19 @@ func TestUpdateBuilderFilterResources(t *testing.T) {
 					},
 				},
 			},
-			forselect: metac.ResourceSelector{
-				SelectorTerms: []*metac.SelectorTerm{
-					&metac.SelectorTerm{
-						MatchFields: map[string]string{
-							"kind": "Pod",
+			TargetSelector: types.TargetSelector{
+				ResourceSelector: metac.ResourceSelector{
+					SelectorTerms: []*metac.SelectorTerm{
+						&metac.SelectorTerm{
+							MatchFields: map[string]string{
+								"kind": "Pod",
+							},
 						},
-					},
-					// OR matching
-					&metac.SelectorTerm{
-						MatchFields: map[string]string{
-							"kind": "Deployment",
+						// OR matching
+						&metac.SelectorTerm{
+							MatchFields: map[string]string{
+								"kind": "Deployment",
+							},
 						},
 					},
 				},
@@ -133,7 +139,7 @@ func TestUpdateBuilderFilterResources(t *testing.T) {
 			},
 		},
 		"2 observed + 2 selects + OR operator + 2 expected": {
-			observed: []*unstructured.Unstructured{
+			Observed: []*unstructured.Unstructured{
 				&unstructured.Unstructured{
 					Object: map[string]interface{}{
 						"kind": "Pod",
@@ -145,17 +151,19 @@ func TestUpdateBuilderFilterResources(t *testing.T) {
 					},
 				},
 			},
-			forselect: metac.ResourceSelector{
-				SelectorTerms: []*metac.SelectorTerm{
-					&metac.SelectorTerm{
-						MatchFields: map[string]string{
-							"kind": "Pod",
+			TargetSelector: types.TargetSelector{
+				ResourceSelector: metac.ResourceSelector{
+					SelectorTerms: []*metac.SelectorTerm{
+						&metac.SelectorTerm{
+							MatchFields: map[string]string{
+								"kind": "Pod",
+							},
 						},
-					},
-					// OR operator
-					&metac.SelectorTerm{
-						MatchFields: map[string]string{
-							"kind": "ReplicaSet",
+						// OR operator
+						&metac.SelectorTerm{
+							MatchFields: map[string]string{
+								"kind": "ReplicaSet",
+							},
 						},
 					},
 				},
@@ -174,7 +182,7 @@ func TestUpdateBuilderFilterResources(t *testing.T) {
 			},
 		},
 		"2 observed + 1 select + AND operator + 2 expected": {
-			observed: []*unstructured.Unstructured{
+			Observed: []*unstructured.Unstructured{
 				&unstructured.Unstructured{
 					Object: map[string]interface{}{
 						"kind":       "Pod",
@@ -198,12 +206,14 @@ func TestUpdateBuilderFilterResources(t *testing.T) {
 					},
 				},
 			},
-			forselect: metac.ResourceSelector{
-				SelectorTerms: []*metac.SelectorTerm{
-					&metac.SelectorTerm{
-						MatchFields: map[string]string{
-							"apiVersion":          "v1",
-							"metadata.labels.app": "cool", // AND operator
+			TargetSelector: types.TargetSelector{
+				ResourceSelector: metac.ResourceSelector{
+					SelectorTerms: []*metac.SelectorTerm{
+						&metac.SelectorTerm{
+							MatchFields: map[string]string{
+								"apiVersion":          "v1",
+								"metadata.labels.app": "cool", // AND operator
+							},
 						},
 					},
 				},
@@ -224,7 +234,7 @@ func TestUpdateBuilderFilterResources(t *testing.T) {
 			},
 		},
 		"3 observed + 1 select + AND operator + 2 expected": {
-			observed: []*unstructured.Unstructured{
+			Observed: []*unstructured.Unstructured{
 				&unstructured.Unstructured{
 					Object: map[string]interface{}{
 						"kind":       "Pod",
@@ -259,12 +269,14 @@ func TestUpdateBuilderFilterResources(t *testing.T) {
 					},
 				},
 			},
-			forselect: metac.ResourceSelector{
-				SelectorTerms: []*metac.SelectorTerm{
-					&metac.SelectorTerm{
-						MatchFields: map[string]string{
-							"apiVersion":          "v1",
-							"metadata.labels.app": "cool", // AND operator
+			TargetSelector: types.TargetSelector{
+				ResourceSelector: metac.ResourceSelector{
+					SelectorTerms: []*metac.SelectorTerm{
+						&metac.SelectorTerm{
+							MatchFields: map[string]string{
+								"apiVersion":          "v1",
+								"metadata.labels.app": "cool", // AND operator
+							},
 						},
 					},
 				},
@@ -291,8 +303,8 @@ func TestUpdateBuilderFilterResources(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			b := &UpdateStatesBuilder{
 				Request: UpdateRequest{
-					ObservedResources: mock.observed,
-					Target:            mock.forselect,
+					ObservedResources: mock.Observed,
+					TargetSelector:    mock.TargetSelector,
 				},
 			}
 			b.filterResources()
@@ -328,7 +340,7 @@ func TestUpdateBuilderFilterResources(t *testing.T) {
 func TestFilterResourcesWithSkipInfo(t *testing.T) {
 	var tests = map[string]struct {
 		Resources           []*unstructured.Unstructured
-		Target              metac.ResourceSelector
+		TargetSelector      types.TargetSelector
 		expectSkipCount     int
 		expectFilteredCount int
 		isErr               bool
@@ -349,11 +361,13 @@ func TestFilterResourcesWithSkipInfo(t *testing.T) {
 					},
 				},
 			},
-			Target: metac.ResourceSelector{
-				SelectorTerms: []*metac.SelectorTerm{
-					&metac.SelectorTerm{
-						MatchFields: map[string]string{
-							"kind": "Service",
+			TargetSelector: types.TargetSelector{
+				ResourceSelector: metac.ResourceSelector{
+					SelectorTerms: []*metac.SelectorTerm{
+						&metac.SelectorTerm{
+							MatchFields: map[string]string{
+								"kind": "Service",
+							},
 						},
 					},
 				},
@@ -395,20 +409,22 @@ func TestFilterResourcesWithSkipInfo(t *testing.T) {
 					},
 				},
 			},
-			Target: metac.ResourceSelector{
-				SelectorTerms: []*metac.SelectorTerm{
-					// all conditions in a SelectorTerm must be satisfied
-					&metac.SelectorTerm{
-						MatchFields: map[string]string{
-							"kind":               "Pod",
-							"apiVersion":         "v1",
-							"metadata.namespace": "my-ns",
-						},
-						MatchLabels: map[string]string{
-							"app": "pod",
-						},
-						MatchAnnotations: map[string]string{
-							"app": "pod",
+			TargetSelector: types.TargetSelector{
+				ResourceSelector: metac.ResourceSelector{
+					SelectorTerms: []*metac.SelectorTerm{
+						// all conditions in a SelectorTerm must be satisfied
+						&metac.SelectorTerm{
+							MatchFields: map[string]string{
+								"kind":               "Pod",
+								"apiVersion":         "v1",
+								"metadata.namespace": "my-ns",
+							},
+							MatchLabels: map[string]string{
+								"app": "pod",
+							},
+							MatchAnnotations: map[string]string{
+								"app": "pod",
+							},
 						},
 					},
 				},
@@ -450,20 +466,22 @@ func TestFilterResourcesWithSkipInfo(t *testing.T) {
 					},
 				},
 			},
-			Target: metac.ResourceSelector{
-				SelectorTerms: []*metac.SelectorTerm{
-					// all conditions in a SelectorTerm must be satisfied
-					&metac.SelectorTerm{
-						MatchFields: map[string]string{
-							"kind":               "Pod",
-							"apiVersion":         "v1",
-							"metadata.namespace": "my-ns",
-						},
-						MatchLabels: map[string]string{
-							"app": "no-pod",
-						},
-						MatchAnnotations: map[string]string{
-							"app": "no-pod",
+			TargetSelector: types.TargetSelector{
+				ResourceSelector: metac.ResourceSelector{
+					SelectorTerms: []*metac.SelectorTerm{
+						// all conditions in a SelectorTerm must be satisfied
+						&metac.SelectorTerm{
+							MatchFields: map[string]string{
+								"kind":               "Pod",
+								"apiVersion":         "v1",
+								"metadata.namespace": "my-ns",
+							},
+							MatchLabels: map[string]string{
+								"app": "no-pod",
+							},
+							MatchAnnotations: map[string]string{
+								"app": "no-pod",
+							},
 						},
 					},
 				},
@@ -472,11 +490,13 @@ func TestFilterResourcesWithSkipInfo(t *testing.T) {
 		},
 		"0 observed + Service as target": {
 			Resources: []*unstructured.Unstructured{},
-			Target: metac.ResourceSelector{
-				SelectorTerms: []*metac.SelectorTerm{
-					&metac.SelectorTerm{
-						MatchFields: map[string]string{
-							"kind": "Service",
+			TargetSelector: types.TargetSelector{
+				ResourceSelector: metac.ResourceSelector{
+					SelectorTerms: []*metac.SelectorTerm{
+						&metac.SelectorTerm{
+							MatchFields: map[string]string{
+								"kind": "Service",
+							},
 						},
 					},
 				},
@@ -484,8 +504,10 @@ func TestFilterResourcesWithSkipInfo(t *testing.T) {
 		},
 		"0 observed + 0 target": {
 			Resources: []*unstructured.Unstructured{},
-			Target: metac.ResourceSelector{
-				SelectorTerms: []*metac.SelectorTerm{},
+			TargetSelector: types.TargetSelector{
+				ResourceSelector: metac.ResourceSelector{
+					SelectorTerms: []*metac.SelectorTerm{},
+				},
 			},
 		},
 		"1 observed Pod + Any resource is valid target": {
@@ -496,8 +518,10 @@ func TestFilterResourcesWithSkipInfo(t *testing.T) {
 					},
 				},
 			},
-			Target: metac.ResourceSelector{
-				SelectorTerms: []*metac.SelectorTerm{},
+			TargetSelector: types.TargetSelector{
+				ResourceSelector: metac.ResourceSelector{
+					SelectorTerms: []*metac.SelectorTerm{},
+				},
 			},
 			expectFilteredCount: 1,
 		},
@@ -511,13 +535,13 @@ func TestFilterResourcesWithSkipInfo(t *testing.T) {
 					IncludeInfo: map[types.IncludeInfoKey]bool{
 						"*": true, // will include skipped info
 					},
-					Target:            mock.Target,
+					TargetSelector:    mock.TargetSelector,
 					ObservedResources: mock.Resources,
 					Watch: &unstructured.Unstructured{
 						Object: map[string]interface{}{},
 					},
 				},
-				Result: &types.TaskActionResult{},
+				Result: &types.Result{},
 			}
 			b.filterResources()
 			if mock.isErr && b.err == nil {
@@ -1879,7 +1903,7 @@ func TestBuildUpdateStates(t *testing.T) {
 		Run             *unstructured.Unstructured
 		Watch           *unstructured.Unstructured
 		Apply           map[string]interface{}
-		Target          metac.ResourceSelector
+		TargetSelector  types.TargetSelector
 		Observed        []*unstructured.Unstructured
 		DesiredUpdates  []*unstructured.Unstructured
 		ExplicitUpdates []*unstructured.Unstructured
@@ -1947,8 +1971,10 @@ func TestBuildUpdateStates(t *testing.T) {
 					},
 				},
 			},
-			Target: metac.ResourceSelector{
-				SelectorTerms: []*metac.SelectorTerm{},
+			TargetSelector: types.TargetSelector{
+				ResourceSelector: metac.ResourceSelector{
+					SelectorTerms: []*metac.SelectorTerm{},
+				},
 			},
 			isErr: true,
 		},
@@ -1977,11 +2003,13 @@ func TestBuildUpdateStates(t *testing.T) {
 					},
 				},
 			},
-			Target: metac.ResourceSelector{
-				SelectorTerms: []*metac.SelectorTerm{
-					&metac.SelectorTerm{
-						MatchFields: map[string]string{
-							"kind": "Pod",
+			TargetSelector: types.TargetSelector{
+				ResourceSelector: metac.ResourceSelector{
+					SelectorTerms: []*metac.SelectorTerm{
+						&metac.SelectorTerm{
+							MatchFields: map[string]string{
+								"kind": "Pod",
+							},
 						},
 					},
 				},
@@ -2044,11 +2072,13 @@ func TestBuildUpdateStates(t *testing.T) {
 					},
 				},
 			},
-			Target: metac.ResourceSelector{
-				SelectorTerms: []*metac.SelectorTerm{
-					&metac.SelectorTerm{
-						MatchFields: map[string]string{
-							"kind": "Service",
+			TargetSelector: types.TargetSelector{
+				ResourceSelector: metac.ResourceSelector{
+					SelectorTerms: []*metac.SelectorTerm{
+						&metac.SelectorTerm{
+							MatchFields: map[string]string{
+								"kind": "Service",
+							},
 						},
 					},
 				},
@@ -2111,11 +2141,13 @@ func TestBuildUpdateStates(t *testing.T) {
 					},
 				},
 			},
-			Target: metac.ResourceSelector{
-				SelectorTerms: []*metac.SelectorTerm{
-					&metac.SelectorTerm{
-						MatchFields: map[string]string{
-							"kind": "Service",
+			TargetSelector: types.TargetSelector{
+				ResourceSelector: metac.ResourceSelector{
+					SelectorTerms: []*metac.SelectorTerm{
+						&metac.SelectorTerm{
+							MatchFields: map[string]string{
+								"kind": "Service",
+							},
 						},
 					},
 				},
@@ -2184,11 +2216,13 @@ func TestBuildUpdateStates(t *testing.T) {
 					},
 				},
 			},
-			Target: metac.ResourceSelector{
-				SelectorTerms: []*metac.SelectorTerm{
-					&metac.SelectorTerm{
-						MatchFields: map[string]string{
-							"kind": "Deployment",
+			TargetSelector: types.TargetSelector{
+				ResourceSelector: metac.ResourceSelector{
+					SelectorTerms: []*metac.SelectorTerm{
+						&metac.SelectorTerm{
+							MatchFields: map[string]string{
+								"kind": "Deployment",
+							},
 						},
 					},
 				},
@@ -2222,7 +2256,7 @@ func TestBuildUpdateStates(t *testing.T) {
 				Run:               mock.Run,
 				Watch:             mock.Watch,
 				Apply:             mock.Apply,
-				Target:            mock.Target,
+				TargetSelector:    mock.TargetSelector,
 				ObservedResources: mock.Observed,
 				TaskKey:           mock.Taskkey,
 			})
@@ -2235,17 +2269,17 @@ func TestBuildUpdateStates(t *testing.T) {
 			if mock.isErr {
 				return
 			}
-			if mock.isSkip && got.Result.Phase != types.TaskResultPhaseSkipped {
+			if mock.isSkip && got.Result.Phase != types.ResultPhaseSkipped {
 				t.Fatalf(
 					"Expected phase %q got %q",
-					types.TaskResultPhaseSkipped,
+					types.ResultPhaseSkipped,
 					got.Result.Phase,
 				)
 			}
-			if !mock.isSkip && got.Result.Phase == types.TaskResultPhaseSkipped {
+			if !mock.isSkip && got.Result.Phase == types.ResultPhaseSkipped {
 				t.Fatalf(
 					"Didn't expect phase %q ",
-					types.TaskResultPhaseSkipped,
+					types.ResultPhaseSkipped,
 				)
 			}
 			if len(got.ExplicitUpdates) != len(mock.ExplicitUpdates) {
@@ -2341,7 +2375,7 @@ func TestUpdateBuilderIncludeSkippedInfoIfEnabled(t *testing.T) {
 				Request: UpdateRequest{
 					IncludeInfo: mock.IncludeInfo,
 				},
-				Result: &types.TaskActionResult{},
+				Result: &types.Result{},
 			}
 			b.includeSkippedInfoIfEnabled(&unstructured.Unstructured{
 				Object: map[string]interface{}{
@@ -2421,7 +2455,7 @@ func TestUpdateBuilderIncludeDesiredInfoIfEnabled(t *testing.T) {
 				Request: UpdateRequest{
 					IncludeInfo: mock.IncludeInfo,
 				},
-				Result: &types.TaskActionResult{},
+				Result: &types.Result{},
 			}
 			b.includeDesiredInfoIfEnabled(&unstructured.Unstructured{
 				Object: map[string]interface{}{
@@ -2501,7 +2535,7 @@ func TestUpdateBuilderIncludeExplicitInfoIfEnabled(t *testing.T) {
 				Request: UpdateRequest{
 					IncludeInfo: mock.IncludeInfo,
 				},
-				Result: &types.TaskActionResult{},
+				Result: &types.Result{},
 			}
 			b.includeExplicitInfoIfEnabled(&unstructured.Unstructured{
 				Object: map[string]interface{}{

@@ -22,7 +22,6 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	types "mayadata.io/d-operators/types/run"
-	metac "openebs.io/metac/apis/metacontroller/v1alpha1"
 	"openebs.io/metac/controller/common/selector"
 	"openebs.io/metac/dynamic/apply"
 )
@@ -35,7 +34,7 @@ type UpdateRequest struct {
 	Watch             *unstructured.Unstructured
 	TaskKey           string
 	Apply             map[string]interface{}
-	Target            metac.ResourceSelector
+	TargetSelector    types.TargetSelector
 	ObservedResources []*unstructured.Unstructured
 }
 
@@ -44,14 +43,14 @@ type UpdateRequest struct {
 type UpdateResponse struct {
 	DesiredUpdates  []*unstructured.Unstructured
 	ExplicitUpdates []*unstructured.Unstructured
-	Result          *types.TaskActionResult
+	Result          *types.Result
 }
 
 // UpdateStatesBuilder builds the desired resource(s) to
 // be updated at the cluster
 type UpdateStatesBuilder struct {
 	Request UpdateRequest
-	Result  *types.TaskActionResult
+	Result  *types.Result
 
 	// filtered resources that need to be updated
 	filteredResources []*unstructured.Unstructured
@@ -151,7 +150,7 @@ func (r *UpdateStatesBuilder) filterResources() {
 			return
 		}
 		e := selector.Evaluation{
-			Terms:     r.Request.Target.SelectorTerms,
+			Terms:     r.Request.TargetSelector.SelectorTerms,
 			Target:    observed,
 			Reference: r.Request.Watch,
 		}
@@ -327,7 +326,7 @@ func (r *UpdateStatesBuilder) Build() (*UpdateResponse, error) {
 			r.Request.TaskKey,
 		)
 	}
-	if len(r.Request.Target.SelectorTerms) == 0 {
+	if len(r.Request.TargetSelector.SelectorTerms) == 0 {
 		return nil, errors.Errorf(
 			"Can't update: Missing target selector: %q",
 			r.Request.TaskKey,
@@ -347,8 +346,8 @@ func (r *UpdateStatesBuilder) Build() (*UpdateResponse, error) {
 		}
 		if r.isSkip {
 			return &UpdateResponse{
-				Result: &types.TaskActionResult{
-					Phase:   types.TaskResultPhaseSkipped,
+				Result: &types.Result{
+					Phase:   types.ResultPhaseSkipped,
 					Message: "No eligible resources found to update",
 				},
 			}, nil
@@ -357,11 +356,11 @@ func (r *UpdateStatesBuilder) Build() (*UpdateResponse, error) {
 	return &UpdateResponse{
 		ExplicitUpdates: r.explicitUpdates,
 		DesiredUpdates:  r.desiredUpdates,
-		Result: &types.TaskActionResult{
+		Result: &types.Result{
 			SkippedInfo:  r.Result.SkippedInfo,  // is set if enabled
 			DesiredInfo:  r.Result.DesiredInfo,  // is set if enabled
 			ExplicitInfo: r.Result.ExplicitInfo, // is set if enabled
-			Phase:        types.TaskResultPhaseOnline,
+			Phase:        types.ResultPhaseOnline,
 			Message: fmt.Sprintf(
 				"Update action was successful: Desired updates %d: Explicit updates %d",
 				len(r.desiredUpdates),
@@ -376,7 +375,7 @@ func (r *UpdateStatesBuilder) Build() (*UpdateResponse, error) {
 func BuildUpdateStates(request UpdateRequest) (*UpdateResponse, error) {
 	r := &UpdateStatesBuilder{
 		Request: request,
-		Result:  &types.TaskActionResult{},
+		Result:  &types.Result{},
 	}
 	return r.Build()
 }

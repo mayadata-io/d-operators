@@ -41,13 +41,13 @@ type CreateRequest struct {
 // need to be created at the cluster
 type CreateResponse struct {
 	DesiredResources []*unstructured.Unstructured
-	Result           *types.TaskActionResult
+	Result           *types.Result
 }
 
 // CreateStateBuilder builds the desired resource(s)
 type CreateStatesBuilder struct {
 	Request CreateRequest
-	Result  *types.TaskActionResult
+	Result  *types.Result
 
 	desiredName      string
 	desiredTemplate  *unstructured.Unstructured
@@ -230,10 +230,10 @@ func (r *CreateStatesBuilder) Build() (*CreateResponse, error) {
 	}
 	return &CreateResponse{
 		DesiredResources: r.desiredResources,
-		Result: &types.TaskActionResult{
+		Result: &types.Result{
 			DesiredInfo: r.Result.DesiredInfo, // is set if enabled
 			SkippedInfo: r.Result.SkippedInfo, // is set if enabled
-			Phase:       types.TaskResultPhaseOnline,
+			Phase:       types.ResultPhaseOnline,
 			Message: fmt.Sprintf(
 				"Create action was successful for %d resource(s)",
 				len(r.desiredResources),
@@ -247,7 +247,7 @@ func (r *CreateStatesBuilder) Build() (*CreateResponse, error) {
 func BuildCreateStates(request CreateRequest) (*CreateResponse, error) {
 	r := &CreateStatesBuilder{
 		Request: request,
-		Result:  &types.TaskActionResult{}, // initialize
+		Result:  &types.Result{}, // initialize
 	}
 	return r.Build()
 }

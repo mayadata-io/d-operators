@@ -51,7 +51,7 @@ type ResourceListCondition struct {
 	// nomatches         []string
 	successfulMatches map[*unstructured.Unstructured]bool
 	successCount      int
-	Result            *types.TaskActionResult
+	Result            *types.Result
 
 	isSuccess bool
 	err       error
@@ -95,7 +95,7 @@ func NewResourceListCondition(config ResourceListConditionConfig) *ResourceListC
 		},
 		Items:             config.Resources,
 		successfulMatches: make(map[*unstructured.Unstructured]bool),
-		Result:            &types.TaskActionResult{},
+		Result:            &types.Result{},
 	}
 	// set default(s)
 	if rc.Condition.ResourceOperator == "" {
@@ -224,14 +224,14 @@ type AssertRequest struct {
 // AssertResponse holds the response after executing an
 // assert
 type AssertResponse struct {
-	AssertResult *types.TaskActionResult
+	AssertResult *types.Result
 }
 
 // Assertion asserts by running the conditions against the
 // resources
 type Assertion struct {
 	Request AssertRequest
-	Result  *types.TaskActionResult
+	Result  *types.Result
 
 	matches   []string
 	nomatches []string
@@ -461,7 +461,7 @@ func ExecuteAssertConditions(req AssertRequest) (*AssertResponse, error) {
 	}
 	a := &Assertion{
 		Request: newreq,
-		Result:  &types.TaskActionResult{},
+		Result:  &types.Result{},
 	}
 	ok, err := a.AssertAllConditions()
 	if err != nil {
@@ -469,8 +469,8 @@ func ExecuteAssertConditions(req AssertRequest) (*AssertResponse, error) {
 	}
 	if ok {
 		return &AssertResponse{
-			AssertResult: &types.TaskActionResult{
-				Phase:       types.TaskResultPhaseAssertPassed, // passed
+			AssertResult: &types.Result{
+				Phase:       types.ResultPhaseAssertPassed, // passed
 				DesiredInfo: a.Result.DesiredInfo,
 				SkippedInfo: a.Result.SkippedInfo,
 				HasRunOnce:  pointer.Bool(true),
@@ -479,8 +479,8 @@ func ExecuteAssertConditions(req AssertRequest) (*AssertResponse, error) {
 		}, nil
 	}
 	return &AssertResponse{
-		AssertResult: &types.TaskActionResult{
-			Phase:       types.TaskResultPhaseAssertFailed, // failed
+		AssertResult: &types.Result{
+			Phase:       types.ResultPhaseAssertFailed, // failed
 			DesiredInfo: a.Result.DesiredInfo,
 			SkippedInfo: a.Result.SkippedInfo,
 			HasRunOnce:  pointer.Bool(true),
@@ -493,7 +493,7 @@ func ExecuteAssertConditions(req AssertRequest) (*AssertResponse, error) {
 func ExecuteAssertState(req AssertRequest) (*AssertResponse, error) {
 	a := &Assertion{
 		Request: req,
-		Result:  &types.TaskActionResult{},
+		Result:  &types.Result{},
 	}
 	ok, err := a.AssertState()
 	if err != nil {
@@ -501,8 +501,8 @@ func ExecuteAssertState(req AssertRequest) (*AssertResponse, error) {
 	}
 	if ok {
 		return &AssertResponse{
-			AssertResult: &types.TaskActionResult{
-				Phase:       types.TaskResultPhaseAssertPassed, // passed
+			AssertResult: &types.Result{
+				Phase:       types.ResultPhaseAssertPassed, // passed
 				DesiredInfo: a.Result.DesiredInfo,
 				SkippedInfo: a.Result.SkippedInfo,
 				Warns:       a.Result.Warns,
@@ -511,8 +511,8 @@ func ExecuteAssertState(req AssertRequest) (*AssertResponse, error) {
 		}, nil
 	}
 	return &AssertResponse{
-		AssertResult: &types.TaskActionResult{
-			Phase:       types.TaskResultPhaseAssertFailed, // failed
+		AssertResult: &types.Result{
+			Phase:       types.ResultPhaseAssertFailed, // failed
 			DesiredInfo: a.Result.DesiredInfo,
 			SkippedInfo: a.Result.SkippedInfo,
 			Warns:       a.Result.Warns,

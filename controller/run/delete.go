@@ -41,7 +41,7 @@ type DeleteRequest struct {
 // needs to be deleted from the cluster
 type DeleteResponse struct {
 	ExplicitDeletes []*unstructured.Unstructured
-	Result          *types.TaskActionResult
+	Result          *types.Result
 }
 
 // DeleteStateBuilder holds the observed resource(s)
@@ -54,7 +54,7 @@ type DeleteResponse struct {
 // deleted at the cluster.
 type DeleteStatesBuilder struct {
 	Request DeleteRequest
-	Result  *types.TaskActionResult
+	Result  *types.Result
 
 	deleteTemplate     *unstructured.Unstructured
 	deleteResourceName string
@@ -272,11 +272,11 @@ func (r *DeleteStatesBuilder) Build() (*DeleteResponse, error) {
 	}
 	return &DeleteResponse{
 		ExplicitDeletes: r.explicitDeletes,
-		Result: &types.TaskActionResult{
+		Result: &types.Result{
 			SkippedInfo:  r.Result.SkippedInfo,  // is set if enabled
 			DesiredInfo:  r.Result.DesiredInfo,  // is set if enabled
 			ExplicitInfo: r.Result.ExplicitInfo, // is set if enabled
-			Phase:        types.TaskResultPhaseOnline,
+			Phase:        types.ResultPhaseOnline,
 			Message: fmt.Sprintf(
 				"Delete action was successful: Desired deletes %d: Explicit deletes %d",
 				len(r.desiredDeletes),
@@ -291,7 +291,7 @@ func (r *DeleteStatesBuilder) Build() (*DeleteResponse, error) {
 func BuildDeleteStates(request DeleteRequest) (*DeleteResponse, error) {
 	r := &DeleteStatesBuilder{
 		Request: request,
-		Result:  &types.TaskActionResult{}, // initialize
+		Result:  &types.Result{}, // initialize
 	}
 	return r.Build()
 }

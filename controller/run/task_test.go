@@ -28,7 +28,7 @@ import (
 func TestExecuteAssertByExecTask(t *testing.T) {
 	var tests = map[string]struct {
 		req           TaskRequest
-		expectedPhase types.TaskResultPhase
+		expectedPhase types.ResultPhase
 		isSkip        bool
 		isErr         bool
 	}{
@@ -79,7 +79,7 @@ func TestExecuteAssertByExecTask(t *testing.T) {
 					},
 				},
 			},
-			expectedPhase: types.TaskResultPhaseAssertPassed,
+			expectedPhase: types.ResultPhaseAssertPassed,
 		},
 		"assert all pods are running if pods exist - skipped": {
 			req: TaskRequest{
@@ -126,7 +126,7 @@ func TestExecuteAssertByExecTask(t *testing.T) {
 				},
 			},
 			isSkip:        true,
-			expectedPhase: types.TaskResultPhaseSkipped,
+			expectedPhase: types.ResultPhaseSkipped,
 		},
 		"assert all pods are running - pass": {
 			req: TaskRequest{
@@ -187,7 +187,7 @@ func TestExecuteAssertByExecTask(t *testing.T) {
 					},
 				},
 			},
-			expectedPhase: types.TaskResultPhaseAssertPassed,
+			expectedPhase: types.ResultPhaseAssertPassed,
 		},
 		"assert pod-1 is running - pass": {
 			req: TaskRequest{
@@ -251,7 +251,7 @@ func TestExecuteAssertByExecTask(t *testing.T) {
 					},
 				},
 			},
-			expectedPhase: types.TaskResultPhaseAssertPassed,
+			expectedPhase: types.ResultPhaseAssertPassed,
 		},
 		"assert pod-1 is running - fail": {
 			req: TaskRequest{
@@ -315,7 +315,7 @@ func TestExecuteAssertByExecTask(t *testing.T) {
 					},
 				},
 			},
-			expectedPhase: types.TaskResultPhaseAssertFailed,
+			expectedPhase: types.ResultPhaseAssertFailed,
 		},
 		"assert pod-1 is error - pass": {
 			req: TaskRequest{
@@ -352,7 +352,7 @@ func TestExecuteAssertByExecTask(t *testing.T) {
 					},
 				},
 			},
-			expectedPhase: types.TaskResultPhaseAssertPassed,
+			expectedPhase: types.ResultPhaseAssertPassed,
 		},
 		"assert pod-1 is error - fail": {
 			req: TaskRequest{
@@ -389,7 +389,7 @@ func TestExecuteAssertByExecTask(t *testing.T) {
 					},
 				},
 			},
-			expectedPhase: types.TaskResultPhaseAssertFailed,
+			expectedPhase: types.ResultPhaseAssertFailed,
 		},
 		"assert all pods are running - fail": {
 			req: TaskRequest{
@@ -432,7 +432,7 @@ func TestExecuteAssertByExecTask(t *testing.T) {
 					},
 				},
 			},
-			expectedPhase: types.TaskResultPhaseAssertFailed,
+			expectedPhase: types.ResultPhaseAssertFailed,
 		},
 		"assert all pods are Error - fail": {
 			req: TaskRequest{
@@ -493,7 +493,7 @@ func TestExecuteAssertByExecTask(t *testing.T) {
 					},
 				},
 			},
-			expectedPhase: types.TaskResultPhaseAssertFailed,
+			expectedPhase: types.ResultPhaseAssertFailed,
 		},
 	}
 	for name, mock := range tests {
@@ -545,7 +545,7 @@ func TestExecuteAssertByExecTask(t *testing.T) {
 func TestExecuteCreateOrDeleteTask(t *testing.T) {
 	var tests = map[string]struct {
 		req             TaskRequest
-		expectedPhase   types.TaskResultPhase
+		expectedPhase   types.ResultPhase
 		expectedMessage string
 		isErr           bool
 	}{
@@ -595,7 +595,7 @@ func TestExecuteCreateOrDeleteTask(t *testing.T) {
 					},
 				},
 			},
-			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedPhase:   types.ResultPhaseOnline,
 			expectedMessage: "Create action was successful for 5 resource(s)",
 		},
 		"create 5 pods - pass": {
@@ -621,7 +621,7 @@ func TestExecuteCreateOrDeleteTask(t *testing.T) {
 					Replicas: ptr.Int(5), // Create Task
 				},
 			},
-			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedPhase:   types.ResultPhaseOnline,
 			expectedMessage: "Create action was successful for 5 resource(s)",
 		},
 		"delete all pods by setting spec to nil - pass": {
@@ -671,7 +671,7 @@ func TestExecuteCreateOrDeleteTask(t *testing.T) {
 					},
 				},
 			},
-			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedPhase:   types.ResultPhaseOnline,
 			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 2",
 		},
 		"delete all pods by setting replicas to 0 - pass": {
@@ -721,7 +721,7 @@ func TestExecuteCreateOrDeleteTask(t *testing.T) {
 					},
 				},
 			},
-			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedPhase:   types.ResultPhaseOnline,
 			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 2",
 		},
 		"delete all owned pods - pass": {
@@ -777,7 +777,7 @@ func TestExecuteCreateOrDeleteTask(t *testing.T) {
 					},
 				},
 			},
-			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedPhase:   types.ResultPhaseOnline,
 			expectedMessage: "Delete action was successful: Desired deletes 2: Explicit deletes 0",
 		},
 		"delete 1 owned & 1 not owned pod - pass": {
@@ -833,7 +833,7 @@ func TestExecuteCreateOrDeleteTask(t *testing.T) {
 					},
 				},
 			},
-			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedPhase:   types.ResultPhaseOnline,
 			expectedMessage: "Delete action was successful: Desired deletes 1: Explicit deletes 1",
 		},
 		"delete all pods from none by setting replicas to 0 - pass": {
@@ -848,7 +848,7 @@ func TestExecuteCreateOrDeleteTask(t *testing.T) {
 				},
 				ObservedResources: []*unstructured.Unstructured{},
 			},
-			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedPhase:   types.ResultPhaseOnline,
 			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 0",
 		},
 		"delete no pods due to mismatch - pass": {
@@ -898,7 +898,7 @@ func TestExecuteCreateOrDeleteTask(t *testing.T) {
 					},
 				},
 			},
-			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedPhase:   types.ResultPhaseOnline,
 			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 0",
 		},
 	}
@@ -985,7 +985,7 @@ func TestExecuteCreateOrDeleteTask(t *testing.T) {
 func TestCreateOrDeleteByExecTask(t *testing.T) {
 	var tests = map[string]struct {
 		req             TaskRequest
-		expectedPhase   types.TaskResultPhase
+		expectedPhase   types.ResultPhase
 		expectedMessage string
 		isErr           bool
 	}{
@@ -1035,7 +1035,7 @@ func TestCreateOrDeleteByExecTask(t *testing.T) {
 					},
 				},
 			},
-			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedPhase:   types.ResultPhaseOnline,
 			expectedMessage: "Create action was successful for 5 resource(s)",
 		},
 		"create 5 pods - pass": {
@@ -1061,7 +1061,7 @@ func TestCreateOrDeleteByExecTask(t *testing.T) {
 					Replicas: ptr.Int(5), // Create Task
 				},
 			},
-			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedPhase:   types.ResultPhaseOnline,
 			expectedMessage: "Create action was successful for 5 resource(s)",
 		},
 		"delete all pods by setting spec to nil - pass": {
@@ -1111,7 +1111,7 @@ func TestCreateOrDeleteByExecTask(t *testing.T) {
 					},
 				},
 			},
-			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedPhase:   types.ResultPhaseOnline,
 			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 2",
 		},
 		"delete all pods by setting replicas to 0 - pass": {
@@ -1161,7 +1161,7 @@ func TestCreateOrDeleteByExecTask(t *testing.T) {
 					},
 				},
 			},
-			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedPhase:   types.ResultPhaseOnline,
 			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 2",
 		},
 		"delete all owned pods - pass": {
@@ -1217,7 +1217,7 @@ func TestCreateOrDeleteByExecTask(t *testing.T) {
 					},
 				},
 			},
-			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedPhase:   types.ResultPhaseOnline,
 			expectedMessage: "Delete action was successful: Desired deletes 2: Explicit deletes 0",
 		},
 		"delete 1 owned & 1 not owned pod - pass": {
@@ -1273,7 +1273,7 @@ func TestCreateOrDeleteByExecTask(t *testing.T) {
 					},
 				},
 			},
-			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedPhase:   types.ResultPhaseOnline,
 			expectedMessage: "Delete action was successful: Desired deletes 1: Explicit deletes 1",
 		},
 		"delete all pods from none by setting replicas to 0 - pass": {
@@ -1288,7 +1288,7 @@ func TestCreateOrDeleteByExecTask(t *testing.T) {
 				},
 				ObservedResources: []*unstructured.Unstructured{},
 			},
-			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedPhase:   types.ResultPhaseOnline,
 			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 0",
 		},
 		"delete no pods due to mismatch - pass": {
@@ -1338,7 +1338,7 @@ func TestCreateOrDeleteByExecTask(t *testing.T) {
 					},
 				},
 			},
-			expectedPhase:   types.TaskResultPhaseOnline,
+			expectedPhase:   types.ResultPhaseOnline,
 			expectedMessage: "Delete action was successful: Desired deletes 0: Explicit deletes 0",
 		},
 	}
