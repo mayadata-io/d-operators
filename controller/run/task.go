@@ -17,6 +17,8 @@ limitations under the License.
 package run
 
 import (
+	"fmt"
+
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -48,9 +50,9 @@ type RunnableTask struct {
 	Request  TaskRequest
 	Response *TaskResponse
 
-	isNilApply  bool
-	isNilUpdate bool
-	isNilAssert bool
+	isApplyAction  bool
+	isUpdateAction bool
+	isAssertAction bool
 
 	isIfCondSuccess bool
 	isAssertSuccess bool
@@ -75,40 +77,54 @@ func (r *RunnableTask) validateArgs() error {
 }
 
 func (r *RunnableTask) init() error {
-	if len(r.Request.Task.TargetSelector.SelectorTerms) == 0 {
-		r.isNilUpdate = true
+	if len(r.Request.Task.TargetSelector.SelectorTerms) != 0 {
+		r.isUpdateAction = true
 	}
-	if len(r.Request.Task.Apply) == 0 {
-		r.isNilApply = true
+	if len(r.Request.Task.Apply) != 0 {
+		// apply action can either be used for create action
+		// or update action
+		r.isApplyAction = true
 	}
-	if r.Request.Task.Assert == nil {
-		r.isNilAssert = true
+	if r.Request.Task.Assert != nil {
+		r.isAssertAction = true
 	}
-	if r.isNilAssert && r.isNilApply {
+	if r.isAssertAction && r.isApplyAction {
+		return errors.Errorf(
+			"Both Assert & Apply can't be set in a task: %q",
+			r.Request.Task.Key,
+		)
+	}
+	if !r.isAssertAction && !r.isApplyAction {
 		return errors.Errorf(
 			"Both Assert & Apply can't be nil in a task: %q",
 			r.Request.Task.Key,
 		)
 	}
-	if !r.isNilAssert && !r.isNilApply {
+	if r.isAssertAction && r.isUpdateAction {
 		return errors.Errorf(
-			"Both Assert & Apply can't be used together in a task: %q",
+			"Both Assert & Update can't be set in a task: %q",
 			r.Request.Task.Key,
 		)
 	}
-	if !r.isNilAssert && !r.isNilUpdate {
+	if r.isUpdateAction && !r.isApplyAction {
 		return errors.Errorf(
-			"Both Assert & Update can't be used together in a task: %q",
-			r.Request.Task.Key,
-		)
-	}
-	if !r.isNilUpdate && r.isNilApply {
-		return errors.Errorf(
-			"Update action needs Apply to be set in a task: %q",
+			"Update task needs Apply to be set: %q",
 			r.Request.Task.Key,
 		)
 	}
 	return nil
+}
+
+// getTaskType returns the action that task is supposed
+// to perform
+func (r *RunnableTask) getTaskType() string {
+	if r.isUpdateAction {
+		return "Update"
+	}
+	if r.isAssertAction {
+		return "Assert"
+	}
+	return "Create/Delete"
 }
 
 // execute further action only when **IF** condition
@@ -131,8 +147,8 @@ func (r *RunnableTask) runIfCondition() {
 		r.err = err
 		return
 	}
-	// save the result
-	r.Response.Result.TaskIfCondResult = got.AssertResult
+	// save the if-cond result
+	r.Response.Result.IfCondResult = got.AssertResult
 	// did If condition pass
 	if got.AssertResult.Phase == types.ResultPhaseAssertPassed {
 		r.isIfCondSuccess = true
@@ -141,8 +157,8 @@ func (r *RunnableTask) runIfCondition() {
 
 // update the desired resource(s)
 func (r *RunnableTask) runUpdate() {
-	if r.isNilUpdate {
-		// nothing to be updated
+	if !r.isUpdateAction {
+		// not an update task
 		return
 	}
 	resp, err := BuildUpdateStates(UpdateRequest{
@@ -170,18 +186,18 @@ func (r *RunnableTask) runUpdate() {
 	//
 	// NOTE:
 	//	These resources were not created by this controller
-	r.Response.ExplicitDeletes = append(
+	r.Response.ExplicitUpdates = append(
 		r.Response.ExplicitUpdates,
 		resp.ExplicitUpdates...,
 	)
 	// set the received result
-	r.Response.Result.TaskUpdateResult = resp.Result
+	r.Response.Result.UpdateResult = resp.Result
 }
 
 // create or delete the desired resource(s)
 func (r *RunnableTask) runCreateOrDelete() {
-	if r.isNilApply {
-		// nothing to create or delete
+	if !r.isApplyAction || r.isUpdateAction {
+		// not a create or delete task
 		return
 	}
 	resp, err := BuildCreateOrDeleteStates(CreateOrDeleteRequest{
@@ -215,14 +231,14 @@ func (r *RunnableTask) runCreateOrDelete() {
 		resp.ExplicitDeletes...,
 	)
 	// set the received result
-	r.Response.Result.TaskCreateResult = resp.CreateResult
-	r.Response.Result.TaskDeleteResult = resp.DeleteResult
+	r.Response.Result.CreateResult = resp.CreateResult
+	r.Response.Result.DeleteResult = resp.DeleteResult
 }
 
 // execute task as an assertion
 func (r *RunnableTask) runAssert() {
-	if r.isNilAssert {
-		// nothing to be done
+	if !r.isAssertAction {
+		// not an assert task
 		return
 	}
 	got, err := ExecuteCondition(
@@ -235,7 +251,7 @@ func (r *RunnableTask) runAssert() {
 		r.err = err
 		return
 	}
-	r.Response.Result.TaskAssertResult = got.AssertResult
+	r.Response.Result.AssertResult = got.AssertResult
 }
 
 // Run executes this task
@@ -262,9 +278,12 @@ func (r *RunnableTask) Run() error {
 		}
 		// task can be executed only when its **IF** condition succeededs
 		if !r.isIfCondSuccess {
-			r.Response.Result.Skipped = &types.SkippedResult{
-				Phase:   types.ResultPhaseSkipped,
-				Message: "Task didn't run: If cond failed",
+			r.Response.Result.SkipResult = &types.SkipResult{
+				Phase: types.ResultPhaseSkipped,
+				Message: fmt.Sprintf(
+					"%s task didn't run: If cond failed",
+					r.getTaskType(),
+				),
 			}
 			return nil
 		}

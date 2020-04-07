@@ -17,6 +17,8 @@ limitations under the License.
 package run
 
 import (
+	"fmt"
+
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -47,6 +49,7 @@ type Runnable struct {
 	Request  Request
 	Response *Response
 
+	taskKeyRegistrar map[string]bool
 	isRunCondSuccess bool
 
 	err error
@@ -92,15 +95,35 @@ func (r *Runnable) runIfCondition() {
 	} else {
 		r.Response.RunStatus.Result = *got.AssertResult
 		msg := got.AssertResult.Message
-		if msg != "" {
+		if msg == "" {
 			msg = "Run was skipped: If cond failed"
 		}
 		r.Response.RunStatus.Message = msg
 	}
 }
 
+func (r *Runnable) isDuplicateTaskKey(key string) bool {
+	if r.taskKeyRegistrar[key] {
+		return true
+	}
+	// add this key to verify its duplicates in future calls
+	r.taskKeyRegistrar[key] = true
+	return false
+}
+
 func (r *Runnable) runAllTasks() {
+	r.taskKeyRegistrar = make(map[string]bool)
 	for _, task := range r.Request.Tasks {
+		if r.isDuplicateTaskKey(task.Key) {
+			r.Response.RunStatus.Errors = append(
+				r.Response.RunStatus.Errors,
+				fmt.Sprintf(
+					"Duplicate task key %q",
+					task.Key,
+				),
+			)
+			continue
+		}
 		resp, err := ExecTask(
 			TaskRequest{
 				IncludeInfo:       r.Request.IncludeInfo,
@@ -113,8 +136,9 @@ func (r *Runnable) runAllTasks() {
 		if err != nil {
 			r.Response.RunStatus.Errors = append(
 				r.Response.RunStatus.Errors,
-				err,
+				err.Error(),
 			)
+			// we aggregate results from remaining tasks
 			continue
 		}
 		r.Response.DesiredResources = append(
@@ -129,7 +153,7 @@ func (r *Runnable) runAllTasks() {
 			r.Response.ExplicitDeletes,
 			resp.ExplicitDeletes...,
 		)
-		r.Response.RunStatus.TaskResults[task.Key] = *resp.Result
+		r.Response.RunStatus.TaskResultList[task.Key] = *resp.Result
 	}
 	if len(r.Response.RunStatus.Errors) != 0 {
 		r.err = errors.Errorf("One or more tasks have error(s)")
@@ -165,7 +189,9 @@ func ExecRun(req Request) (*Response, error) {
 	r := &Runnable{
 		Request: req,
 		Response: &Response{
-			RunStatus: &types.RunStatus{},
+			RunStatus: &types.RunStatus{
+				TaskResultList: map[string]types.TaskResult{},
+			},
 		},
 	}
 	err := r.Run()

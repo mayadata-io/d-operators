@@ -362,11 +362,11 @@ func TestDeleteBuilderIncludeDesiredInfoIfEnabled(t *testing.T) {
 					},
 				},
 			}, "Desired info")
-			if mock.expectedDesiredCount != len(b.Result.DesiredInfo) {
+			if mock.expectedDesiredCount != len(b.Result.DesiredResourcesInfo) {
 				t.Fatalf(
 					"Expected desired count %d got %d",
 					mock.expectedDesiredCount,
-					len(b.Result.DesiredInfo),
+					len(b.Result.DesiredResourcesInfo),
 				)
 			}
 		})
@@ -442,11 +442,11 @@ func TestDeleteBuilderIncludeExplicitInfoIfEnabled(t *testing.T) {
 					},
 				},
 			}, "Explicit info")
-			if mock.expectedExplicitCount != len(b.Result.ExplicitInfo) {
+			if mock.expectedExplicitCount != len(b.Result.ExplicitResourcesInfo) {
 				t.Fatalf(
 					"Expected explicit count %d got %d",
 					mock.expectedExplicitCount,
-					len(b.Result.ExplicitInfo),
+					len(b.Result.ExplicitResourcesInfo),
 				)
 			}
 		})
@@ -522,11 +522,11 @@ func TestDeleteBuilderIncludeSkippedInfoIfEnabled(t *testing.T) {
 					},
 				},
 			}, "skipped info")
-			if mock.expectedSkippedCount != len(b.Result.SkippedInfo) {
+			if mock.expectedSkippedCount != len(b.Result.SkippedResourcesInfo) {
 				t.Fatalf(
 					"Expected skipped count %d got %d",
 					mock.expectedSkippedCount,
-					len(b.Result.SkippedInfo),
+					len(b.Result.SkippedResourcesInfo),
 				)
 			}
 		})
@@ -761,27 +761,27 @@ func TestDeleteBuilderBuild(t *testing.T) {
 				return
 			}
 			if mock.expectedExplicitInfoCount !=
-				len(got.Result.ExplicitInfo) {
+				len(got.Result.ExplicitResourcesInfo) {
 				t.Fatalf(
 					"Expected explicit delete count %d got %d",
 					mock.expectedExplicitInfoCount,
-					len(got.Result.ExplicitInfo),
+					len(got.Result.ExplicitResourcesInfo),
 				)
 			}
 			if mock.expectedDesiredInfoCount !=
-				len(got.Result.DesiredInfo) {
+				len(got.Result.DesiredResourcesInfo) {
 				t.Fatalf(
 					"Expected desired delete count %d got %d",
 					mock.expectedDesiredInfoCount,
-					len(got.Result.DesiredInfo),
+					len(got.Result.DesiredResourcesInfo),
 				)
 			}
 			if mock.expectedSkippedInfoCount !=
-				len(got.Result.SkippedInfo) {
+				len(got.Result.SkippedResourcesInfo) {
 				t.Fatalf(
 					"Expected skipped count %d got %d",
 					mock.expectedSkippedInfoCount,
-					len(got.Result.SkippedInfo),
+					len(got.Result.SkippedResourcesInfo),
 				)
 			}
 		})
