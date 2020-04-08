@@ -25,6 +25,75 @@ import (
 	"openebs.io/metac/apis/metacontroller/v1alpha1"
 )
 
+func TestRunnableExecRun(t *testing.T) {
+	var tests = map[string]struct {
+		RunCond   *types.If
+		Resources []*unstructured.Unstructured
+		Tasks     []types.Task
+		isErr     bool
+	}{
+		"duplicate task key error": {
+			Tasks: []types.Task{
+				types.Task{
+					Key: "duplicate",
+				},
+				types.Task{
+					Key: "duplicate",
+				},
+			},
+			isErr: true,
+		},
+		"simple assert task": {
+			Tasks: []types.Task{
+				types.Task{
+					Key: "simple-assert",
+					Assert: &types.Assert{
+						State: map[string]interface{}{
+							"kind": "Pod",
+						},
+					},
+				},
+			},
+			Resources: []*unstructured.Unstructured{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+					},
+				},
+			},
+		},
+	}
+	for name, mock := range tests {
+		name := name
+		mock := mock
+		t.Run(name, func(t *testing.T) {
+			_, err := ExecRun(
+				Request{
+					IncludeInfo: map[types.IncludeInfoKey]bool{
+						types.IncludeAllInfo: true,
+					},
+					ObservedResources: mock.Resources,
+					Run: &unstructured.Unstructured{
+						Object: map[string]interface{}{},
+					},
+					Watch: &unstructured.Unstructured{
+						Object: map[string]interface{}{},
+					},
+					RunCond: mock.RunCond,
+					Tasks:   mock.Tasks,
+				},
+			)
+			if mock.isErr && err == nil {
+				t.Fatalf("Expected error got none")
+			}
+			if !mock.isErr && err != nil {
+				t.Fatalf("Expected no error got [%+v]", err)
+			}
+		})
+	}
+}
+
 func TestRunnableValidateArgs(t *testing.T) {
 	var tests = map[string]struct {
 		Run      *unstructured.Unstructured
@@ -198,6 +267,9 @@ func TestRunnableRunIfCond(t *testing.T) {
 				Request: Request{
 					RunCond:           mock.RunCond,
 					ObservedResources: mock.Resources,
+					Watch: &unstructured.Unstructured{
+						Object: map[string]interface{}{},
+					},
 				},
 				Response: &Response{
 					RunStatus: &types.RunStatus{},
@@ -226,83 +298,26 @@ func TestRunnableRunIfCond(t *testing.T) {
 
 func TestRunnableRunAllTasks(t *testing.T) {
 	var tests = map[string]struct {
-		Tasks                       []types.Task
-		Resources                   []*unstructured.Unstructured
-		expectedErrCount            int
-		expectedDesiredCount        int
-		expectedExplicitUpdateCount int
-		expectedExplicitDeleteCount int
-		expectedAssertTaskCount     int
-		expectedUpdateTaskCount     int
-		expectedCreateTaskCount     int
-		expectedDeleteTaskCount     int
-		expectedIfCondTaskCount     int
-		expectedSkippedTaskCount    int
-		expectedTaskResultCount     int
-		isErr                       bool
+		Tasks                         []types.Task
+		Resources                     []*unstructured.Unstructured
+		expectedErrCount              int
+		expectedDesiredCount          int
+		expectedExplicitUpdateCount   int
+		expectedExplicitDeleteCount   int
+		expectedAssertTaskCount       int
+		expectedFailedAssertTaskCount int
+		expectedPassedAssertTaskCount int
+		expectedUpdateTaskCount       int
+		expectedCreateTaskCount       int
+		expectedDeleteTaskCount       int
+		expectedIfCondTaskCount       int
+		expectedSkippedTaskCount      int
+		expectedTaskResultCount       int
+		isErr                         bool
 	}{
-		"create pod + 1 task": {
-			Tasks: []types.Task{
-				types.Task{
-					Key: "create-a-pod",
-					Apply: map[string]interface{}{
-						"kind":       "Pod",
-						"apiVersion": "v1",
-						"metadata": map[string]interface{}{
-							"name": "my-pod",
-						},
-					},
-				},
-			},
-			expectedDesiredCount:    1,
-			expectedCreateTaskCount: 1,
-			expectedTaskResultCount: 1,
-		},
-		"create 2 pods + 1 task": {
-			Tasks: []types.Task{
-				types.Task{
-					Key: "create-a-pod",
-					Apply: map[string]interface{}{
-						"kind":       "Pod",
-						"apiVersion": "v1",
-						"metadata": map[string]interface{}{
-							"name": "my-pod",
-						},
-					},
-					Replicas: pointer.Int(2),
-				},
-			},
-			expectedDesiredCount:    2,
-			expectedCreateTaskCount: 1,
-			expectedTaskResultCount: 1,
-		},
-		"create 2 pods + 1 pod per task": {
-			Tasks: []types.Task{
-				types.Task{
-					Key: "create-a-pod",
-					Apply: map[string]interface{}{
-						"kind":       "Pod",
-						"apiVersion": "v1",
-						"metadata": map[string]interface{}{
-							"name": "my-pod",
-						},
-					},
-				},
-				types.Task{
-					Key: "create-a-pod-2",
-					Apply: map[string]interface{}{
-						"kind":       "Pod",
-						"apiVersion": "v1",
-						"metadata": map[string]interface{}{
-							"name": "my-pod-2",
-						},
-					},
-				},
-			},
-			expectedDesiredCount:    2,
-			expectedCreateTaskCount: 2,
-			expectedTaskResultCount: 2,
-		},
+		// ------------------------------------------------------
+		//  RUN as DELETE TASK(s)
+		// ------------------------------------------------------
 		"delete all pods": {
 			Tasks: []types.Task{
 				types.Task{
@@ -525,6 +540,71 @@ func TestRunnableRunAllTasks(t *testing.T) {
 			expectedIfCondTaskCount:     1,
 			expectedTaskResultCount:     1,
 		},
+		// ------------------------------------------------------
+		//  RUN as CREATE TASK(s)
+		// ------------------------------------------------------
+		"create pod + 1 task": {
+			Tasks: []types.Task{
+				types.Task{
+					Key: "create-a-pod",
+					Apply: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"name": "my-pod",
+						},
+					},
+				},
+			},
+			expectedDesiredCount:    1,
+			expectedCreateTaskCount: 1,
+			expectedTaskResultCount: 1,
+		},
+		"create 2 pods + 1 task": {
+			Tasks: []types.Task{
+				types.Task{
+					Key: "create-a-pod",
+					Apply: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"name": "my-pod",
+						},
+					},
+					Replicas: pointer.Int(2),
+				},
+			},
+			expectedDesiredCount:    2,
+			expectedCreateTaskCount: 1,
+			expectedTaskResultCount: 1,
+		},
+		"create 2 pods + 1 pod per task": {
+			Tasks: []types.Task{
+				types.Task{
+					Key: "create-a-pod",
+					Apply: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"name": "my-pod",
+						},
+					},
+				},
+				types.Task{
+					Key: "create-a-pod-2",
+					Apply: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"name": "my-pod-2",
+						},
+					},
+				},
+			},
+			expectedDesiredCount:    2,
+			expectedCreateTaskCount: 2,
+			expectedTaskResultCount: 2,
+		},
 		"create 5 pods with passing if cond": {
 			Tasks: []types.Task{
 				types.Task{
@@ -616,6 +696,9 @@ func TestRunnableRunAllTasks(t *testing.T) {
 			expectedIfCondTaskCount:  1,
 			expectedSkippedTaskCount: 1,
 		},
+		// ------------------------------------------------------
+		//  RUN as UPDATE TASK(s)
+		// ------------------------------------------------------
 		"update anns of all pods with specific labels": {
 			Tasks: []types.Task{
 				types.Task{
@@ -801,6 +884,491 @@ func TestRunnableRunAllTasks(t *testing.T) {
 			expectedSkippedTaskCount: 1,
 			expectedTaskResultCount:  1,
 		},
+		// ------------------------------------------------------
+		//  RUN as ASSERT STATE TASK(s)
+		// ------------------------------------------------------
+		"cannot assert state of pod due to failing if cond": {
+			Tasks: []types.Task{
+				types.Task{
+					Key: "cannot-assert-state-of-pod-due-to-failing-if-cond",
+					If: &types.If{
+						IfConditions: []types.IfCondition{
+							types.IfCondition{
+								ResourceSelector: v1alpha1.ResourceSelector{
+									SelectorTerms: []*v1alpha1.SelectorTerm{
+										&v1alpha1.SelectorTerm{
+											MatchFields: map[string]string{
+												"kind": "Service",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					Assert: &types.Assert{
+						State: map[string]interface{}{
+							"kind":       "Pod",
+							"apiVersion": "v1",
+							"metadata": map[string]interface{}{
+								"name": "my-pod-1",
+							},
+						},
+					},
+				},
+			},
+			Resources: []*unstructured.Unstructured{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"name": "my-pod-1",
+						},
+					},
+				},
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"name": "my-pod-2",
+						},
+					},
+				},
+			},
+			expectedIfCondTaskCount:  1,
+			expectedSkippedTaskCount: 1,
+			expectedTaskResultCount:  1,
+		},
+		"assert state of pod meta fields with passing if cond": {
+			Tasks: []types.Task{
+				types.Task{
+					Key: "assert-state-of-pod-meta-fields-with-passing-if-cond",
+					If: &types.If{
+						IfConditions: []types.IfCondition{
+							types.IfCondition{
+								ResourceSelector: v1alpha1.ResourceSelector{
+									SelectorTerms: []*v1alpha1.SelectorTerm{
+										&v1alpha1.SelectorTerm{
+											MatchFields: map[string]string{
+												"kind":       "Pod",
+												"apiVersion": "v1",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					Assert: &types.Assert{
+						State: map[string]interface{}{
+							"kind":       "Pod",
+							"apiVersion": "v1",
+							"metadata": map[string]interface{}{
+								"labels": map[string]interface{}{
+									"app": "test",
+								},
+								"annotations": map[string]interface{}{
+									"app": "test",
+								},
+							},
+						},
+					},
+				},
+			},
+			Resources: []*unstructured.Unstructured{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"name": "my-pod-1",
+							"labels": map[string]interface{}{
+								"app": "test",
+							},
+							"annotations": map[string]interface{}{
+								"app": "test",
+							},
+						},
+					},
+				},
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"name": "my-pod-2",
+							"labels": map[string]interface{}{
+								"app": "test",
+							},
+							"annotations": map[string]interface{}{
+								"app": "test",
+							},
+						},
+					},
+				},
+			},
+			expectedIfCondTaskCount:       1,
+			expectedAssertTaskCount:       1,
+			expectedPassedAssertTaskCount: 1,
+			expectedTaskResultCount:       1,
+		},
+		"assert state of pod name match by prefix": {
+			Tasks: []types.Task{
+				types.Task{
+					Key: "assert-state-of-pod-name-match-by-prefix",
+					Assert: &types.Assert{
+						State: map[string]interface{}{
+							"kind":       "Pod",
+							"apiVersion": "v1",
+							"metadata": map[string]interface{}{
+								"name": "my-pod",
+							},
+						},
+					},
+				},
+			},
+			Resources: []*unstructured.Unstructured{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"name": "my-pod-0",
+						},
+					},
+				},
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"name": "my-pod-1",
+						},
+					},
+				},
+			},
+			expectedPassedAssertTaskCount: 1,
+			expectedAssertTaskCount:       1,
+			expectedTaskResultCount:       1,
+		},
+		"cannot assert state of pod due to name mismatch": {
+			Tasks: []types.Task{
+				types.Task{
+					Key: "cannot-assert-state-of-pod-due-to-name-mismatch",
+					Assert: &types.Assert{
+						State: map[string]interface{}{
+							"kind":       "Pod",
+							"apiVersion": "v1",
+							"metadata": map[string]interface{}{
+								"name": "my-no-pod",
+							},
+						},
+					},
+				},
+			},
+			Resources: []*unstructured.Unstructured{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"name": "my-pod-0",
+						},
+					},
+				},
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"name": "my-pod-1",
+						},
+					},
+				},
+			},
+			expectedAssertTaskCount:       1,
+			expectedFailedAssertTaskCount: 1,
+			expectedTaskResultCount:       1,
+		},
+		// ------------------------------------------------------
+		//  RUN as ASSERT COND TASK(s)
+		// ------------------------------------------------------
+		"if cond assert pod with match fields": {
+			Tasks: []types.Task{
+				types.Task{
+					Key: "if-cond-assert-pod-with-match-fields",
+					Assert: &types.Assert{
+						If: types.If{
+							IfConditions: []types.IfCondition{
+								types.IfCondition{
+									ResourceSelector: v1alpha1.ResourceSelector{
+										SelectorTerms: []*v1alpha1.SelectorTerm{
+											&v1alpha1.SelectorTerm{
+												MatchFields: map[string]string{
+													"kind": "Pod",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			Resources: []*unstructured.Unstructured{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"name": "my-pod-0",
+						},
+					},
+				},
+			},
+			expectedAssertTaskCount:       1,
+			expectedPassedAssertTaskCount: 1,
+			expectedTaskResultCount:       1,
+		},
+		"if cond assert pod with match fields & labels": {
+			Tasks: []types.Task{
+				types.Task{
+					Key: "if-cond-assert-pod-with-match-fields-&-labels",
+					Assert: &types.Assert{
+						If: types.If{
+							IfConditions: []types.IfCondition{
+								types.IfCondition{
+									ResourceSelector: v1alpha1.ResourceSelector{
+										SelectorTerms: []*v1alpha1.SelectorTerm{
+											&v1alpha1.SelectorTerm{
+												MatchFields: map[string]string{
+													"kind":       "Pod",
+													"apiVersion": "v1",
+												},
+												MatchLabels: map[string]string{
+													"app": "test",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			Resources: []*unstructured.Unstructured{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"name": "my-pod-0",
+							"labels": map[string]interface{}{
+								"app": "test",
+							},
+						},
+					},
+				},
+			},
+			expectedAssertTaskCount:       1,
+			expectedPassedAssertTaskCount: 1,
+			expectedTaskResultCount:       1,
+		},
+		"failed if cond assert pod with match fields & labels": {
+			Tasks: []types.Task{
+				types.Task{
+					Key: "failed-if-cond-assert-pod-with-match-fields-&-labels",
+					Assert: &types.Assert{
+						If: types.If{
+							IfConditions: []types.IfCondition{
+								types.IfCondition{
+									ResourceSelector: v1alpha1.ResourceSelector{
+										SelectorTerms: []*v1alpha1.SelectorTerm{
+											&v1alpha1.SelectorTerm{
+												MatchFields: map[string]string{
+													"kind":       "Pod",
+													"apiVersion": "v1",
+												},
+												MatchLabels: map[string]string{
+													"app": "prod",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			Resources: []*unstructured.Unstructured{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"name": "my-pod-0",
+							"labels": map[string]interface{}{
+								"app": "test",
+							},
+						},
+					},
+				},
+			},
+			expectedAssertTaskCount:       1,
+			expectedFailedAssertTaskCount: 1,
+			expectedTaskResultCount:       1,
+		},
+		"if cond assert pod with match fields error out due to no resources": {
+			Tasks: []types.Task{
+				types.Task{
+					Key: "if-cond-assert-pod-with-match-fields-err-out-due-to-no-resources",
+					Assert: &types.Assert{
+						If: types.If{
+							IfConditions: []types.IfCondition{
+								types.IfCondition{
+									ResourceSelector: v1alpha1.ResourceSelector{
+										SelectorTerms: []*v1alpha1.SelectorTerm{
+											&v1alpha1.SelectorTerm{
+												MatchFields: map[string]string{
+													"kind":       "Pod",
+													"apiVersion": "v1",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			Resources:        []*unstructured.Unstructured{},
+			isErr:            true,
+			expectedErrCount: 1,
+		},
+		"if cond assert pod with match fields fail due to failing if cond": {
+			Tasks: []types.Task{
+				types.Task{
+					Key: "if-cond-assert-pod-with-match-fields-fail-due-to-failing-if-cond",
+					If: &types.If{
+						IfConditions: []types.IfCondition{
+							types.IfCondition{
+								ResourceSelector: v1alpha1.ResourceSelector{
+									SelectorTerms: []*v1alpha1.SelectorTerm{
+										&v1alpha1.SelectorTerm{
+											MatchAnnotations: map[string]string{
+												"app": "test",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					Assert: &types.Assert{
+						If: types.If{
+							IfConditions: []types.IfCondition{
+								types.IfCondition{
+									ResourceSelector: v1alpha1.ResourceSelector{
+										SelectorTerms: []*v1alpha1.SelectorTerm{
+											&v1alpha1.SelectorTerm{
+												MatchFields: map[string]string{
+													"kind":       "Pod",
+													"apiVersion": "v1",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			Resources: []*unstructured.Unstructured{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"name": "my-pod",
+						},
+					},
+				},
+			},
+			expectedSkippedTaskCount: 1,
+			expectedIfCondTaskCount:  1,
+			expectedTaskResultCount:  1,
+		},
+		"if cond assert errors due to duplicate task key": {
+			Tasks: []types.Task{
+				types.Task{
+					Key: "duplicate",
+					Assert: &types.Assert{
+						If: types.If{
+							IfConditions: []types.IfCondition{
+								types.IfCondition{
+									ResourceSelector: v1alpha1.ResourceSelector{
+										SelectorTerms: []*v1alpha1.SelectorTerm{
+											&v1alpha1.SelectorTerm{
+												MatchFields: map[string]string{
+													"kind":       "Pod",
+													"apiVersion": "v1",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				types.Task{
+					Key: "duplicate",
+					Assert: &types.Assert{
+						If: types.If{
+							IfConditions: []types.IfCondition{
+								types.IfCondition{
+									ResourceSelector: v1alpha1.ResourceSelector{
+										SelectorTerms: []*v1alpha1.SelectorTerm{
+											&v1alpha1.SelectorTerm{
+												MatchAnnotations: map[string]string{
+													"app": "test",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			Resources: []*unstructured.Unstructured{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"name": "my-pod",
+							"annotations": map[string]interface{}{
+								"app": "test",
+							},
+						},
+					},
+				},
+			},
+			expectedErrCount:              1,
+			isErr:                         true,
+			expectedAssertTaskCount:       1,
+			expectedPassedAssertTaskCount: 1,
+			expectedTaskResultCount:       1,
+		},
 	}
 	for name, mock := range tests {
 		name := name
@@ -892,6 +1460,24 @@ func TestRunnableRunAllTasks(t *testing.T) {
 					"Expected assert task count %d got %d: %s",
 					mock.expectedAssertTaskCount,
 					r.Response.RunStatus.TaskResultList.AssertTaskCount(),
+					r.Response.RunStatus,
+				)
+			}
+			if mock.expectedPassedAssertTaskCount !=
+				r.Response.RunStatus.TaskResultList.PassedAssertTaskCount() {
+				t.Fatalf(
+					"Expected passed assert task count %d got %d: %s",
+					mock.expectedPassedAssertTaskCount,
+					r.Response.RunStatus.TaskResultList.PassedAssertTaskCount(),
+					r.Response.RunStatus,
+				)
+			}
+			if mock.expectedFailedAssertTaskCount !=
+				r.Response.RunStatus.TaskResultList.FailedAssertTaskCount() {
+				t.Fatalf(
+					"Expected failed assert task count %d got %d: %s",
+					mock.expectedFailedAssertTaskCount,
+					r.Response.RunStatus.TaskResultList.FailedAssertTaskCount(),
 					r.Response.RunStatus,
 				)
 			}

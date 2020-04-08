@@ -391,7 +391,7 @@ type If struct {
 type IfCondition struct {
 	// Selector to filter one or more resources that are expected
 	// to be present in the cluster
-	ResourceSelector metac.ResourceSelector `json:"resource,omitempty"`
+	ResourceSelector metac.ResourceSelector `json:"resourceSelector,omitempty"`
 
 	// ResourceOperator refers to the operation that gets executed to
 	// the selected resources
@@ -508,6 +508,32 @@ func (l TaskResultList) AssertTaskCount() int {
 	var count int
 	for _, result := range l {
 		if result.AssertResult != nil {
+			count++
+		}
+	}
+	return count
+}
+
+// FailedAssertTaskCount returns the number of tasks in the
+// Run resource whose assert executions failed
+func (l TaskResultList) FailedAssertTaskCount() int {
+	var count int
+	for _, result := range l {
+		if result.AssertResult != nil &&
+			result.AssertResult.Phase == ResultPhaseAssertFailed {
+			count++
+		}
+	}
+	return count
+}
+
+// PassedAssertTaskCount returns the number of tasks in the
+// Run resource whose assert executions passed
+func (l TaskResultList) PassedAssertTaskCount() int {
+	var count int
+	for _, result := range l {
+		if result.AssertResult != nil &&
+			result.AssertResult.Phase == ResultPhaseAssertPassed {
 			count++
 		}
 	}

@@ -56,10 +56,10 @@ type Runnable struct {
 }
 
 func (r *Runnable) validateArgs() error {
-	if r.Request.Run == nil {
+	if r.Request.Run == nil || r.Request.Run.Object == nil {
 		return errors.New("Invalid run: Nil run resource")
 	}
-	if r.Request.Watch == nil {
+	if r.Request.Watch == nil || r.Request.Watch.Object == nil {
 		return errors.New("Invalid run: Nil watch resource")
 	}
 	if r.Response == nil || r.Response.RunStatus == nil {
@@ -80,6 +80,12 @@ func (r *Runnable) runIfCondition() {
 	}
 	got, err := ExecuteCondition(
 		AssertRequest{
+			TaskKey: fmt.Sprintf(
+				"%s:%s:%s",
+				r.Request.Watch.GetNamespace(),
+				r.Request.Watch.GetName(),
+				r.Request.Watch.GroupVersionKind().String(),
+			),
 			Assert: &types.Assert{
 				If: *r.Request.RunCond,
 			},
