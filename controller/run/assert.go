@@ -19,6 +19,7 @@ package run
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -217,6 +218,7 @@ func (c *ResourceListCondition) IsSuccess() (bool, error) {
 // assertion
 type AssertRequest struct {
 	IncludeInfo map[types.IncludeInfoKey]bool
+	TaskKey     string
 	Assert      *types.Assert
 	Resources   []*unstructured.Unstructured
 }
@@ -351,7 +353,8 @@ func (a *Assertion) verifyState() {
 			// this is not the resource we want to assert against
 			continue
 		}
-		if stName != "" && stName != resource.GetName() {
+		// we do not do a exact name match instead try a prefix match
+		if stName != "" && !strings.HasPrefix(resource.GetName(), stName) {
 			// this is not the resource we want to assert against
 			continue
 		}
@@ -367,13 +370,22 @@ func (a *Assertion) verifyState() {
 			// this is not the resource we want to assert against
 			continue
 		}
+		// get a deep copy of the resource
+		resourceCopy := resource.DeepCopy()
+		if stName != "" {
+			// override the resource name with the name set in
+			// assert state
+			//
+			// This is done to do support prefix based name match
+			resourceCopy.SetName(stName)
+		}
 		// at this point we want to assert the given state with the
 		// current resource by running a 3 way merge & finally matching
 		// the resulting merge with the original resource
 		final, err := apply.Merge(
-			resource.UnstructuredContent(), // observed = current resource
-			state.UnstructuredContent(),    // last applied = given state
-			state.UnstructuredContent(),    // desired = given state
+			resourceCopy.UnstructuredContent(), // observed = current resource
+			state.UnstructuredContent(),        // last applied = given state
+			state.UnstructuredContent(),        // desired = given state
 		)
 		if err != nil {
 			a.err = errors.Wrapf(
@@ -382,13 +394,13 @@ func (a *Assertion) verifyState() {
 			)
 			return
 		}
-		if !reflect.DeepEqual(final, resource.UnstructuredContent()) {
+		if !reflect.DeepEqual(final, resourceCopy.UnstructuredContent()) {
 			a.nomatches = append(
 				a.nomatches,
 				fmt.Sprintf(
 					"Assert state didn't match for %q / %q: %s",
 					resource.GetNamespace(),
-					resource.GetName(),
+					resource.GetName(), // use original resource name
 					resource.GetObjectKind().GroupVersionKind().String(),
 				),
 			)
@@ -398,7 +410,7 @@ func (a *Assertion) verifyState() {
 				fmt.Sprintf(
 					"Assert state matched for %q / %q: %s",
 					resource.GetNamespace(),
-					resource.GetName(),
+					resource.GetName(), // use original resource name
 					resource.GetObjectKind().GroupVersionKind().String(),
 				),
 			)
@@ -523,19 +535,27 @@ func ExecuteAssertState(req AssertRequest) (*AssertResponse, error) {
 
 // ExecuteCondition executes the assert based on the provided request
 func ExecuteCondition(req AssertRequest) (*AssertResponse, error) {
+	if req.TaskKey == "" {
+		return nil, errors.Errorf(
+			"Can't assert: Missing task key",
+		)
+	}
 	if req.Assert == nil {
 		return nil, errors.Errorf(
-			"Can't assert: Missing assert specs",
+			"Can't assert: Missing assert specs: %s",
+			req.TaskKey,
 		)
 	}
 	if len(req.Assert.State) != 0 && len(req.Assert.IfConditions) != 0 {
 		return nil, errors.Errorf(
-			"Can't assert: Both assert state & conditions can't be used together",
+			"Can't assert: Both assert state & conditions can't be used together: %s",
+			req.TaskKey,
 		)
 	}
 	if len(req.Assert.State) == 0 && len(req.Assert.IfConditions) == 0 {
 		return nil, errors.Errorf(
-			"Can't assert: Either assert state or conditions need to be set",
+			"Can't assert: Either assert state or conditions need to be set: %s",
+			req.TaskKey,
 		)
 	}
 	if len(req.Resources) == 0 {
@@ -543,7 +563,8 @@ func ExecuteCondition(req AssertRequest) (*AssertResponse, error) {
 		// any resources since these conditions need to
 		// be executed against resources
 		return nil, errors.Errorf(
-			"Can't assert: No resources provided",
+			"Can't assert: No resources provided: %s",
+			req.TaskKey,
 		)
 	}
 	// assertion can either be executed against the provided:

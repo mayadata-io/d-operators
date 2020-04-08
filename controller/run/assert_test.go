@@ -1990,7 +1990,7 @@ func TestVerifyAssert(t *testing.T) {
 						"kind":       "Deployment",
 						"apiVersion": "apps/v1",
 						"metadata": map[string]interface{}{
-							"name": "my-deploy-1",
+							"name": "my-no-deploy",
 						},
 						"spec": map[string]interface{}{
 							"replicas": int64(1),
@@ -2358,6 +2358,7 @@ func TestExecuteAssert(t *testing.T) {
 	}{
 		"successful match + OR operator + 1 condition + matchlabels": {
 			request: AssertRequest{
+				TaskKey: "successful-match-OR-op-1-cond-matchlabels",
 				Assert: &types.Assert{
 					If: types.If{
 						IfConditions: []types.IfCondition{
@@ -2391,6 +2392,7 @@ func TestExecuteAssert(t *testing.T) {
 		},
 		"successful match + OR operator + 2 conditions + matchlabels": {
 			request: AssertRequest{
+				TaskKey: "successful-match-or-op-2-conds-matchlabels",
 				Assert: &types.Assert{
 					If: types.If{
 						IfConditions: []types.IfCondition{
@@ -2435,6 +2437,7 @@ func TestExecuteAssert(t *testing.T) {
 		},
 		"successful match + AND operator + 1 condition + matchlabels": {
 			request: AssertRequest{
+				TaskKey: "successful-match-AND-op-1-cond-matchlabels",
 				Assert: &types.Assert{
 					If: types.If{
 						IfConditions: []types.IfCondition{
@@ -2469,6 +2472,7 @@ func TestExecuteAssert(t *testing.T) {
 		},
 		"successful match + AND operator + 2 conditions + matchlabels": {
 			request: AssertRequest{
+				TaskKey: "successful-match-AND-op-2-cond-matchlabels",
 				Assert: &types.Assert{
 					If: types.If{
 						IfConditions: []types.IfCondition{
@@ -2515,6 +2519,7 @@ func TestExecuteAssert(t *testing.T) {
 		},
 		"failed match + OR operator + 1 condition + matchlabels": {
 			request: AssertRequest{
+				TaskKey: "failed-match-OR-op-1-cond-matchlabels",
 				Assert: &types.Assert{
 					If: types.If{
 						IfConditions: []types.IfCondition{
@@ -2548,6 +2553,7 @@ func TestExecuteAssert(t *testing.T) {
 		},
 		"failed match + AND operator + 2 conditions + matchlabels": {
 			request: AssertRequest{
+				TaskKey: "failed-match-AND-op-2-cond-matchlabels",
 				Assert: &types.Assert{
 					If: types.If{
 						IfConditions: []types.IfCondition{
@@ -2593,6 +2599,7 @@ func TestExecuteAssert(t *testing.T) {
 		},
 		"failed match + AND operator + 1 condition + matchlabels": {
 			request: AssertRequest{
+				TaskKey: "failed-match-AND-op-1-cond-matchlabels",
 				Assert: &types.Assert{
 					If: types.If{
 						IfConditions: []types.IfCondition{
@@ -2627,6 +2634,7 @@ func TestExecuteAssert(t *testing.T) {
 		},
 		"successful match + OR operator + 2 condition + 2 resources": {
 			request: AssertRequest{
+				TaskKey: "successful-match-OR-op-2-cond-2-resources",
 				Assert: &types.Assert{
 					If: types.If{
 						IfConditions: []types.IfCondition{
@@ -2681,6 +2689,7 @@ func TestExecuteAssert(t *testing.T) {
 		},
 		"successful match + AND operator + 2 condition + 2 resources": {
 			request: AssertRequest{
+				TaskKey: "successful-match-AND-op-2-cond-2-resources",
 				Assert: &types.Assert{
 					If: types.If{
 						IfConditions: []types.IfCondition{

@@ -137,6 +137,8 @@ func (r *RunnableTask) runIfCondition() {
 	}
 	got, err := ExecuteCondition(
 		AssertRequest{
+			IncludeInfo: r.Request.IncludeInfo,
+			TaskKey:     r.Request.Task.Key,
 			Assert: &types.Assert{
 				If: *r.Request.Task.If,
 			},
@@ -201,6 +203,7 @@ func (r *RunnableTask) runCreateOrDelete() {
 		return
 	}
 	resp, err := BuildCreateOrDeleteStates(CreateOrDeleteRequest{
+		IncludeInfo:       r.Request.IncludeInfo,
 		Run:               r.Request.Run,
 		Watch:             r.Request.Watch,
 		Apply:             r.Request.Task.Apply,
@@ -243,8 +246,10 @@ func (r *RunnableTask) runAssert() {
 	}
 	got, err := ExecuteCondition(
 		AssertRequest{
-			Assert:    r.Request.Task.Assert,
-			Resources: r.Request.ObservedResources,
+			IncludeInfo: r.Request.IncludeInfo,
+			TaskKey:     r.Request.Task.Key,
+			Assert:      r.Request.Task.Assert,
+			Resources:   r.Request.ObservedResources,
 		},
 	)
 	if err != nil {
