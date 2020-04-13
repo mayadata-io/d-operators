@@ -34,6 +34,7 @@ import (
 // ResourceListConditionConfig holds the info required to
 // create a ResourceListCondition instance
 type ResourceListConditionConfig struct {
+	TaskKey     string
 	IncludeInfo map[types.IncludeInfoKey]bool
 	Condition   types.IfCondition
 	Resources   []*unstructured.Unstructured
@@ -43,7 +44,8 @@ type ResourceListConditionConfig struct {
 // a list of resources by runnings these resources against
 // one condition
 type ResourceListCondition struct {
-	Items []*unstructured.Unstructured
+	TaskKey string
+	Items   []*unstructured.Unstructured
 
 	IncludeInfo map[types.IncludeInfoKey]bool
 	Condition   *types.IfCondition
@@ -61,33 +63,65 @@ type ResourceListCondition struct {
 // NewResourceListCondition returns a new instance of ResourceCondition
 // from the provided condition _(read resource selectors)_ & resources
 func NewResourceListCondition(config ResourceListConditionConfig) *ResourceListCondition {
-	if len(config.Condition.ResourceSelector.SelectorTerms) == 0 {
+	if config.TaskKey == "" {
 		return &ResourceListCondition{
 			err: errors.Errorf(
-				"Invalid resource condition: Empty selector terms",
+				"Invalid condition: Missing task key",
 			),
 		}
 	}
-	if config.Condition.Count == nil {
-		if config.Condition.ResourceOperator == types.ResourceOperatorEqualsCount ||
-			config.Condition.ResourceOperator == types.ResourceOperatorGTE ||
-			config.Condition.ResourceOperator == types.ResourceOperatorLTE {
-			return &ResourceListCondition{
-				err: errors.Errorf(
-					"Invalid resource condition: Count must be set when operator is %q",
-					config.Condition.ResourceOperator,
-				),
-			}
+	if len(config.Condition.ResourceSelector.SelectorTerms) == 0 {
+		return &ResourceListCondition{
+			err: errors.Errorf(
+				"Invalid condition: Empty selector terms: %s",
+				config.TaskKey,
+			),
 		}
 	}
 	if len(config.Resources) == 0 {
 		return &ResourceListCondition{
 			err: errors.Errorf(
-				"Invalid resource condition: No resources provided",
+				"Invalid condition: No resources to select: %s",
+				config.TaskKey,
+			),
+		}
+	}
+	if config.Condition.Count == nil {
+		// condition count is mandatory for these operators
+		if config.Condition.ResourceOperator == types.ResourceOperatorEqualsCount ||
+			config.Condition.ResourceOperator == types.ResourceOperatorGTE ||
+			config.Condition.ResourceOperator == types.ResourceOperatorLTE {
+			return &ResourceListCondition{
+				err: errors.Errorf(
+					"Invalid condition: Count must be set when operator is %q: %s",
+					config.Condition.ResourceOperator,
+					config.TaskKey,
+				),
+			}
+		}
+	} else {
+		// verify if operator is set when condition count is not nil
+		if config.Condition.ResourceOperator == "" {
+			return &ResourceListCondition{
+				err: errors.Errorf(
+					"Invalid condition: Operator must be set when condition count is set: %s",
+					config.TaskKey,
+				),
+			}
+		}
+	}
+	if config.Condition.ResourceOperator != "" &&
+		!types.IsResourceOperatorValid(config.Condition.ResourceOperator) {
+		return &ResourceListCondition{
+			err: errors.Errorf(
+				"Invalid condition: Invalid operator %q: %s",
+				config.Condition.ResourceOperator,
+				config.TaskKey,
 			),
 		}
 	}
 	rc := &ResourceListCondition{
+		TaskKey:     config.TaskKey,
 		IncludeInfo: config.IncludeInfo,
 		Condition: &types.IfCondition{
 			ResourceSelector: config.Condition.ResourceSelector,
@@ -150,19 +184,21 @@ func (c *ResourceListCondition) runMatchFor(resource *unstructured.Unstructured)
 		c.successCount++
 		c.includeMatchInfoIfEnabled(
 			fmt.Sprintf(
-				"Assert conditions matched for %q / %q: %s",
+				"Assert condition matched for %q / %q: %s: \n%s",
 				resource.GetNamespace(),
 				resource.GetName(),
 				resource.GetObjectKind().GroupVersionKind().String(),
+				c.Condition.JSONString(),
 			),
 		)
 	} else {
 		c.includeNoMatchInfoIfEnabled(
 			fmt.Sprintf(
-				"Assert conditions failed for %q / %q: %s",
+				"Assert condition failed for %q / %q: %s: \n%s",
 				resource.GetNamespace(),
 				resource.GetName(),
 				resource.GetObjectKind().GroupVersionKind().String(),
+				c.Condition.JSONString(),
 			),
 		)
 	}
@@ -186,7 +222,8 @@ func (c *ResourceListCondition) IsSuccess() (bool, error) {
 	for _, resource := range c.Items {
 		if resource == nil || resource.Object == nil {
 			return false, errors.Errorf(
-				"Can't match resource condition: Nil resource found",
+				"Can't match resource condition: Nil resource found: %s",
+				c.TaskKey,
 			)
 		}
 		c.runMatchFor(resource)
@@ -294,9 +331,11 @@ func (a *Assertion) verifyAllConditions() {
 	var atleastOneSuccess bool
 	// run all conditions against all the available resources
 	for _, cond := range a.Request.Assert.IfConditions {
-		// check current condition against all the resources
+		// create a new instance of the current if condition
+		// against all the resources
 		listCond := NewResourceListCondition(
 			ResourceListConditionConfig{
+				TaskKey:     a.Request.TaskKey,
 				IncludeInfo: a.Request.IncludeInfo,
 				Condition:   cond,
 				Resources:   a.Request.Resources,
@@ -333,8 +372,7 @@ func (a *Assertion) verifyState() {
 	state := &unstructured.Unstructured{
 		Object: a.Request.Assert.State,
 	}
-	// extract essentials to match provided resources
-	// with provided state
+	// extract essentials to match provided resource(s) with provided state
 	stKind := state.GetKind()
 	stAPIVersion := state.GetAPIVersion()
 	stName := state.GetName()
@@ -345,7 +383,8 @@ func (a *Assertion) verifyState() {
 	for _, resource := range a.Request.Resources {
 		if resource == nil || resource.Object == nil {
 			a.err = errors.Errorf(
-				"Can't verify state: Nil resource found",
+				"Can't verify state: Nil resource found: %s",
+				a.Request.TaskKey,
 			)
 			return
 		}
@@ -390,7 +429,8 @@ func (a *Assertion) verifyState() {
 		if err != nil {
 			a.err = errors.Wrapf(
 				err,
-				"Failed to assert state",
+				"Failed to assert state: %s",
+				a.Request.TaskKey,
 			)
 			return
 		}
@@ -453,9 +493,9 @@ func (a *Assertion) AssertState() (bool, error) {
 	return a.isSuccess, a.err
 }
 
-// ExecuteAssertConditions asserts based on the provided
+// ExecuteAssertAsConditions asserts based on the provided
 // conditions and resources
-func ExecuteAssertConditions(req AssertRequest) (*AssertResponse, error) {
+func ExecuteAssertAsConditions(req AssertRequest) (*AssertResponse, error) {
 	var op = req.Assert.IfOperator
 	if op == "" {
 		// OR is the default AssertOperator
@@ -463,6 +503,8 @@ func ExecuteAssertConditions(req AssertRequest) (*AssertResponse, error) {
 	}
 	// a new & updated copy of AssertRequest
 	var newreq = AssertRequest{
+		IncludeInfo: req.IncludeInfo,
+		TaskKey:     req.TaskKey,
 		Assert: &types.Assert{
 			If: types.If{
 				IfOperator:   op,
@@ -573,5 +615,5 @@ func ExecuteCondition(req AssertRequest) (*AssertResponse, error) {
 	if len(req.Assert.State) != 0 {
 		return ExecuteAssertState(req)
 	}
-	return ExecuteAssertConditions(req)
+	return ExecuteAssertAsConditions(req)
 }

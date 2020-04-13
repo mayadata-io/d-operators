@@ -136,6 +136,31 @@ const (
 	AnnotationKeyTaskKey string = "run.dao.mayadata.io/task-key"
 )
 
+// RunForWatchKey is a typed constant that holds various
+// annotation keys that identifies a resource whose reconciliation
+// is being done via the Run reconciler. This resource is referred
+// to as the watch resource.
+//
+// NOTE:
+//	Alternatively, the Run resource itself becomes the watch
+type RunForWatchKey string
+
+const (
+	// RunForWatchEnabled holds the flag that indicates if Run based
+	// reconciliation is being done for a resource other than Run
+	// resource
+	RunForWatchEnabled RunForWatchKey = "watch.run.dao.mayadata.io/enabled"
+
+	// RunForWatchAPIGroup holds the value of the watch's api group
+	RunForWatchAPIGroup RunForWatchKey = "watch.run.dao.mayadata.io/apigroup"
+
+	// RunForWatchKind holds the value of the watch's kind
+	RunForWatchKind RunForWatchKey = "watch.run.dao.mayadata.io/kind"
+
+	// RunForWatchName holds the name of the watch
+	RunForWatchName RunForWatchKey = "watch.run.dao.mayadata.io/name"
+)
+
 // // RunStatusPhase determines the current phase of Run resource
 // type RunStatusPhase string
 
@@ -205,6 +230,21 @@ const (
 	ResourceOperatorLTE ResourceOperator = "LTE"
 )
 
+// IsResourceOperatorValid returns true if the given operator
+// is a valid ResourceOperator
+func IsResourceOperatorValid(op ResourceOperator) bool {
+	switch op {
+	case ResourceOperatorEqualsCount,
+		ResourceOperatorExists,
+		ResourceOperatorGTE,
+		ResourceOperatorLTE,
+		ResourceOperatorNotExist:
+		return true
+	default:
+		return false
+	}
+}
+
 // IfOperator defines the operator that needs to be applied
 // against a list of Item(s)
 type IfOperator string
@@ -218,6 +258,18 @@ const (
 	// list of Item(s)
 	IfOperatorOR IfOperator = "OR"
 )
+
+// IsIfOperatorValid returns true if the given operator
+// is a valid IfOperator
+func IsIfOperatorValid(op IfOperator) bool {
+	switch op {
+	case IfOperatorAND,
+		IfOperatorOR:
+		return true
+	default:
+		return false
+	}
+}
 
 // IncludeInfoKey determines the information type that gets
 // added to Run status
@@ -241,6 +293,21 @@ const (
 	// IncludeWarnInfo includes warnings
 	IncludeWarnInfo IncludeInfoKey = "warnings"
 )
+
+// IsIncludeInfoKeyValid returns true if the given key
+// is a valid IncludeInfoKey
+func IsIncludeInfoKeyValid(key IncludeInfoKey) bool {
+	switch key {
+	case IncludeAllInfo,
+		IncludeDesiredInfo,
+		IncludeExplicitInfo,
+		IncludeSkippedInfo,
+		IncludeWarnInfo:
+		return true
+	default:
+		return false
+	}
+}
 
 // TargetResourceType is a typed constant used to indicate the type
 // of resource to be updated
@@ -404,6 +471,24 @@ type IfCondition struct {
 	Count *int `json:"count,omitempty"`
 }
 
+// String implements Stringer interface
+func (i IfCondition) String() string {
+	raw, err := json.MarshalIndent(i, "", ".")
+	if err != nil {
+		panic(err)
+	}
+	return string(raw)
+}
+
+// JSONString returns the json doc in string format
+func (i IfCondition) JSONString() string {
+	raw, err := json.Marshal(i)
+	if err != nil {
+		panic(err)
+	}
+	return string(raw)
+}
+
 // RunStatus has the operational state the Run resource
 type RunStatus struct {
 	Result
@@ -441,6 +526,15 @@ type TaskResult struct {
 // String implements Stringer interface
 func (r TaskResult) String() string {
 	raw, err := json.MarshalIndent(r, "", ".")
+	if err != nil {
+		panic(err)
+	}
+	return string(raw)
+}
+
+// JSONString returns the json doc in string format
+func (r TaskResult) JSONString() string {
+	raw, err := json.Marshal(r)
 	if err != nil {
 		panic(err)
 	}

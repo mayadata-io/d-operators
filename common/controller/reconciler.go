@@ -167,7 +167,7 @@ func (r *Reconciler) Reconcile() error {
 	for _, dWatchFn := range r.DesiredWatchFns {
 		dWatchFn()
 	}
-	// check if attachments / children need to be reconciled
+	// check if attachments / children need not be reconciled
 	if r.HookResponse.SkipReconcile {
 		glog.V(3).Infof(
 			"Skipping sync of %s triggered from watch with kind=%q name=%q/%q: %s",
