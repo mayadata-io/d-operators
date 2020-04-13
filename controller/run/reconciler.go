@@ -17,6 +17,8 @@ limitations under the License.
 package run
 
 import (
+	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"openebs.io/metac/controller/generic"
 
 	ctrlutil "mayadata.io/d-operators/common/controller"
@@ -28,11 +30,15 @@ import (
 type Reconciler struct {
 	ctrlutil.Reconciler
 
-	observedRun *types.Run
+	isWatchAndRunSame bool
+	observedRun       *types.Run
+
+	runResponse *Response
 }
 
-func (r *Reconciler) walkObservedRun() {
+func (r *Reconciler) evalRun() {
 	var run types.Run
+	// convert from unstructured instance to typed Run instance
 	err := unstruct.ToTyped(
 		r.HookRequest.Watch,
 		&run,
@@ -44,15 +50,79 @@ func (r *Reconciler) walkObservedRun() {
 	r.observedRun = &run
 }
 
-// Sync implements the idempotent logic to sync HTTP
+func (r *Reconciler) invokeRun() {
+	// if this run is for a resource that is being reconciled
+	// via the Run reconciler
+	var runForWatch *unstructured.Unstructured
+	runAnns := r.observedRun.GetAnnotations()
+	if len(runAnns) == 0 {
+		// watch & run as same
+		r.isWatchAndRunSame = true
+		runForWatch = r.HookRequest.Watch
+	} else if runAnns[string(types.RunForWatchEnabled)] == "true" {
+		runForWatch := r.HookRequest.Attachments.FindByGroupKindName(
+			runAnns[string(types.RunForWatchAPIGroup)],
+			runAnns[string(types.RunForWatchKind)],
+			runAnns[string(types.RunForWatchName)],
+		)
+		if runForWatch == nil {
+			r.Err = errors.Errorf(
+				"Can't reconcile run: Watch not found: %s/%s %s: %s/%s %s",
+				r.observedRun.GetNamespace(),
+				r.observedRun.GetName(),
+				r.observedRun.GroupVersionKind().String(),
+				runAnns[string(types.RunForWatchAPIGroup)],
+				runAnns[string(types.RunForWatchKind)],
+				runAnns[string(types.RunForWatchName)],
+			)
+			return
+		}
+	}
+	r.runResponse, r.Err = ExecRun(Request{
+		ObservedResources: r.HookRequest.Attachments.List(),
+		Run:               r.HookRequest.Watch,
+		Watch:             runForWatch,
+		RunCond:           r.observedRun.Spec.RunIf,
+		Tasks:             r.observedRun.Spec.Tasks,
+		IncludeInfo:       r.observedRun.Spec.IncludeInfo,
+	})
+}
+
+func (r *Reconciler) fillSyncResponse() {
+	r.HookResponse.Attachments = append(
+		r.HookResponse.Attachments,
+		r.runResponse.DesiredResources...,
+	)
+	// TODO (@amitkumardas) @ metac -then-> here:
+	// add explicit deletes
+	// add explicit updates
+}
+
+func (r *Reconciler) trySetWatchStatus() {
+	if r.isWatchAndRunSame {
+		r.HookResponse.Status = map[string]interface{}{
+			"status": r.runResponse.RunStatus,
+		}
+	} else {
+		// TODO (@amitkumardas):
+		//
+		// add one event against the watch resource into
+		// response attachments
+		//
+		// event may be error or normal or warning based
+		// on status
+	}
+}
+
+// Sync implements the idempotent logic to sync Run resource
 //
 // NOTE:
 // 	SyncHookRequest is the payload received as part of reconcile
 // request. Similarly, SyncHookResponse is the payload sent as a
-// response as part of reconcile request.
+// response as part of reconcile response.
 //
 // NOTE:
-//	This controller watches HTTP custom resource
+//	This controller watches Run custom resource
 func Sync(request *generic.SyncHookRequest, response *generic.SyncHookResponse) error {
 	r := &Reconciler{
 		Reconciler: ctrlutil.Reconciler{
@@ -62,10 +132,14 @@ func Sync(request *generic.SyncHookRequest, response *generic.SyncHookResponse) 
 	}
 	// add functions to achieve desired state
 	r.ReconcileFns = []func(){
-		r.walkObservedRun,
+		r.evalRun,
+		r.invokeRun,
+		r.fillSyncResponse,
 	}
 	// add functions to achieve desired watch
-	r.DesiredWatchFns = []func(){}
+	r.DesiredWatchFns = []func(){
+		r.trySetWatchStatus,
+	}
 	// run reconcile
 	return r.Reconcile()
 }

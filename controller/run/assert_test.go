@@ -201,6 +201,7 @@ func TestNewResourceListCondition(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			rc := NewResourceListCondition(
 				ResourceListConditionConfig{
+					TaskKey:   "test",
 					Condition: mock.condition,
 					Resources: mock.resources,
 				},
@@ -525,13 +526,24 @@ func TestResourceListConditionTryMatchAndRegister(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			rc := NewResourceListCondition(
 				ResourceListConditionConfig{
+					TaskKey:   "test",
 					Condition: mock.condition,
 					Resources: []*unstructured.Unstructured{
 						mock.resource,
 					},
 				},
 			)
+			if mock.isErr && rc.err == nil {
+				t.Fatalf("Expected error got none")
+			}
+			if !mock.isErr && rc.err != nil {
+				t.Fatalf(
+					"Expected no error got [%+v]",
+					rc.err,
+				)
+			}
 			rc.runMatchFor(mock.resource)
+			// checks for errors once again
 			if mock.isErr && rc.err == nil {
 				t.Fatalf("Expected error got none")
 			}
@@ -1237,6 +1249,7 @@ func TestResourceListConditionIsSuccess(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			rc := NewResourceListCondition(
 				ResourceListConditionConfig{
+					TaskKey:   "test",
 					Condition: mock.condition,
 					Resources: mock.resources,
 				},

@@ -26,6 +26,7 @@ import (
 	cspcaprecommendation "mayadata.io/d-operators/controller/director/recommendations/cstorpool/capacity"
 	"mayadata.io/d-operators/controller/doperator"
 	"mayadata.io/d-operators/controller/http"
+	"mayadata.io/d-operators/controller/run"
 )
 
 // main function is the entry point of this binary.
@@ -51,6 +52,7 @@ func main() {
 		"sync/cstorpoolauto":        cstorpoolauto.Sync,
 		"sync/cspcaprecommendation": cspcaprecommendation.Sync,
 		"sync/doperator":            doperator.Sync,
+		"sync/run":                  run.Sync,
 	}
 	for name, ctrl := range controllers {
 		generic.AddToInlineRegistry(name, ctrl)

@@ -1369,6 +1369,268 @@ func TestRunnableRunAllTasks(t *testing.T) {
 			expectedPassedAssertTaskCount: 1,
 			expectedTaskResultCount:       1,
 		},
+		// --------------------------------------------------------------
+		// Possible Errors or Failed Cases w.r.t Assert As If Condition
+		// --------------------------------------------------------------
+		"if cond assert fails due to missing field path": {
+			Tasks: []types.Task{
+				types.Task{
+					Key: "if-cond-assert-fails-due-to-missing-field-path",
+					Assert: &types.Assert{
+						If: types.If{
+							IfConditions: []types.IfCondition{
+								types.IfCondition{
+									ResourceSelector: v1alpha1.ResourceSelector{
+										SelectorTerms: []*v1alpha1.SelectorTerm{
+											&v1alpha1.SelectorTerm{
+												MatchFields: map[string]string{
+													"kind":      "Pod",
+													"dontExist": "v1", // fails here
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			Resources: []*unstructured.Unstructured{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"name": "my-pod",
+							"annotations": map[string]interface{}{
+								"app": "test",
+							},
+						},
+					},
+				},
+			},
+			expectedErrCount:              0,
+			isErr:                         false,
+			expectedFailedAssertTaskCount: 1,
+			expectedAssertTaskCount:       1,
+			expectedTaskResultCount:       1,
+		},
+		"if cond assert fails due to mismatch filtered resource count": {
+			Tasks: []types.Task{
+				types.Task{
+					Key: "if-cond-assert-fails-due-to-mismatch-filtered-resource-count",
+					Assert: &types.Assert{
+						If: types.If{
+							IfConditions: []types.IfCondition{
+								types.IfCondition{
+									ResourceSelector: v1alpha1.ResourceSelector{
+										SelectorTerms: []*v1alpha1.SelectorTerm{
+											&v1alpha1.SelectorTerm{
+												MatchFields: map[string]string{
+													"kind":       "Pod",
+													"apiVersion": "v1",
+												},
+											},
+										},
+									},
+									// fails since operator is not set
+									Count: pointer.Int(2),
+								},
+							},
+						},
+					},
+				},
+			},
+			Resources: []*unstructured.Unstructured{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"name": "my-pod",
+							"annotations": map[string]interface{}{
+								"app": "test",
+							},
+						},
+					},
+				},
+			},
+			expectedErrCount: 1,
+			isErr:            true,
+		},
+		"if cond assert fails due to missing count": {
+			Tasks: []types.Task{
+				types.Task{
+					Key: "if-cond-assert-fails-due-to-missing-resource-count",
+					Assert: &types.Assert{
+						If: types.If{
+							IfConditions: []types.IfCondition{
+								types.IfCondition{
+									ResourceSelector: v1alpha1.ResourceSelector{
+										SelectorTerms: []*v1alpha1.SelectorTerm{
+											&v1alpha1.SelectorTerm{
+												MatchFields: map[string]string{
+													"kind":       "Pod",
+													"apiVersion": "v1",
+												},
+											},
+										},
+									},
+									// fails here
+									ResourceOperator: types.ResourceOperatorEqualsCount,
+								},
+							},
+						},
+					},
+				},
+			},
+			Resources: []*unstructured.Unstructured{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"name": "my-pod",
+							"annotations": map[string]interface{}{
+								"app": "test",
+							},
+						},
+					},
+				},
+			},
+			expectedErrCount: 1,
+			isErr:            true,
+		},
+		"if cond assert fails due to invalid operator": {
+			Tasks: []types.Task{
+				types.Task{
+					Key: "if-cond-assert-fails-due-to-invalid-operator",
+					Assert: &types.Assert{
+						If: types.If{
+							IfConditions: []types.IfCondition{
+								types.IfCondition{
+									ResourceSelector: v1alpha1.ResourceSelector{
+										SelectorTerms: []*v1alpha1.SelectorTerm{
+											&v1alpha1.SelectorTerm{
+												MatchFields: map[string]string{
+													"kind":       "Pod",
+													"apiVersion": "v1",
+												},
+											},
+										},
+									},
+									ResourceOperator: "MyInvalidOp", // fails here
+								},
+							},
+						},
+					},
+				},
+			},
+			Resources: []*unstructured.Unstructured{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"name": "my-pod",
+						},
+					},
+				},
+			},
+			expectedErrCount: 1,
+			isErr:            true,
+		},
+		"if cond assert fails due to failed match via OR operator": {
+			Tasks: []types.Task{
+				types.Task{
+					Key: "if-cond-assert-fails-due-to-failed-match-via-OR-operator",
+					Assert: &types.Assert{
+						If: types.If{
+							IfConditions: []types.IfCondition{
+								types.IfCondition{
+									ResourceSelector: v1alpha1.ResourceSelector{
+										SelectorTerms: []*v1alpha1.SelectorTerm{
+											&v1alpha1.SelectorTerm{
+												MatchFields: map[string]string{
+													"kind": "Service",
+												},
+											},
+										},
+									},
+								},
+								types.IfCondition{
+									ResourceSelector: v1alpha1.ResourceSelector{
+										SelectorTerms: []*v1alpha1.SelectorTerm{
+											&v1alpha1.SelectorTerm{
+												MatchFields: map[string]string{
+													"kind": "Deployment",
+												},
+											},
+										},
+									},
+								},
+							},
+							IfOperator: types.IfOperatorOR,
+						},
+					},
+				},
+			},
+			Resources: []*unstructured.Unstructured{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"name": "my-pod",
+						},
+					},
+				},
+			},
+			expectedFailedAssertTaskCount: 1,
+			expectedAssertTaskCount:       1,
+			expectedTaskResultCount:       1,
+		},
+		"if cond assert fails due to failed match via AND operator": {
+			Tasks: []types.Task{
+				types.Task{
+					Key: "if-cond-assert-fails-due-to-failed-match-via-AND-operator",
+					Assert: &types.Assert{
+						If: types.If{
+							IfConditions: []types.IfCondition{
+								types.IfCondition{
+									ResourceSelector: v1alpha1.ResourceSelector{
+										SelectorTerms: []*v1alpha1.SelectorTerm{
+											&v1alpha1.SelectorTerm{
+												MatchFields: map[string]string{
+													"kind":       "Pod",
+													"apiVersion": "v2",
+												},
+											},
+										},
+									},
+								},
+							},
+							IfOperator: types.IfOperatorAND,
+						},
+					},
+				},
+			},
+			Resources: []*unstructured.Unstructured{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind":       "Pod",
+						"apiVersion": "v1",
+						"metadata": map[string]interface{}{
+							"name": "my-pod",
+						},
+					},
+				},
+			},
+			expectedFailedAssertTaskCount: 1,
+			expectedAssertTaskCount:       1,
+			expectedTaskResultCount:       1,
+		},
 	}
 	for name, mock := range tests {
 		name := name
