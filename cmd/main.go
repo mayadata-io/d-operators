@@ -20,10 +20,6 @@ import (
 	"openebs.io/metac/controller/generic"
 	"openebs.io/metac/start"
 
-	blockdeviceset "mayadata.io/d-operators/controller/blockdevice/set"
-	"mayadata.io/d-operators/controller/cstorpoolauto"
-	directorhttp "mayadata.io/d-operators/controller/director/http"
-	cspcaprecommendation "mayadata.io/d-operators/controller/director/recommendations/cstorpool/capacity"
 	"mayadata.io/d-operators/controller/doperator"
 	"mayadata.io/d-operators/controller/http"
 	"mayadata.io/d-operators/controller/run"
@@ -46,13 +42,9 @@ import (
 func main() {
 	// controller name & corresponding controller reconcile function
 	var controllers = map[string]func(*generic.SyncHookRequest, *generic.SyncHookResponse) error{
-		"sync/blockdeviceset":       blockdeviceset.Sync,
-		"sync/directorhttp":         directorhttp.Sync,
-		"sync/http":                 http.Sync,
-		"sync/cstorpoolauto":        cstorpoolauto.Sync,
-		"sync/cspcaprecommendation": cspcaprecommendation.Sync,
-		"sync/doperator":            doperator.Sync,
-		"sync/run":                  run.Sync,
+		"sync/http":      http.Sync,
+		"sync/doperator": doperator.Sync,
+		"sync/run":       run.Sync,
 	}
 	for name, ctrl := range controllers {
 		generic.AddToInlineRegistry(name, ctrl)
