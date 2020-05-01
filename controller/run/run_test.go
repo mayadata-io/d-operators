@@ -27,7 +27,7 @@ import (
 
 func TestRunnableExecRun(t *testing.T) {
 	var tests = map[string]struct {
-		RunCond   *types.If
+		RunCond   *types.ResourceCheck
 		Resources []*unstructured.Unstructured
 		Tasks     []types.Task
 		isErr     bool
@@ -171,7 +171,7 @@ func TestRunnableValidateArgs(t *testing.T) {
 
 func TestRunnableRunIfCond(t *testing.T) {
 	var tests = map[string]struct {
-		RunCond       *types.If
+		RunCond       *types.ResourceCheck
 		Resources     []*unstructured.Unstructured
 		isRunCondPass bool
 		isErr         bool
@@ -181,10 +181,10 @@ func TestRunnableRunIfCond(t *testing.T) {
 			isRunCondPass: true,
 		},
 		"run cond - assert pass": {
-			RunCond: &types.If{
-				IfConditions: []types.IfCondition{
-					types.IfCondition{
-						ResourceSelector: v1alpha1.ResourceSelector{
+			RunCond: &types.ResourceCheck{
+				SelectChecks: []types.ResourceSelectCheck{
+					types.ResourceSelectCheck{
+						Selector: v1alpha1.ResourceSelector{
 							SelectorTerms: []*v1alpha1.SelectorTerm{
 								&v1alpha1.SelectorTerm{
 									MatchAnnotations: map[string]string{
@@ -211,10 +211,10 @@ func TestRunnableRunIfCond(t *testing.T) {
 			isRunCondPass: true,
 		},
 		"run cond + nil resources - error": {
-			RunCond: &types.If{
-				IfConditions: []types.IfCondition{
-					types.IfCondition{
-						ResourceSelector: v1alpha1.ResourceSelector{
+			RunCond: &types.ResourceCheck{
+				SelectChecks: []types.ResourceSelectCheck{
+					types.ResourceSelectCheck{
+						Selector: v1alpha1.ResourceSelector{
 							SelectorTerms: []*v1alpha1.SelectorTerm{
 								&v1alpha1.SelectorTerm{
 									MatchAnnotations: map[string]string{
@@ -229,10 +229,10 @@ func TestRunnableRunIfCond(t *testing.T) {
 			isErr: true,
 		},
 		"run cond - assert fail": {
-			RunCond: &types.If{
-				IfConditions: []types.IfCondition{
-					types.IfCondition{
-						ResourceSelector: v1alpha1.ResourceSelector{
+			RunCond: &types.ResourceCheck{
+				SelectChecks: []types.ResourceSelectCheck{
+					types.ResourceSelectCheck{
+						Selector: v1alpha1.ResourceSelector{
 							SelectorTerms: []*v1alpha1.SelectorTerm{
 								&v1alpha1.SelectorTerm{
 									MatchAnnotations: map[string]string{
@@ -435,10 +435,10 @@ func TestRunnableRunAllTasks(t *testing.T) {
 			Tasks: []types.Task{
 				types.Task{
 					Key: "delete-a-pod",
-					If: &types.If{
-						IfConditions: []types.IfCondition{
-							types.IfCondition{
-								ResourceSelector: v1alpha1.ResourceSelector{
+					Enabled: &types.ResourceCheck{
+						SelectChecks: []types.ResourceSelectCheck{
+							types.ResourceSelectCheck{
+								Selector: v1alpha1.ResourceSelector{
 									SelectorTerms: []*v1alpha1.SelectorTerm{
 										&v1alpha1.SelectorTerm{
 											MatchFields: map[string]string{
@@ -489,10 +489,10 @@ func TestRunnableRunAllTasks(t *testing.T) {
 			Tasks: []types.Task{
 				types.Task{
 					Key: "delete-all-pods",
-					If: &types.If{
-						IfConditions: []types.IfCondition{
-							types.IfCondition{
-								ResourceSelector: v1alpha1.ResourceSelector{
+					Enabled: &types.ResourceCheck{
+						SelectChecks: []types.ResourceSelectCheck{
+							types.ResourceSelectCheck{
+								Selector: v1alpha1.ResourceSelector{
 									SelectorTerms: []*v1alpha1.SelectorTerm{
 										&v1alpha1.SelectorTerm{
 											MatchFields: map[string]string{
@@ -609,10 +609,10 @@ func TestRunnableRunAllTasks(t *testing.T) {
 			Tasks: []types.Task{
 				types.Task{
 					Key: "create-5-pods",
-					If: &types.If{
-						IfConditions: []types.IfCondition{
-							types.IfCondition{
-								ResourceSelector: v1alpha1.ResourceSelector{
+					Enabled: &types.ResourceCheck{
+						SelectChecks: []types.ResourceSelectCheck{
+							types.ResourceSelectCheck{
+								Selector: v1alpha1.ResourceSelector{
 									SelectorTerms: []*v1alpha1.SelectorTerm{
 										&v1alpha1.SelectorTerm{
 											MatchFields: map[string]string{
@@ -655,10 +655,10 @@ func TestRunnableRunAllTasks(t *testing.T) {
 			Tasks: []types.Task{
 				types.Task{
 					Key: "can-not-create-pods",
-					If: &types.If{
-						IfConditions: []types.IfCondition{
-							types.IfCondition{
-								ResourceSelector: v1alpha1.ResourceSelector{
+					Enabled: &types.ResourceCheck{
+						SelectChecks: []types.ResourceSelectCheck{
+							types.ResourceSelectCheck{
+								Selector: v1alpha1.ResourceSelector{
 									SelectorTerms: []*v1alpha1.SelectorTerm{
 										&v1alpha1.SelectorTerm{
 											MatchFields: map[string]string{
@@ -818,10 +818,10 @@ func TestRunnableRunAllTasks(t *testing.T) {
 			Tasks: []types.Task{
 				types.Task{
 					Key: "update-anns-of-all-pods-with-specific-labels",
-					If: &types.If{
-						IfConditions: []types.IfCondition{
-							types.IfCondition{
-								ResourceSelector: v1alpha1.ResourceSelector{
+					Enabled: &types.ResourceCheck{
+						SelectChecks: []types.ResourceSelectCheck{
+							types.ResourceSelectCheck{
+								Selector: v1alpha1.ResourceSelector{
 									SelectorTerms: []*v1alpha1.SelectorTerm{
 										&v1alpha1.SelectorTerm{
 											MatchFields: map[string]string{
@@ -891,10 +891,10 @@ func TestRunnableRunAllTasks(t *testing.T) {
 			Tasks: []types.Task{
 				types.Task{
 					Key: "cannot-assert-state-of-pod-due-to-failing-if-cond",
-					If: &types.If{
-						IfConditions: []types.IfCondition{
-							types.IfCondition{
-								ResourceSelector: v1alpha1.ResourceSelector{
+					Enabled: &types.ResourceCheck{
+						SelectChecks: []types.ResourceSelectCheck{
+							types.ResourceSelectCheck{
+								Selector: v1alpha1.ResourceSelector{
 									SelectorTerms: []*v1alpha1.SelectorTerm{
 										&v1alpha1.SelectorTerm{
 											MatchFields: map[string]string{
@@ -945,10 +945,10 @@ func TestRunnableRunAllTasks(t *testing.T) {
 			Tasks: []types.Task{
 				types.Task{
 					Key: "assert-state-of-pod-meta-fields-with-passing-if-cond",
-					If: &types.If{
-						IfConditions: []types.IfCondition{
-							types.IfCondition{
-								ResourceSelector: v1alpha1.ResourceSelector{
+					Enabled: &types.ResourceCheck{
+						SelectChecks: []types.ResourceSelectCheck{
+							types.ResourceSelectCheck{
+								Selector: v1alpha1.ResourceSelector{
 									SelectorTerms: []*v1alpha1.SelectorTerm{
 										&v1alpha1.SelectorTerm{
 											MatchFields: map[string]string{
@@ -1100,10 +1100,10 @@ func TestRunnableRunAllTasks(t *testing.T) {
 				types.Task{
 					Key: "if-cond-assert-pod-with-match-fields",
 					Assert: &types.Assert{
-						If: types.If{
-							IfConditions: []types.IfCondition{
-								types.IfCondition{
-									ResourceSelector: v1alpha1.ResourceSelector{
+						ResourceCheck: types.ResourceCheck{
+							SelectChecks: []types.ResourceSelectCheck{
+								types.ResourceSelectCheck{
+									Selector: v1alpha1.ResourceSelector{
 										SelectorTerms: []*v1alpha1.SelectorTerm{
 											&v1alpha1.SelectorTerm{
 												MatchFields: map[string]string{
@@ -1138,10 +1138,10 @@ func TestRunnableRunAllTasks(t *testing.T) {
 				types.Task{
 					Key: "if-cond-assert-pod-with-match-fields-&-labels",
 					Assert: &types.Assert{
-						If: types.If{
-							IfConditions: []types.IfCondition{
-								types.IfCondition{
-									ResourceSelector: v1alpha1.ResourceSelector{
+						ResourceCheck: types.ResourceCheck{
+							SelectChecks: []types.ResourceSelectCheck{
+								types.ResourceSelectCheck{
+									Selector: v1alpha1.ResourceSelector{
 										SelectorTerms: []*v1alpha1.SelectorTerm{
 											&v1alpha1.SelectorTerm{
 												MatchFields: map[string]string{
@@ -1183,10 +1183,10 @@ func TestRunnableRunAllTasks(t *testing.T) {
 				types.Task{
 					Key: "failed-if-cond-assert-pod-with-match-fields-&-labels",
 					Assert: &types.Assert{
-						If: types.If{
-							IfConditions: []types.IfCondition{
-								types.IfCondition{
-									ResourceSelector: v1alpha1.ResourceSelector{
+						ResourceCheck: types.ResourceCheck{
+							SelectChecks: []types.ResourceSelectCheck{
+								types.ResourceSelectCheck{
+									Selector: v1alpha1.ResourceSelector{
 										SelectorTerms: []*v1alpha1.SelectorTerm{
 											&v1alpha1.SelectorTerm{
 												MatchFields: map[string]string{
@@ -1228,10 +1228,10 @@ func TestRunnableRunAllTasks(t *testing.T) {
 				types.Task{
 					Key: "if-cond-assert-pod-with-match-fields-err-out-due-to-no-resources",
 					Assert: &types.Assert{
-						If: types.If{
-							IfConditions: []types.IfCondition{
-								types.IfCondition{
-									ResourceSelector: v1alpha1.ResourceSelector{
+						ResourceCheck: types.ResourceCheck{
+							SelectChecks: []types.ResourceSelectCheck{
+								types.ResourceSelectCheck{
+									Selector: v1alpha1.ResourceSelector{
 										SelectorTerms: []*v1alpha1.SelectorTerm{
 											&v1alpha1.SelectorTerm{
 												MatchFields: map[string]string{
@@ -1255,10 +1255,10 @@ func TestRunnableRunAllTasks(t *testing.T) {
 			Tasks: []types.Task{
 				types.Task{
 					Key: "if-cond-assert-pod-with-match-fields-fail-due-to-failing-if-cond",
-					If: &types.If{
-						IfConditions: []types.IfCondition{
-							types.IfCondition{
-								ResourceSelector: v1alpha1.ResourceSelector{
+					Enabled: &types.ResourceCheck{
+						SelectChecks: []types.ResourceSelectCheck{
+							types.ResourceSelectCheck{
+								Selector: v1alpha1.ResourceSelector{
 									SelectorTerms: []*v1alpha1.SelectorTerm{
 										&v1alpha1.SelectorTerm{
 											MatchAnnotations: map[string]string{
@@ -1271,10 +1271,10 @@ func TestRunnableRunAllTasks(t *testing.T) {
 						},
 					},
 					Assert: &types.Assert{
-						If: types.If{
-							IfConditions: []types.IfCondition{
-								types.IfCondition{
-									ResourceSelector: v1alpha1.ResourceSelector{
+						ResourceCheck: types.ResourceCheck{
+							SelectChecks: []types.ResourceSelectCheck{
+								types.ResourceSelectCheck{
+									Selector: v1alpha1.ResourceSelector{
 										SelectorTerms: []*v1alpha1.SelectorTerm{
 											&v1alpha1.SelectorTerm{
 												MatchFields: map[string]string{
@@ -1310,10 +1310,10 @@ func TestRunnableRunAllTasks(t *testing.T) {
 				types.Task{
 					Key: "duplicate",
 					Assert: &types.Assert{
-						If: types.If{
-							IfConditions: []types.IfCondition{
-								types.IfCondition{
-									ResourceSelector: v1alpha1.ResourceSelector{
+						ResourceCheck: types.ResourceCheck{
+							SelectChecks: []types.ResourceSelectCheck{
+								types.ResourceSelectCheck{
+									Selector: v1alpha1.ResourceSelector{
 										SelectorTerms: []*v1alpha1.SelectorTerm{
 											&v1alpha1.SelectorTerm{
 												MatchFields: map[string]string{
@@ -1331,10 +1331,10 @@ func TestRunnableRunAllTasks(t *testing.T) {
 				types.Task{
 					Key: "duplicate",
 					Assert: &types.Assert{
-						If: types.If{
-							IfConditions: []types.IfCondition{
-								types.IfCondition{
-									ResourceSelector: v1alpha1.ResourceSelector{
+						ResourceCheck: types.ResourceCheck{
+							SelectChecks: []types.ResourceSelectCheck{
+								types.ResourceSelectCheck{
+									Selector: v1alpha1.ResourceSelector{
 										SelectorTerms: []*v1alpha1.SelectorTerm{
 											&v1alpha1.SelectorTerm{
 												MatchAnnotations: map[string]string{
@@ -1377,10 +1377,10 @@ func TestRunnableRunAllTasks(t *testing.T) {
 				types.Task{
 					Key: "if-cond-assert-fails-due-to-missing-field-path",
 					Assert: &types.Assert{
-						If: types.If{
-							IfConditions: []types.IfCondition{
-								types.IfCondition{
-									ResourceSelector: v1alpha1.ResourceSelector{
+						ResourceCheck: types.ResourceCheck{
+							SelectChecks: []types.ResourceSelectCheck{
+								types.ResourceSelectCheck{
+									Selector: v1alpha1.ResourceSelector{
 										SelectorTerms: []*v1alpha1.SelectorTerm{
 											&v1alpha1.SelectorTerm{
 												MatchFields: map[string]string{
@@ -1421,10 +1421,10 @@ func TestRunnableRunAllTasks(t *testing.T) {
 				types.Task{
 					Key: "if-cond-assert-fails-due-to-mismatch-filtered-resource-count",
 					Assert: &types.Assert{
-						If: types.If{
-							IfConditions: []types.IfCondition{
-								types.IfCondition{
-									ResourceSelector: v1alpha1.ResourceSelector{
+						ResourceCheck: types.ResourceCheck{
+							SelectChecks: []types.ResourceSelectCheck{
+								types.ResourceSelectCheck{
+									Selector: v1alpha1.ResourceSelector{
 										SelectorTerms: []*v1alpha1.SelectorTerm{
 											&v1alpha1.SelectorTerm{
 												MatchFields: map[string]string{
@@ -1464,10 +1464,10 @@ func TestRunnableRunAllTasks(t *testing.T) {
 				types.Task{
 					Key: "if-cond-assert-fails-due-to-missing-resource-count",
 					Assert: &types.Assert{
-						If: types.If{
-							IfConditions: []types.IfCondition{
-								types.IfCondition{
-									ResourceSelector: v1alpha1.ResourceSelector{
+						ResourceCheck: types.ResourceCheck{
+							SelectChecks: []types.ResourceSelectCheck{
+								types.ResourceSelectCheck{
+									Selector: v1alpha1.ResourceSelector{
 										SelectorTerms: []*v1alpha1.SelectorTerm{
 											&v1alpha1.SelectorTerm{
 												MatchFields: map[string]string{
@@ -1478,7 +1478,7 @@ func TestRunnableRunAllTasks(t *testing.T) {
 										},
 									},
 									// fails here
-									ResourceOperator: types.ResourceOperatorEqualsCount,
+									Operator: types.ResourceSelectOperatorEqualsCount,
 								},
 							},
 						},
@@ -1507,10 +1507,10 @@ func TestRunnableRunAllTasks(t *testing.T) {
 				types.Task{
 					Key: "if-cond-assert-fails-due-to-invalid-operator",
 					Assert: &types.Assert{
-						If: types.If{
-							IfConditions: []types.IfCondition{
-								types.IfCondition{
-									ResourceSelector: v1alpha1.ResourceSelector{
+						ResourceCheck: types.ResourceCheck{
+							SelectChecks: []types.ResourceSelectCheck{
+								types.ResourceSelectCheck{
+									Selector: v1alpha1.ResourceSelector{
 										SelectorTerms: []*v1alpha1.SelectorTerm{
 											&v1alpha1.SelectorTerm{
 												MatchFields: map[string]string{
@@ -1520,7 +1520,7 @@ func TestRunnableRunAllTasks(t *testing.T) {
 											},
 										},
 									},
-									ResourceOperator: "MyInvalidOp", // fails here
+									Operator: "MyInvalidOp", // fails here
 								},
 							},
 						},
@@ -1546,10 +1546,10 @@ func TestRunnableRunAllTasks(t *testing.T) {
 				types.Task{
 					Key: "if-cond-assert-fails-due-to-failed-match-via-OR-operator",
 					Assert: &types.Assert{
-						If: types.If{
-							IfConditions: []types.IfCondition{
-								types.IfCondition{
-									ResourceSelector: v1alpha1.ResourceSelector{
+						ResourceCheck: types.ResourceCheck{
+							SelectChecks: []types.ResourceSelectCheck{
+								types.ResourceSelectCheck{
+									Selector: v1alpha1.ResourceSelector{
 										SelectorTerms: []*v1alpha1.SelectorTerm{
 											&v1alpha1.SelectorTerm{
 												MatchFields: map[string]string{
@@ -1559,8 +1559,8 @@ func TestRunnableRunAllTasks(t *testing.T) {
 										},
 									},
 								},
-								types.IfCondition{
-									ResourceSelector: v1alpha1.ResourceSelector{
+								types.ResourceSelectCheck{
+									Selector: v1alpha1.ResourceSelector{
 										SelectorTerms: []*v1alpha1.SelectorTerm{
 											&v1alpha1.SelectorTerm{
 												MatchFields: map[string]string{
@@ -1571,7 +1571,7 @@ func TestRunnableRunAllTasks(t *testing.T) {
 									},
 								},
 							},
-							IfOperator: types.IfOperatorOR,
+							CheckOperator: types.ResourceCheckOperatorOR,
 						},
 					},
 				},
@@ -1596,10 +1596,10 @@ func TestRunnableRunAllTasks(t *testing.T) {
 				types.Task{
 					Key: "if-cond-assert-fails-due-to-failed-match-via-AND-operator",
 					Assert: &types.Assert{
-						If: types.If{
-							IfConditions: []types.IfCondition{
-								types.IfCondition{
-									ResourceSelector: v1alpha1.ResourceSelector{
+						ResourceCheck: types.ResourceCheck{
+							SelectChecks: []types.ResourceSelectCheck{
+								types.ResourceSelectCheck{
+									Selector: v1alpha1.ResourceSelector{
 										SelectorTerms: []*v1alpha1.SelectorTerm{
 											&v1alpha1.SelectorTerm{
 												MatchFields: map[string]string{
@@ -1611,7 +1611,7 @@ func TestRunnableRunAllTasks(t *testing.T) {
 									},
 								},
 							},
-							IfOperator: types.IfOperatorAND,
+							CheckOperator: types.ResourceCheckOperatorAND,
 						},
 					},
 				},

@@ -36,7 +36,7 @@ import (
 type ResourceListConditionConfig struct {
 	TaskKey     string
 	IncludeInfo map[types.IncludeInfoKey]bool
-	Condition   types.IfCondition
+	Condition   types.ResourceSelectCheck
 	Resources   []*unstructured.Unstructured
 }
 
@@ -48,7 +48,7 @@ type ResourceListCondition struct {
 	Items   []*unstructured.Unstructured
 
 	IncludeInfo map[types.IncludeInfoKey]bool
-	Condition   *types.IfCondition
+	Condition   *types.ResourceSelectCheck
 
 	// matches           []string
 	// nomatches         []string
@@ -70,7 +70,7 @@ func NewResourceListCondition(config ResourceListConditionConfig) *ResourceListC
 			),
 		}
 	}
-	if len(config.Condition.ResourceSelector.SelectorTerms) == 0 {
+	if len(config.Condition.Selector.SelectorTerms) == 0 {
 		return &ResourceListCondition{
 			err: errors.Errorf(
 				"Invalid condition: Empty selector terms: %s",
@@ -88,20 +88,20 @@ func NewResourceListCondition(config ResourceListConditionConfig) *ResourceListC
 	}
 	if config.Condition.Count == nil {
 		// condition count is mandatory for these operators
-		if config.Condition.ResourceOperator == types.ResourceOperatorEqualsCount ||
-			config.Condition.ResourceOperator == types.ResourceOperatorGTE ||
-			config.Condition.ResourceOperator == types.ResourceOperatorLTE {
+		if config.Condition.Operator == types.ResourceSelectOperatorEqualsCount ||
+			config.Condition.Operator == types.ResourceSelectOperatorGTE ||
+			config.Condition.Operator == types.ResourceSelectOperatorLTE {
 			return &ResourceListCondition{
 				err: errors.Errorf(
 					"Invalid condition: Count must be set when operator is %q: %s",
-					config.Condition.ResourceOperator,
+					config.Condition.Operator,
 					config.TaskKey,
 				),
 			}
 		}
 	} else {
 		// verify if operator is set when condition count is not nil
-		if config.Condition.ResourceOperator == "" {
+		if config.Condition.Operator == "" {
 			return &ResourceListCondition{
 				err: errors.Errorf(
 					"Invalid condition: Operator must be set when condition count is set: %s",
@@ -110,12 +110,12 @@ func NewResourceListCondition(config ResourceListConditionConfig) *ResourceListC
 			}
 		}
 	}
-	if config.Condition.ResourceOperator != "" &&
-		!types.IsResourceOperatorValid(config.Condition.ResourceOperator) {
+	if config.Condition.Operator != "" &&
+		!types.IsResourceSelectOperatorValid(config.Condition.Operator) {
 		return &ResourceListCondition{
 			err: errors.Errorf(
 				"Invalid condition: Invalid operator %q: %s",
-				config.Condition.ResourceOperator,
+				config.Condition.Operator,
 				config.TaskKey,
 			),
 		}
@@ -123,19 +123,19 @@ func NewResourceListCondition(config ResourceListConditionConfig) *ResourceListC
 	rc := &ResourceListCondition{
 		TaskKey:     config.TaskKey,
 		IncludeInfo: config.IncludeInfo,
-		Condition: &types.IfCondition{
-			ResourceSelector: config.Condition.ResourceSelector,
-			ResourceOperator: config.Condition.ResourceOperator,
-			Count:            config.Condition.Count,
+		Condition: &types.ResourceSelectCheck{
+			Selector: config.Condition.Selector,
+			Operator: config.Condition.Operator,
+			Count:    config.Condition.Count,
 		},
 		Items:             config.Resources,
 		successfulMatches: make(map[*unstructured.Unstructured]bool),
 		Result:            &types.Result{},
 	}
 	// set default(s)
-	if rc.Condition.ResourceOperator == "" {
+	if rc.Condition.Operator == "" {
 		// Exists is the default operator
-		rc.Condition.ResourceOperator = types.ResourceOperatorExists
+		rc.Condition.Operator = types.ResourceSelectOperatorExists
 	}
 	return rc
 }
@@ -171,7 +171,7 @@ func (c *ResourceListCondition) includeNoMatchInfoIfEnabled(message ...string) {
 // verify if condition matches the provided resource matches the condition
 func (c *ResourceListCondition) runMatchFor(resource *unstructured.Unstructured) {
 	e := selector.Evaluation{
-		Terms:  c.Condition.ResourceSelector.SelectorTerms,
+		Terms:  c.Condition.Selector.SelectorTerms,
 		Target: resource,
 	}
 	isSuccess, err := e.RunMatch()
@@ -210,15 +210,15 @@ func (c *ResourceListCondition) IsSuccess() (bool, error) {
 		return false, c.err
 	}
 	isOperatorExists :=
-		c.Condition.ResourceOperator == types.ResourceOperatorExists
+		c.Condition.Operator == types.ResourceSelectOperatorExists
 	isOperatorNotExist :=
-		c.Condition.ResourceOperator == types.ResourceOperatorNotExist
+		c.Condition.Operator == types.ResourceSelectOperatorNotExist
 	isOperatorGTE :=
-		c.Condition.ResourceOperator == types.ResourceOperatorGTE
+		c.Condition.Operator == types.ResourceSelectOperatorGTE
 	isOperatorLTE :=
-		c.Condition.ResourceOperator == types.ResourceOperatorLTE
+		c.Condition.Operator == types.ResourceSelectOperatorLTE
 	isOperatorEqualsCount :=
-		c.Condition.ResourceOperator == types.ResourceOperatorEqualsCount
+		c.Condition.Operator == types.ResourceSelectOperatorEqualsCount
 	for _, resource := range c.Items {
 		if resource == nil || resource.Object == nil {
 			return false, errors.Errorf(
@@ -324,13 +324,13 @@ func (a *Assertion) includeWarningIfEnabled(message ...string) {
 func (a *Assertion) verifyAllConditions() {
 	// flag OR operator if all conditions need to OR-ed
 	isOperatorOR :=
-		a.Request.Assert.IfOperator == types.IfOperatorOR
+		a.Request.Assert.CheckOperator == types.ResourceCheckOperatorOR
 	// flag AND operator if all conditions need to be AND-ed
 	isOperatorAND :=
-		a.Request.Assert.IfOperator == types.IfOperatorAND
+		a.Request.Assert.CheckOperator == types.ResourceCheckOperatorAND
 	var atleastOneSuccess bool
 	// run all conditions against all the available resources
-	for _, cond := range a.Request.Assert.IfConditions {
+	for _, cond := range a.Request.Assert.SelectChecks {
 		// create a new instance of the current if condition
 		// against all the resources
 		listCond := NewResourceListCondition(
@@ -496,19 +496,19 @@ func (a *Assertion) AssertState() (bool, error) {
 // ExecuteAssertAsConditions asserts based on the provided
 // conditions and resources
 func ExecuteAssertAsConditions(req AssertRequest) (*AssertResponse, error) {
-	var op = req.Assert.IfOperator
+	var op = req.Assert.CheckOperator
 	if op == "" {
 		// OR is the default AssertOperator
-		op = types.IfOperatorOR
+		op = types.ResourceCheckOperatorOR
 	}
 	// a new & updated copy of AssertRequest
 	var newreq = AssertRequest{
 		IncludeInfo: req.IncludeInfo,
 		TaskKey:     req.TaskKey,
 		Assert: &types.Assert{
-			If: types.If{
-				IfOperator:   op,
-				IfConditions: req.Assert.IfConditions,
+			ResourceCheck: types.ResourceCheck{
+				CheckOperator: op,
+				SelectChecks:  req.Assert.SelectChecks,
 			},
 		},
 		Resources: req.Resources,
@@ -588,13 +588,13 @@ func ExecuteCondition(req AssertRequest) (*AssertResponse, error) {
 			req.TaskKey,
 		)
 	}
-	if len(req.Assert.State) != 0 && len(req.Assert.IfConditions) != 0 {
+	if len(req.Assert.State) != 0 && len(req.Assert.SelectChecks) != 0 {
 		return nil, errors.Errorf(
 			"Can't assert: Both assert state & conditions can't be used together: %s",
 			req.TaskKey,
 		)
 	}
-	if len(req.Assert.State) == 0 && len(req.Assert.IfConditions) == 0 {
+	if len(req.Assert.State) == 0 && len(req.Assert.SelectChecks) == 0 {
 		return nil, errors.Errorf(
 			"Can't assert: Either assert state or conditions need to be set: %s",
 			req.TaskKey,
