@@ -36,10 +36,10 @@ func TestExecuteAssertByExecTask(t *testing.T) {
 			req: TaskRequest{
 				Task: types.Task{
 					Key: "assert-all-pods-are-running-if-pod-exist",
-					If: &types.If{
-						IfConditions: []types.IfCondition{
-							types.IfCondition{
-								ResourceSelector: v1alpha1.ResourceSelector{
+					Enabled: &types.ResourceCheck{
+						SelectChecks: []types.ResourceSelectCheck{
+							types.ResourceSelectCheck{
+								Selector: v1alpha1.ResourceSelector{
 									SelectorTerms: []*v1alpha1.SelectorTerm{
 										&v1alpha1.SelectorTerm{
 											MatchFields: map[string]string{
@@ -85,10 +85,10 @@ func TestExecuteAssertByExecTask(t *testing.T) {
 			req: TaskRequest{
 				Task: types.Task{
 					Key: "assert-all-pods-are-running-if-pod-exist",
-					If: &types.If{
-						IfConditions: []types.IfCondition{
-							types.IfCondition{
-								ResourceSelector: v1alpha1.ResourceSelector{
+					Enabled: &types.ResourceCheck{
+						SelectChecks: []types.ResourceSelectCheck{
+							types.ResourceSelectCheck{
+								Selector: v1alpha1.ResourceSelector{
 									SelectorTerms: []*v1alpha1.SelectorTerm{
 										&v1alpha1.SelectorTerm{
 											MatchFields: map[string]string{
@@ -553,10 +553,10 @@ func TestExecuteCreateOrDeleteTask(t *testing.T) {
 			req: TaskRequest{
 				Task: types.Task{
 					Key: "create-5-pods-if-service-exist",
-					If: &types.If{
-						IfConditions: []types.IfCondition{
-							types.IfCondition{
-								ResourceSelector: v1alpha1.ResourceSelector{
+					Enabled: &types.ResourceCheck{
+						SelectChecks: []types.ResourceSelectCheck{
+							types.ResourceSelectCheck{
+								Selector: v1alpha1.ResourceSelector{
 									SelectorTerms: []*v1alpha1.SelectorTerm{
 										&v1alpha1.SelectorTerm{
 											MatchFields: map[string]string{
@@ -1001,10 +1001,10 @@ func TestCreateOrDeleteByExecTask(t *testing.T) {
 			req: TaskRequest{
 				Task: types.Task{
 					Key: "create-5-pods-if-service-exist",
-					If: &types.If{
-						IfConditions: []types.IfCondition{
-							types.IfCondition{
-								ResourceSelector: v1alpha1.ResourceSelector{
+					Enabled: &types.ResourceCheck{
+						SelectChecks: []types.ResourceSelectCheck{
+							types.ResourceSelectCheck{
+								Selector: v1alpha1.ResourceSelector{
 									SelectorTerms: []*v1alpha1.SelectorTerm{
 										&v1alpha1.SelectorTerm{
 											MatchFields: map[string]string{

@@ -54,7 +54,7 @@ type RunnableTask struct {
 	isUpdateAction bool
 	isAssertAction bool
 
-	isIfCondSuccess bool
+	enabled         bool
 	isAssertSuccess bool
 
 	err error
@@ -127,12 +127,11 @@ func (r *RunnableTask) getTaskType() string {
 	return "Create/Delete"
 }
 
-// execute further action only when **IF** condition
-// succeeds
-func (r *RunnableTask) runIfCondition() {
-	if r.Request.Task.If == nil {
+// execute further action only when this task is enabled
+func (r *RunnableTask) isEnabled() {
+	if r.Request.Task.Enabled == nil {
 		// defaults to true if no condition is set
-		r.isIfCondSuccess = true
+		r.enabled = true
 		return
 	}
 	got, err := ExecuteCondition(
@@ -140,7 +139,7 @@ func (r *RunnableTask) runIfCondition() {
 			IncludeInfo: r.Request.IncludeInfo,
 			TaskKey:     r.Request.Task.Key,
 			Assert: &types.Assert{
-				If: *r.Request.Task.If,
+				ResourceCheck: *r.Request.Task.Enabled,
 			},
 			Resources: r.Request.ObservedResources,
 		},
@@ -150,10 +149,10 @@ func (r *RunnableTask) runIfCondition() {
 		return
 	}
 	// save the if-cond result
-	r.Response.Result.IfCondResult = got.AssertResult
+	r.Response.Result.EnabledResult = got.AssertResult
 	// did If condition pass
 	if got.AssertResult.Phase == types.ResultPhaseAssertPassed {
-		r.isIfCondSuccess = true
+		r.enabled = true
 	}
 }
 
@@ -270,10 +269,10 @@ func (r *RunnableTask) Run() error {
 		return err
 	}
 	fns := []func(){
-		r.runIfCondition,    // if-cond
-		r.runUpdate,         // if (if-cond) then (update)
-		r.runCreateOrDelete, // if (if-cond) then (create or delete)
-		r.runAssert,         // if (if-cond) then (assert)
+		r.isEnabled,         // enabled
+		r.runUpdate,         // if (enabled && isupdate) then (update)
+		r.runCreateOrDelete, // if (enabled && isdelete) then (create or delete)
+		r.runAssert,         // if (enabled && isassert) then (assert)
 	}
 	// above functions are invoked here
 	for _, fn := range fns {
@@ -282,11 +281,11 @@ func (r *RunnableTask) Run() error {
 			return r.err
 		}
 		// task can be executed only when its **IF** condition succeededs
-		if !r.isIfCondSuccess {
+		if !r.enabled {
 			r.Response.Result.SkipResult = &types.SkipResult{
 				Phase: types.ResultPhaseSkipped,
 				Message: fmt.Sprintf(
-					"%s task didn't run: If cond failed",
+					"%s task didn't run: enabled=false",
 					r.getTaskType(),
 				),
 			}

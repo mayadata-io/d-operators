@@ -28,7 +28,7 @@ import (
 // Request forms the input required to execute a Run resource
 type Request struct {
 	IncludeInfo       map[types.IncludeInfoKey]bool
-	RunCond           *types.If
+	RunCond           *types.ResourceCheck
 	Tasks             []types.Task
 	Run               *unstructured.Unstructured
 	Watch             *unstructured.Unstructured
@@ -87,7 +87,7 @@ func (r *Runnable) runIfCondition() {
 				r.Request.Watch.GroupVersionKind().String(),
 			),
 			Assert: &types.Assert{
-				If: *r.Request.RunCond,
+				ResourceCheck: *r.Request.RunCond,
 			},
 			Resources: r.Request.ObservedResources,
 		},

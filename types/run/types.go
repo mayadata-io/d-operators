@@ -117,23 +117,23 @@ const (
 const (
 	// AnnotationKeyRunUID is the annotation key that holds
 	// the uid of the Run resource
-	AnnotationKeyRunUID string = "run.dao.mayadata.io/uid"
+	AnnotationKeyRunUID string = "run.doperators.dao.mayadata.io/uid"
 
 	// AnnotationKeyRunName is the annotation key that holds
 	// the name of the Run resource
-	AnnotationKeyRunName string = "run.dao.mayadata.io/name"
+	AnnotationKeyRunName string = "run.doperators.dao.mayadata.io/name"
 
 	// AnnotationKeyWatchUID is the annotation key that holds
 	// the uid of the watch resource
-	AnnotationKeyWatchUID string = "run.dao.mayadata.io/watch-uid"
+	AnnotationKeyWatchUID string = "run.doperators.dao.mayadata.io/watch-uid"
 
 	// AnnotationKeyWatchName is the annotation key that holds
 	// the name of the watch resource
-	AnnotationKeyWatchName string = "run.dao.mayadata.io/watch-name"
+	AnnotationKeyWatchName string = "run.doperators.dao.mayadata.io/watch-name"
 
 	// AnnotationKeyTaskKey is the annotationn key that holds the
 	// taskkey value
-	AnnotationKeyTaskKey string = "run.dao.mayadata.io/task-key"
+	AnnotationKeyTaskKey string = "run.doperators.dao.mayadata.io/task-key"
 )
 
 // RunForWatchKey is a typed constant that holds various
@@ -149,16 +149,16 @@ const (
 	// RunForWatchEnabled holds the flag that indicates if Run based
 	// reconciliation is being done for a resource other than Run
 	// resource
-	RunForWatchEnabled RunForWatchKey = "watch.run.dao.mayadata.io/enabled"
+	RunForWatchEnabled RunForWatchKey = "watch.run.doperators.dao.mayadata.io/enabled"
 
 	// RunForWatchAPIGroup holds the value of the watch's api group
-	RunForWatchAPIGroup RunForWatchKey = "watch.run.dao.mayadata.io/apigroup"
+	RunForWatchAPIGroup RunForWatchKey = "watch.run.doperators.dao.mayadata.io/apigroup"
 
 	// RunForWatchKind holds the value of the watch's kind
-	RunForWatchKind RunForWatchKey = "watch.run.dao.mayadata.io/kind"
+	RunForWatchKind RunForWatchKey = "watch.run.doperators.dao.mayadata.io/kind"
 
 	// RunForWatchName holds the name of the watch
-	RunForWatchName RunForWatchKey = "watch.run.dao.mayadata.io/name"
+	RunForWatchName RunForWatchKey = "watch.run.doperators.dao.mayadata.io/name"
 )
 
 // // RunStatusPhase determines the current phase of Run resource
@@ -204,67 +204,69 @@ const (
 	ResultPhaseAssertPassed ResultPhase = "AssertPassed"
 )
 
-// ResourceOperator is a typed definition of operator
-type ResourceOperator string
+// ResourceSelectOperator defines resource selection related
+// operators
+type ResourceSelectOperator string
 
 const (
-	// ResourceOperatorExists verifies if the expected resource exists
+	// ResourceSelectOperatorExists verifies if the expected
+	// resource exists
 	//
-	// Is the default ResourceOperator
-	ResourceOperatorExists ResourceOperator = "Exists"
+	// Is the **default** operator is nothing is specified
+	ResourceSelectOperatorExists ResourceSelectOperator = "Exists"
 
-	// ResourceOperatorNotExist verifies if the expected resource does not
-	// exist
-	ResourceOperatorNotExist ResourceOperator = "NotExist"
+	// ResourceSelectOperatorNotExist verifies if the expected
+	// resource does not exist
+	ResourceSelectOperatorNotExist ResourceSelectOperator = "NotExist"
 
-	// ResourceOperatorEqualsCount matches actual resource count with expected
-	// resource count
-	ResourceOperatorEqualsCount ResourceOperator = "EqualsCount"
+	// ResourceSelectOperatorEqualsCount verifies if observed
+	// resource count matches expected resource count
+	ResourceSelectOperatorEqualsCount ResourceSelectOperator = "EqualsCount"
 
-	// ResourceOperatorGTE verifies if actual resource count is greater than
-	// or equal to expected resource count
-	ResourceOperatorGTE ResourceOperator = "GTE"
+	// ResourceSelectOperatorGTE verifies if observed resource
+	// count is greater than or equal to expected resource count
+	ResourceSelectOperatorGTE ResourceSelectOperator = "GTE"
 
-	// ResourceOperatorLTE verifies if actual resource count is lesser than
-	// or equal to expected resource count
-	ResourceOperatorLTE ResourceOperator = "LTE"
+	// ResourceSelectOperatorLTE verifies if observed resource
+	// count is less than or equal to expected resource count
+	ResourceSelectOperatorLTE ResourceSelectOperator = "LTE"
 )
 
-// IsResourceOperatorValid returns true if the given operator
-// is a valid ResourceOperator
-func IsResourceOperatorValid(op ResourceOperator) bool {
+// IsResourceSelectOperatorValid returns true if the given operator
+// is a valid ResourceSelectOperator
+func IsResourceSelectOperatorValid(op ResourceSelectOperator) bool {
 	switch op {
-	case ResourceOperatorEqualsCount,
-		ResourceOperatorExists,
-		ResourceOperatorGTE,
-		ResourceOperatorLTE,
-		ResourceOperatorNotExist:
+	case ResourceSelectOperatorEqualsCount,
+		ResourceSelectOperatorExists,
+		ResourceSelectOperatorGTE,
+		ResourceSelectOperatorLTE,
+		ResourceSelectOperatorNotExist:
 		return true
 	default:
 		return false
 	}
 }
 
-// IfOperator defines the operator that needs to be applied
-// against a list of Item(s)
-type IfOperator string
+// ResourceCheckOperator defines the operator that needs to be applied
+// against a list of ResourceCheck(s)
+type ResourceCheckOperator string
 
 const (
-	// IfOperatorAND does an AND operation amongst the
-	// list of Item(s)
-	IfOperatorAND IfOperator = "AND"
+	// ResourceCheckOperatorAND does an AND operation amongst the
+	// list of ResourceCheck(s)
+	ResourceCheckOperatorAND ResourceCheckOperator = "AND"
 
-	// IfOperatorOR does an **OR** operation amongst the
-	// list of Item(s)
-	IfOperatorOR IfOperator = "OR"
+	// ResourceCheckOperatorOR does an **OR** operation amongst the
+	// list of ResourceCheck(s)
+	ResourceCheckOperatorOR ResourceCheckOperator = "OR"
 )
 
-// IsIfOperatorValid returns true if the given operator
-// is a valid IfOperator
-func IsIfOperatorValid(op IfOperator) bool {
+// IsResourceCheckOperatorValid returns true if the given operator
+// is a valid ResourceCheckOperator
+func IsResourceCheckOperatorValid(op ResourceCheckOperator) bool {
 	switch op {
-	case IfOperatorAND,
-		IfOperatorOR:
+	case ResourceCheckOperatorAND,
+		ResourceCheckOperatorOR:
 		return true
 	default:
 		return false
@@ -309,20 +311,21 @@ func IsIncludeInfoKeyValid(key IncludeInfoKey) bool {
 	}
 }
 
-// TargetResourceType is a typed constant used to indicate the type
-// of resource to be updated
-type TargetResourceType string
+// RunResourceTypeForUpgrade sets the upgrade to get executed
+// against the resources filtered by this type
+type RunResourceTypeForUpgrade string
 
 const (
-	// TargetResourceTypeObserved indicates updates to be applied
-	// against this Run's observed resources
+	// RunResourceTypeObserved sets the upgrade to get executed
+	// against the resources observed in the cluster
 	//
-	// This is the default setting
-	TargetResourceTypeObserved TargetResourceType = "Observed"
+	// This is the **default** when nothing is specified
+	RunResourceTypeObserved RunResourceTypeForUpgrade = "Observed"
 
-	// TargetResourceTypeDesired indicates update to be applied against
-	// this Run's desired resources
-	TargetResourceTypeDesired TargetResourceType = "Desired"
+	// RunResourceTypeDesired sets the upgrade to get executed
+	// against the resources created to form the desired state
+	// in this Run execution
+	RunResourceTypeDesired RunResourceTypeForUpgrade = "Desired"
 )
 
 // Run is a Kubernetes custom resource that defines
@@ -343,7 +346,7 @@ type RunSpec struct {
 	//
 	// NOTE:
 	// 	RunIf is optional
-	RunIf *If `json:"runIf,omitempty"`
+	RunIf *ResourceCheck `json:"runIf,omitempty"`
 
 	// Tasks represents a set of tasks that are executed
 	// in a level triggered reconciliation loop
@@ -368,12 +371,11 @@ type Task struct {
 	// A short or verbose description of this task
 	Desc string `json:"desc,omitempty"`
 
-	// Proceed either with Create, Delete, Update or Assert
-	// if this condition succeeds
+	// Enabled flags if this task should get executed
 	//
 	// NOTE:
-	// 	If is optional
-	If *If `json:"if,omitempty"`
+	// 	Enabled is optional
+	Enabled *ResourceCheck `json:"enabled,omitempty"`
 
 	// Apply defines the desired state that needs to be
 	// applied against the Kubernetes cluster
@@ -423,10 +425,10 @@ type Task struct {
 type TargetSelector struct {
 	metac.ResourceSelector
 
-	// ResourceType to be considered for update
+	// RunResourceType to be considered for update
 	//
 	// Defaults to TargetResourceTypeObserved
-	ResourceType TargetResourceType `json:"resourceType,omitempty"`
+	RunResourceType RunResourceTypeForUpgrade `json:"runResourceType,omitempty"`
 }
 
 // Assert any condition or state of resource
@@ -437,34 +439,35 @@ type Assert struct {
 	// identifying fields
 	State map[string]interface{} `json:"state,omitempty"`
 
-	// Embed If structure which in turn plays the
-	// role of assertion condition(s)
-	If
+	// ResourceCheck asserts the state of the resource
+	// against the selectors defined here
+	ResourceCheck
 }
 
-// If defines the conditions reqired to verify the
-// presence of, absence of, equals to & other checks
-// against one or more resources observed in the cluster
-type If struct {
-	// OR-ing or AND-ing of conditions
-	IfOperator IfOperator `json:"operator,omitempty"`
+// ResourceCheck defines one or more resource related conditions
+// used to verify 'presence of', 'absence of', 'equals to' & other
+// checks against one or more resources observed in the cluster.
+type ResourceCheck struct {
+	// OR-ing or AND-ing of checks
+	CheckOperator ResourceCheckOperator `json:"resourceCheckOperator,omitempty"`
 
-	// List of conditions that get executed as part of
-	// if operation
-	IfConditions []IfCondition `json:"conditions,omitempty"`
+	// List of resource select based checks to execute against the
+	// observed resources
+	SelectChecks []ResourceSelectCheck `json:"resourceSelectChecks,omitempty"`
 }
 
-// IfCondition to match, filter, verify a kubernetes resource.
-type IfCondition struct {
+// ResourceSelectCheck defines the condition to match, filter,
+// verify any kubernetes resource.
+type ResourceSelectCheck struct {
 	// Selector to filter one or more resources that are expected
 	// to be present in the cluster
-	ResourceSelector metac.ResourceSelector `json:"resourceSelector,omitempty"`
+	Selector metac.ResourceSelector `json:"resourceSelector,omitempty"`
 
-	// ResourceOperator refers to the operation that gets executed to
+	// Operator refers to the operation that is executed against
 	// the selected resources
 	//
 	// Defaults to 'Exists'
-	ResourceOperator ResourceOperator `json:"operator,omitempty"`
+	Operator ResourceSelectOperator `json:"resourceSelectOperator,omitempty"`
 
 	// Count comes into effect when operator is related to count
 	// e.g. EqualsCount, GreaterThanEqualTo, LessThanEqualTo.
@@ -472,8 +475,8 @@ type IfCondition struct {
 }
 
 // String implements Stringer interface
-func (i IfCondition) String() string {
-	raw, err := json.MarshalIndent(i, "", ".")
+func (i ResourceSelectCheck) String() string {
+	raw, err := json.MarshalIndent(i, " ", ".")
 	if err != nil {
 		panic(err)
 	}
@@ -481,7 +484,7 @@ func (i IfCondition) String() string {
 }
 
 // JSONString returns the json doc in string format
-func (i IfCondition) JSONString() string {
+func (i ResourceSelectCheck) JSONString() string {
 	raw, err := json.Marshal(i)
 	if err != nil {
 		panic(err)
@@ -499,7 +502,7 @@ type RunStatus struct {
 
 // String implements Stringer interface
 func (r RunStatus) String() string {
-	raw, err := json.MarshalIndent(r, "", ".")
+	raw, err := json.MarshalIndent(r, " ", ".")
 	if err != nil {
 		panic(err)
 	}
@@ -512,20 +515,20 @@ type TaskResultList map[string]TaskResult
 // TaskResult provide details of a task execution
 //
 // NOTE:
-//	One of the result(s) should get filled once the task
+//	One of the action result(s) should get filled once the task
 // gets executed
 type TaskResult struct {
-	SkipResult   *SkipResult `json:"skipResult,omitempty"`
-	IfCondResult *Result     `json:"ifCondResult,omitempty"`
-	AssertResult *Result     `json:"assertResult,omitempty"`
-	UpdateResult *Result     `json:"updateResult,omitempty"`
-	CreateResult *Result     `json:"createResult,omitempty"`
-	DeleteResult *Result     `json:"deleteResult,omitempty"`
+	SkipResult    *SkipResult `json:"skipResult,omitempty"`
+	EnabledResult *Result     `json:"enabledResult,omitempty"`
+	AssertResult  *Result     `json:"assertResult,omitempty"`
+	UpdateResult  *Result     `json:"updateResult,omitempty"`
+	CreateResult  *Result     `json:"createResult,omitempty"`
+	DeleteResult  *Result     `json:"deleteResult,omitempty"`
 }
 
 // String implements Stringer interface
 func (r TaskResult) String() string {
-	raw, err := json.MarshalIndent(r, "", ".")
+	raw, err := json.MarshalIndent(r, " ", ".")
 	if err != nil {
 		panic(err)
 	}
@@ -589,7 +592,7 @@ func (l TaskResultList) SkipTaskCount() int {
 func (l TaskResultList) IfCondTaskCount() int {
 	var count int
 	for _, result := range l {
-		if result.IfCondResult != nil {
+		if result.EnabledResult != nil {
 			count++
 		}
 	}
