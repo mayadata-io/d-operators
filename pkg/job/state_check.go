@@ -1,0 +1,428 @@
+/*
+Copyright 2020 The MayaData Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package job
+
+import (
+	"fmt"
+	"reflect"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/pkg/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/klog"
+	types "mayadata.io/d-operators/types/job"
+	dynamicapply "openebs.io/metac/dynamic/apply"
+)
+
+// StateChecking helps in verifying expected state against the
+// state observed in the cluster
+type StateChecking struct {
+	*Fixture
+	Retry *Retryable
+
+	Name       string
+	State      *unstructured.Unstructured
+	StateCheck types.StateCheck
+
+	actualListCount int
+	operator        types.StateCheckOperator
+	retryOnDiff     bool
+	retryOnEqual    bool
+	result          *types.StateCheckResult
+	err             error
+}
+
+// StateCheckingConfig is used to create an instance of StateChecking
+type StateCheckingConfig struct {
+	Name       string
+	Fixture    *Fixture
+	State      *unstructured.Unstructured
+	Retry      *Retryable
+	StateCheck types.StateCheck
+}
+
+// NewStateChecker returns a new instance of StateChecking
+func NewStateChecker(config StateCheckingConfig) *StateChecking {
+	return &StateChecking{
+		Name:       config.Name,
+		Fixture:    config.Fixture,
+		State:      config.State,
+		Retry:      config.Retry,
+		StateCheck: config.StateCheck,
+		result:     &types.StateCheckResult{},
+	}
+}
+
+func (sc *StateChecking) init() {
+	if sc.StateCheck.Operator == "" {
+		klog.V(3).Infof(
+			"Will default StateCheck operator to StateCheckOperatorEquals",
+		)
+		sc.operator = types.StateCheckOperatorEquals
+	} else {
+		sc.operator = sc.StateCheck.Operator
+	}
+}
+
+func (sc *StateChecking) validate() {
+	var isCountBasedAssert bool
+	// evaluate if this is count based assertion
+	// based on value
+	if sc.StateCheck.Count != nil {
+		isCountBasedAssert = true
+	}
+	// evaluate if its count based assertion
+	// based on operator
+	if !isCountBasedAssert {
+		switch sc.operator {
+		case types.StateCheckOperatorListCountEquals,
+			types.StateCheckOperatorListCountNotEquals:
+			isCountBasedAssert = true
+		}
+	}
+	if isCountBasedAssert && sc.StateCheck.Count == nil {
+		sc.err = errors.Errorf(
+			"Invalid StateCheck %q: Operator %q can't be used with nil count",
+			sc.Name,
+			sc.operator,
+		)
+	} else if isCountBasedAssert {
+		switch sc.operator {
+		case types.StateCheckOperatorEquals,
+			types.StateCheckOperatorNotEquals,
+			types.StateCheckOperatorNotFound:
+			sc.err = errors.Errorf(
+				"Invalid StateCheck %q: Operator %q can't be used with count %d",
+				sc.Name,
+				sc.operator,
+				*sc.StateCheck.Count,
+			)
+		}
+	}
+}
+
+func (sc *StateChecking) isMergeEqualsObserved(context string) (bool, error) {
+	var observed, merged *unstructured.Unstructured
+	err := sc.Retry.Waitf(
+		// returning true will stop retrying this func
+		func() (bool, error) {
+			client, err := sc.dynamicClientset.
+				GetClientForAPIVersionAndKind(
+					sc.State.GetAPIVersion(),
+					sc.State.GetKind(),
+				)
+			if err != nil {
+				return false, err
+			}
+			observed, err = client.
+				Namespace(sc.State.GetNamespace()).
+				Get(
+					sc.State.GetName(),
+					metav1.GetOptions{},
+				)
+			if err != nil {
+				return false, err
+			}
+			merged = &unstructured.Unstructured{}
+			merged.Object, err = dynamicapply.Merge(
+				observed.UnstructuredContent(), // observed
+				sc.State.UnstructuredContent(), // last applied
+				sc.State.UnstructuredContent(), // desired
+			)
+			if err != nil {
+				// we exit the wait condition in case of merge error
+				return true, err
+			}
+			if sc.retryOnDiff && !reflect.DeepEqual(merged, observed) {
+				return false, nil
+			}
+			if sc.retryOnEqual && reflect.DeepEqual(merged, observed) {
+				return false, nil
+			}
+			return true, nil
+		},
+		context,
+	)
+	klog.V(2).Infof(
+		"Is state equal? %t: Diff\n%s",
+		reflect.DeepEqual(merged, observed),
+		cmp.Diff(merged, observed),
+	)
+	if err != nil {
+		return false, err
+	}
+	return reflect.DeepEqual(merged, observed), nil
+}
+
+func (sc *StateChecking) assertEquals() {
+	var message = fmt.Sprintf(
+		"StateCheckEquals: Resource %s %s: GVK %s: %s",
+		sc.State.GetNamespace(),
+		sc.State.GetName(),
+		sc.State.GroupVersionKind(),
+		sc.Name,
+	)
+	// We want to retry in case of any difference between
+	// expected and observed states. This is done with the
+	// expectation of having observed state equal to the
+	// expected state eventually.
+	sc.retryOnDiff = true
+	success, err := sc.isMergeEqualsObserved(message)
+	if err != nil {
+		sc.err = err
+		return
+	}
+	// init phase as failed
+	sc.result.Phase = types.StateCheckResultFailed
+	if success {
+		sc.result.Phase = types.StateCheckResultPassed
+	}
+	sc.result.Message = message
+}
+
+func (sc *StateChecking) assertNotEquals() {
+	var message = fmt.Sprintf(
+		"StateCheckNotEquals: Resource %s %s: GVK %s: %s",
+		sc.State.GetNamespace(),
+		sc.State.GetName(),
+		sc.State.GroupVersionKind(),
+		sc.Name,
+	)
+	// We want to retry if expected and observed states are found
+	// to be equal. This is done with the expectation of having
+	// observed state not equal to the expected state eventually.
+	sc.retryOnEqual = true
+	success, err := sc.isMergeEqualsObserved(message)
+	if err != nil {
+		sc.err = err
+		return
+	}
+	// init phase as failed
+	sc.result.Phase = types.StateCheckResultFailed
+	if !success {
+		sc.result.Phase = types.StateCheckResultPassed
+	}
+	sc.result.Message = message
+}
+
+func (sc *StateChecking) assertNotFound() {
+	var message = fmt.Sprintf(
+		"StateCheckNotFound: Resource %s %s: GVK %s: %s",
+		sc.State.GetNamespace(),
+		sc.State.GetName(),
+		sc.State.GroupVersionKind(),
+		sc.Name,
+	)
+	var warning string
+	// init result to Failed
+	var phase = types.StateCheckResultFailed
+	err := sc.Retry.Waitf(
+		func() (bool, error) {
+			client, err := sc.dynamicClientset.
+				GetClientForAPIVersionAndKind(
+					sc.State.GetAPIVersion(),
+					sc.State.GetKind(),
+				)
+			if err != nil {
+				return false, err
+			}
+			got, err := client.
+				Namespace(sc.State.GetNamespace()).
+				Get(
+					sc.State.GetName(),
+					metav1.GetOptions{},
+				)
+			if err != nil {
+				if apierrors.IsNotFound(err) {
+					// phase is set to Passed here
+					phase = types.StateCheckResultPassed
+					return true, nil
+				}
+				return false, err
+			}
+			if len(got.GetFinalizers()) == 0 && got.GetDeletionTimestamp() != nil {
+				phase = types.StateCheckResultWarning
+				warning = fmt.Sprintf(
+					"Marking StateCheck %q to passed: Finalizer count %d: Deletion timestamp %s",
+					sc.Name,
+					len(got.GetFinalizers()),
+					got.GetDeletionTimestamp(),
+				)
+				return true, nil
+			}
+			// condition fails since resource still exists
+			return false, nil
+		},
+		message,
+	)
+	if err != nil {
+		sc.err = err
+		return
+	}
+	sc.result.Phase = phase
+	sc.result.Message = message
+	sc.result.Warning = warning
+}
+
+func (sc *StateChecking) isListCountMatch() (bool, error) {
+	client, err := sc.dynamicClientset.
+		GetClientForAPIVersionAndKind(
+			sc.State.GetAPIVersion(),
+			sc.State.GetKind(),
+		)
+	if err != nil {
+		return false, err
+	}
+	list, err := client.
+		Namespace(sc.State.GetNamespace()).
+		List(metav1.ListOptions{
+			LabelSelector: labels.Set(
+				sc.State.GetLabels(),
+			).String(),
+		})
+	if err != nil {
+		return false, err
+	}
+	sc.actualListCount = len(list.Items)
+	return sc.actualListCount == *sc.StateCheck.Count, nil
+}
+
+func (sc *StateChecking) assertListCountEquals() {
+	var message = fmt.Sprintf(
+		"AssertListCountEquals: Resource %s: GVK %s: %s",
+		sc.State.GetNamespace(),
+		sc.State.GroupVersionKind(),
+		sc.Name,
+	)
+	// init result to Failed
+	var phase = types.StateCheckResultFailed
+	err := sc.Retry.Waitf(
+		func() (bool, error) {
+			match, err := sc.isListCountMatch()
+			if err != nil {
+				return false, err
+			}
+			if match {
+				phase = types.StateCheckResultPassed
+				// returning a true implies this condition will
+				// not be tried
+				return true, nil
+			}
+			return false, nil
+		},
+		message,
+	)
+	if err != nil {
+		sc.err = err
+		return
+	}
+	sc.result.Phase = phase
+	sc.result.Message = message
+	sc.result.Verbose = fmt.Sprintf(
+		"Expected count %d got %d",
+		*sc.StateCheck.Count,
+		sc.actualListCount,
+	)
+}
+
+func (sc *StateChecking) assertListCountNotEquals() {
+	var message = fmt.Sprintf(
+		"AssertListCountNotEquals: Resource %s: GVK %s: %s",
+		sc.State.GetNamespace(),
+		sc.State.GroupVersionKind(),
+		sc.Name,
+	)
+	// init result to Failed
+	var phase = types.StateCheckResultFailed
+	err := sc.Retry.Waitf(
+		func() (bool, error) {
+			match, err := sc.isListCountMatch()
+			if err != nil {
+				return false, err
+			}
+			if !match {
+				phase = types.StateCheckResultPassed
+				// returning a true implies this condition will
+				// not be tried
+				return true, nil
+			}
+			return false, nil
+		},
+		message,
+	)
+	if err != nil {
+		sc.err = err
+		return
+	}
+	sc.result.Phase = phase
+	sc.result.Message = message
+	sc.result.Verbose = fmt.Sprintf(
+		"Expected count %d got %d",
+		*sc.StateCheck.Count,
+		sc.actualListCount,
+	)
+}
+
+func (sc *StateChecking) assert() {
+	switch sc.operator {
+	case types.StateCheckOperatorEquals:
+		sc.assertEquals()
+
+	case types.StateCheckOperatorNotEquals:
+		sc.assertNotEquals()
+
+	case types.StateCheckOperatorNotFound:
+		sc.assertNotFound()
+
+	case types.StateCheckOperatorListCountEquals:
+		sc.assertListCountEquals()
+
+	case types.StateCheckOperatorListCountNotEquals:
+		sc.assertListCountNotEquals()
+
+	default:
+		sc.err = errors.Errorf(
+			"Invalid StateCheck operator %q",
+			sc.operator,
+		)
+	}
+}
+
+// Run executes the assertion
+func (sc *StateChecking) Run() (types.StateCheckResult, error) {
+	var fns = []func(){
+		sc.init,
+		sc.validate,
+		sc.assert,
+	}
+	for _, fn := range fns {
+		fn()
+		if sc.err != nil {
+			return types.StateCheckResult{}, errors.Wrapf(
+				sc.err,
+				"Info %s: Warn %s: Verbose %s",
+				sc.result.Message,
+				sc.result.Warning,
+				sc.result.Verbose,
+			)
+		}
+	}
+	return *sc.result, nil
+}

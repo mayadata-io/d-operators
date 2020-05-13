@@ -22,6 +22,7 @@ import (
 
 	"mayadata.io/d-operators/controller/doperator"
 	"mayadata.io/d-operators/controller/http"
+	"mayadata.io/d-operators/controller/job"
 	"mayadata.io/d-operators/controller/run"
 )
 
@@ -41,7 +42,8 @@ import (
 // kubernetes controller & this project as the operator.
 func main() {
 	// controller name & corresponding controller reconcile function
-	var controllers = map[string]func(*generic.SyncHookRequest, *generic.SyncHookResponse) error{
+	var controllers = map[string]generic.InlineInvokeFn{
+		"sync/job":       job.Sync,
 		"sync/http":      http.Sync,
 		"sync/doperator": doperator.Sync,
 		"sync/run":       run.Sync,
