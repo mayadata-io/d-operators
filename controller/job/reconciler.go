@@ -19,7 +19,7 @@ package job
 import (
 	"openebs.io/metac/controller/generic"
 
-	ctrlutil "mayadata.io/d-operators/common/controller"
+	commonctrl "mayadata.io/d-operators/common/controller"
 	"mayadata.io/d-operators/common/unstruct"
 	"mayadata.io/d-operators/pkg/job"
 	types "mayadata.io/d-operators/types/job"
@@ -27,7 +27,7 @@ import (
 
 // Reconciler manages reconciliation of Job custom resource
 type Reconciler struct {
-	ctrlutil.Reconciler
+	commonctrl.Reconciler
 
 	ObservedJob *types.Job
 	JobStatus   *types.JobStatus
@@ -54,7 +54,22 @@ func (r *Reconciler) invoke() {
 }
 
 func (r *Reconciler) setSyncResponse() {
+	// we skip the reconcile always since there are no attachments
+	// to reconcile
 	r.HookResponse.SkipReconcile = true
+	r.SkipReason = "No attachments to reconcile"
+	// update the skip reason for locked jobs
+	if r.JobStatus.Phase == types.JobStatusLocked {
+		r.SkipReason = r.JobStatus.Reason
+	}
+	// set resync period for jobs with errors
+	if r.Err != nil {
+		// resync since this might be a temporary error
+		//
+		// TODO:
+		// 	Might be better to expose this from job.spec
+		r.HookResponse.ResyncAfterSeconds = 5.0
+	}
 }
 
 func (r *Reconciler) setWatchStatusAsError() {
@@ -77,6 +92,11 @@ func (r *Reconciler) setWatchStatusFromJobStatus() {
 
 func (r *Reconciler) setWatchStatus() {
 	if r.Err != nil {
+		// resync since this might be a temporary error
+		//
+		// TODO:
+		// 	Might be better to expose this from job.spec
+		r.HookResponse.ResyncAfterSeconds = 5.0
 		r.setWatchStatusAsError()
 		return
 	}
@@ -99,7 +119,8 @@ func (r *Reconciler) setWatchStatus() {
 //	This controller watches Job custom resource
 func Sync(request *generic.SyncHookRequest, response *generic.SyncHookResponse) error {
 	r := &Reconciler{
-		Reconciler: ctrlutil.Reconciler{
+		Reconciler: commonctrl.Reconciler{
+			Name:         "job-sync-reconciler",
 			HookRequest:  request,
 			HookResponse: response,
 		},

@@ -26,7 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	types "mayadata.io/d-operators/types/job"
 	dynamicapply "openebs.io/metac/dynamic/apply"
 )
@@ -37,7 +37,7 @@ type StateChecking struct {
 	*Fixture
 	Retry *Retryable
 
-	Name       string
+	TaskName   string
 	State      *unstructured.Unstructured
 	StateCheck types.StateCheck
 
@@ -51,7 +51,7 @@ type StateChecking struct {
 
 // StateCheckingConfig is used to create an instance of StateChecking
 type StateCheckingConfig struct {
-	Name       string
+	TaskName   string
 	Fixture    *Fixture
 	State      *unstructured.Unstructured
 	Retry      *Retryable
@@ -61,7 +61,7 @@ type StateCheckingConfig struct {
 // NewStateChecker returns a new instance of StateChecking
 func NewStateChecker(config StateCheckingConfig) *StateChecking {
 	return &StateChecking{
-		Name:       config.Name,
+		TaskName:   config.TaskName,
 		Fixture:    config.Fixture,
 		State:      config.State,
 		Retry:      config.Retry,
@@ -100,7 +100,7 @@ func (sc *StateChecking) validate() {
 	if isCountBasedAssert && sc.StateCheck.Count == nil {
 		sc.err = errors.Errorf(
 			"Invalid StateCheck %q: Operator %q can't be used with nil count",
-			sc.Name,
+			sc.TaskName,
 			sc.operator,
 		)
 	} else if isCountBasedAssert {
@@ -110,7 +110,7 @@ func (sc *StateChecking) validate() {
 			types.StateCheckOperatorNotFound:
 			sc.err = errors.Errorf(
 				"Invalid StateCheck %q: Operator %q can't be used with count %d",
-				sc.Name,
+				sc.TaskName,
 				sc.operator,
 				*sc.StateCheck.Count,
 			)
@@ -173,11 +173,11 @@ func (sc *StateChecking) isMergeEqualsObserved(context string) (bool, error) {
 
 func (sc *StateChecking) assertEquals() {
 	var message = fmt.Sprintf(
-		"StateCheckEquals: Resource %s %s: GVK %s: %s",
+		"StateCheckEquals: Resource %s %s: GVK %s: TaskName %s",
 		sc.State.GetNamespace(),
 		sc.State.GetName(),
 		sc.State.GroupVersionKind(),
-		sc.Name,
+		sc.TaskName,
 	)
 	// We want to retry in case of any difference between
 	// expected and observed states. This is done with the
@@ -199,11 +199,11 @@ func (sc *StateChecking) assertEquals() {
 
 func (sc *StateChecking) assertNotEquals() {
 	var message = fmt.Sprintf(
-		"StateCheckNotEquals: Resource %s %s: GVK %s: %s",
+		"StateCheckNotEquals: Resource %s %s: GVK %s: TaskName %s",
 		sc.State.GetNamespace(),
 		sc.State.GetName(),
 		sc.State.GroupVersionKind(),
-		sc.Name,
+		sc.TaskName,
 	)
 	// We want to retry if expected and observed states are found
 	// to be equal. This is done with the expectation of having
@@ -224,13 +224,13 @@ func (sc *StateChecking) assertNotEquals() {
 
 func (sc *StateChecking) assertNotFound() {
 	var message = fmt.Sprintf(
-		"StateCheckNotFound: Resource %s %s: GVK %s: %s",
+		"StateCheckNotFound: Resource %s %s: GVK %s: TaskName %s",
 		sc.State.GetNamespace(),
 		sc.State.GetName(),
 		sc.State.GroupVersionKind(),
-		sc.Name,
+		sc.TaskName,
 	)
-	var warning string
+	var warning, verbose string
 	// init result to Failed
 	var phase = types.StateCheckResultFailed
 	err := sc.Retry.Waitf(
@@ -261,7 +261,7 @@ func (sc *StateChecking) assertNotFound() {
 				phase = types.StateCheckResultWarning
 				warning = fmt.Sprintf(
 					"Marking StateCheck %q to passed: Finalizer count %d: Deletion timestamp %s",
-					sc.Name,
+					sc.TaskName,
 					len(got.GetFinalizers()),
 					got.GetDeletionTimestamp(),
 				)
@@ -273,12 +273,16 @@ func (sc *StateChecking) assertNotFound() {
 		message,
 	)
 	if err != nil {
-		sc.err = err
-		return
+		if _, ok := err.(*RetryTimeout); !ok {
+			sc.err = err
+			return
+		}
+		verbose = err.Error()
 	}
 	sc.result.Phase = phase
 	sc.result.Message = message
 	sc.result.Warning = warning
+	sc.result.Verbose = verbose
 }
 
 func (sc *StateChecking) isListCountMatch() (bool, error) {
@@ -300,17 +304,19 @@ func (sc *StateChecking) isListCountMatch() (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	// store this to be used later
 	sc.actualListCount = len(list.Items)
 	return sc.actualListCount == *sc.StateCheck.Count, nil
 }
 
 func (sc *StateChecking) assertListCountEquals() {
 	var message = fmt.Sprintf(
-		"AssertListCountEquals: Resource %s: GVK %s: %s",
+		"AssertListCountEquals: Resource %s: GVK %s: TaskName %s",
 		sc.State.GetNamespace(),
 		sc.State.GroupVersionKind(),
-		sc.Name,
+		sc.TaskName,
 	)
+	var verbose string
 	// init result to Failed
 	var phase = types.StateCheckResultFailed
 	err := sc.Retry.Waitf(
@@ -330,25 +336,30 @@ func (sc *StateChecking) assertListCountEquals() {
 		message,
 	)
 	if err != nil {
-		sc.err = err
-		return
+		if _, ok := err.(*RetryTimeout); !ok {
+			sc.err = err
+			return
+		}
+		verbose = err.Error()
 	}
 	sc.result.Phase = phase
 	sc.result.Message = message
-	sc.result.Verbose = fmt.Sprintf(
+	sc.result.Warning = fmt.Sprintf(
 		"Expected count %d got %d",
 		*sc.StateCheck.Count,
 		sc.actualListCount,
 	)
+	sc.result.Verbose = verbose
 }
 
 func (sc *StateChecking) assertListCountNotEquals() {
 	var message = fmt.Sprintf(
-		"AssertListCountNotEquals: Resource %s: GVK %s: %s",
+		"AssertListCountNotEquals: Resource %s: GVK %s: TaskName %s",
 		sc.State.GetNamespace(),
 		sc.State.GroupVersionKind(),
-		sc.Name,
+		sc.TaskName,
 	)
+	var verbose string
 	// init result to Failed
 	var phase = types.StateCheckResultFailed
 	err := sc.Retry.Waitf(
@@ -368,16 +379,20 @@ func (sc *StateChecking) assertListCountNotEquals() {
 		message,
 	)
 	if err != nil {
-		sc.err = err
-		return
+		if _, ok := err.(*RetryTimeout); !ok {
+			sc.err = err
+			return
+		}
+		verbose = err.Error()
 	}
 	sc.result.Phase = phase
 	sc.result.Message = message
-	sc.result.Verbose = fmt.Sprintf(
+	sc.result.Warning = fmt.Sprintf(
 		"Expected count %d got %d",
 		*sc.StateCheck.Count,
 		sc.actualListCount,
 	)
+	sc.result.Verbose = verbose
 }
 
 func (sc *StateChecking) assert() {
@@ -399,7 +414,8 @@ func (sc *StateChecking) assert() {
 
 	default:
 		sc.err = errors.Errorf(
-			"Invalid StateCheck operator %q",
+			"StateCheck %q failed: Invalid operator %q",
+			sc.TaskName,
 			sc.operator,
 		)
 	}

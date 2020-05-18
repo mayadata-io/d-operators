@@ -23,7 +23,7 @@ import (
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	types "mayadata.io/d-operators/types/job"
 )
 
@@ -34,7 +34,7 @@ type PathChecking struct {
 	*Fixture
 	Retry *Retryable
 
-	Name      string
+	TaskName  string
 	State     *unstructured.Unstructured
 	PathCheck types.PathCheck
 
@@ -58,7 +58,7 @@ type PathChecking struct {
 type PathCheckingConfig struct {
 	Fixture   *Fixture
 	Retry     *Retryable
-	Name      string
+	TaskName  string
 	State     *unstructured.Unstructured
 	PathCheck types.PathCheck
 }
@@ -66,7 +66,7 @@ type PathCheckingConfig struct {
 // NewPathChecker returns a new instance of PathChecking
 func NewPathChecker(config PathCheckingConfig) *PathChecking {
 	return &PathChecking{
-		Name:      config.Name,
+		TaskName:  config.TaskName,
 		Fixture:   config.Fixture,
 		State:     config.State,
 		Retry:     config.Retry,
@@ -110,7 +110,7 @@ func (pc *PathChecking) validate() {
 		if pc.valueOnlyCheck {
 			pc.err = errors.Errorf(
 				"Invalid PathCheck %q: Operator %q can't be used with value %v",
-				pc.Name,
+				pc.TaskName,
 				pc.operator,
 				pc.PathCheck.Value,
 			)
@@ -129,7 +129,7 @@ func (pc *PathChecking) assertValueInt64(obj *unstructured.Unstructured) (bool, 
 	if !found {
 		return false, errors.Errorf(
 			"PathCheck %q failed: Path %q not found",
-			pc.Name,
+			pc.TaskName,
 			pc.PathCheck.Path,
 		)
 	}
@@ -138,7 +138,7 @@ func (pc *PathChecking) assertValueInt64(obj *unstructured.Unstructured) (bool, 
 	if !ok {
 		return false, errors.Errorf(
 			"PathCheck %q failed: %v is of type %T, expected int64",
-			pc.Name,
+			pc.TaskName,
 			val,
 			val,
 		)
@@ -175,7 +175,7 @@ func (pc *PathChecking) assertValueFloat64(obj *unstructured.Unstructured) (bool
 	if !found {
 		return false, errors.Errorf(
 			"PathCheck %q failed: Path %q not found",
-			pc.Name,
+			pc.TaskName,
 			pc.PathCheck.Path,
 		)
 	}
@@ -184,7 +184,7 @@ func (pc *PathChecking) assertValueFloat64(obj *unstructured.Unstructured) (bool
 	if !ok {
 		return false, errors.Errorf(
 			"PathCheck %q failed: Value %v is of type %T, expected float64",
-			pc.Name,
+			pc.TaskName,
 			val,
 			val,
 		)
@@ -269,11 +269,11 @@ func (pc *PathChecking) assertPathAndValue(context string) (bool, error) {
 
 func (pc *PathChecking) assertPathExists() (success bool, err error) {
 	var message = fmt.Sprintf(
-		"PathCheckExists: Resource %s %s: GVK %s: %s",
+		"PathCheckExists: Resource %s %s: GVK %s: TaskName %s",
 		pc.State.GetNamespace(),
 		pc.State.GetName(),
 		pc.State.GroupVersionKind(),
-		pc.Name,
+		pc.TaskName,
 	)
 	pc.result.Message = message
 	// We want to retry if path does not exist in observed state.
@@ -285,11 +285,11 @@ func (pc *PathChecking) assertPathExists() (success bool, err error) {
 
 func (pc *PathChecking) assertPathNotExists() (success bool, err error) {
 	var message = fmt.Sprintf(
-		"PathCheckNotExists: Resource %s %s: GVK %s: %s",
+		"PathCheckNotExists: Resource %s %s: GVK %s: TaskName %s",
 		pc.State.GetNamespace(),
 		pc.State.GetName(),
 		pc.State.GroupVersionKind(),
-		pc.Name,
+		pc.TaskName,
 	)
 	pc.result.Message = message
 	// We want to retry if path does not exist in observed state.
@@ -301,11 +301,11 @@ func (pc *PathChecking) assertPathNotExists() (success bool, err error) {
 
 func (pc *PathChecking) assertPathValueNotEquals() (success bool, err error) {
 	var message = fmt.Sprintf(
-		"PathCheckValueNotEquals: Resource %s %s: GVK %s: %s",
+		"PathCheckValueNotEquals: Resource %s %s: GVK %s: TaskName %s",
 		pc.State.GetNamespace(),
 		pc.State.GetName(),
 		pc.State.GroupVersionKind(),
-		pc.Name,
+		pc.TaskName,
 	)
 	pc.result.Message = message
 	// We want to retry if path values of expected & observed
@@ -317,11 +317,11 @@ func (pc *PathChecking) assertPathValueNotEquals() (success bool, err error) {
 
 func (pc *PathChecking) assertPathValueEquals() (success bool, err error) {
 	var message = fmt.Sprintf(
-		"PathCheckValueEquals: Resource %s %s: GVK %s: %s",
+		"PathCheckValueEquals: Resource %s %s: GVK %s: TaskName %s",
 		pc.State.GetNamespace(),
 		pc.State.GetName(),
 		pc.State.GroupVersionKind(),
-		pc.Name,
+		pc.TaskName,
 	)
 	pc.result.Message = message
 	// We want to retry if path values of expected & observed
@@ -333,11 +333,11 @@ func (pc *PathChecking) assertPathValueEquals() (success bool, err error) {
 
 func (pc *PathChecking) assertPathValueGTE() (success bool, err error) {
 	var message = fmt.Sprintf(
-		"PathCheckValueGTE: Resource %s %s: GVK %s: %s",
+		"PathCheckValueGTE: Resource %s %s: GVK %s: TaskName %s",
 		pc.State.GetNamespace(),
 		pc.State.GetName(),
 		pc.State.GroupVersionKind(),
-		pc.Name,
+		pc.TaskName,
 	)
 	pc.result.Message = message
 	// We want to retry if path values of expected & observed
@@ -349,11 +349,11 @@ func (pc *PathChecking) assertPathValueGTE() (success bool, err error) {
 
 func (pc *PathChecking) assertPathValueLTE() (success bool, err error) {
 	var message = fmt.Sprintf(
-		"PathCheckValueLTE: Resource %s %s: GVK %s: %s",
+		"PathCheckValueLTE: Resource %s %s: GVK %s: TaskName %s",
 		pc.State.GetNamespace(),
 		pc.State.GetName(),
 		pc.State.GroupVersionKind(),
-		pc.Name,
+		pc.TaskName,
 	)
 	pc.result.Message = message
 	// We want to retry if path values of expected & observed
@@ -398,7 +398,7 @@ func (pc *PathChecking) assert() {
 	default:
 		pc.err = errors.Errorf(
 			"PathCheck %q failed: Invalid operator %q",
-			pc.Name,
+			pc.TaskName,
 			pc.operator,
 		)
 	}

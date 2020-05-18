@@ -17,8 +17,6 @@ limitations under the License.
 package job
 
 import (
-	"time"
-
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -53,7 +51,9 @@ func NewRunner(config RunnerConfig) *Runner {
 	return &Runner{
 		isTearDown: isTearDown,
 		Job:        config.Job,
-		JobStatus:  &types.JobStatus{},
+		JobStatus: &types.JobStatus{
+			TaskListStatus: map[string]types.TaskStatus{},
+		},
 	}
 }
 
@@ -147,9 +147,11 @@ func (r *Runner) buildLockRunner() *LockRunner {
 		},
 	}
 	return &LockRunner{
-		Fixture:     r.fixture,
-		Task:        lock,
-		LockForever: isLockForever,
+		Fixture:            r.fixture,
+		Task:               lock,
+		LockForever:        isLockForever,
+		Retry:              NewRetry(RetryConfig{}),
+		ProtectedTaskCount: len(r.Job.JobSpec.Tasks),
 	}
 }
 
@@ -172,23 +174,35 @@ func (r *Runner) mayBePassedOrCompletedStatus() types.JobStatusPhase {
 }
 
 func (r *Runner) getAPIDiscovery() *metacdiscovery.APIResourceDiscovery {
-	if r.hasCRDTask {
-		return metac.KubeDetails.GetMetacAPIDiscovery()
-	}
-	// return a discovery that refreshes more frequently
-	apiDiscovery := metac.KubeDetails.NewAPIDiscovery()
-	apiDiscovery.Start(500 * time.Millisecond)
-	return apiDiscovery
+	// if !r.hasCRDTask {
+	klog.V(3).Infof("Using metac api discovery instance")
+	return metac.KubeDetails.GetMetacAPIDiscovery()
+	// }
+
+	// TODO
+	//	If we need a api discovery with more frequent refreshes
+	// then we might use below. We need to stop the discovery
+	// once this Job instance is done.
+	//
+	// klog.V(3).Infof("Using new instance of api discovery")
+	// // return a discovery that refreshes more frequently
+	// apiDiscovery := metac.KubeDetails.NewAPIDiscovery()
+	// apiDiscovery.Start(5 * time.Second)
+	// return apiDiscovery
 }
 
 // runAll runs all the tasks
-func (r *Runner) runAll() (*types.JobStatus, error) {
+func (r *Runner) runAll() (status *types.JobStatus, err error) {
+	defer func() {
+		r.fixture.TearDown()
+	}()
 	var failedTasks int
 	for idx, task := range r.Job.JobSpec.Tasks {
 		tr := &TaskRunner{
 			Fixture:   r.fixture,
 			TaskIndex: idx + 1,
 			Task:      task,
+			Retry:     NewRetry(RetryConfig{}),
 		}
 		got, err := tr.Run()
 		if err != nil {
@@ -239,14 +253,14 @@ func (r *Runner) Run() (status *types.JobStatus, err error) {
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			klog.V(3).Infof(
-				"Will skip job %s %s: Lock was found: %+v",
+				"Will skip job %s %s: Previous lock exists: %+v",
 				r.Job.GetNamespace(),
 				r.Job.GetName(),
 				err,
 			)
 			// if this job is locked then skip its execution
 			r.JobStatus.Phase = types.JobStatusLocked
-			r.JobStatus.Reason = "Can't execute job: Lock was found"
+			r.JobStatus.Reason = "Job was skipped: Previous lock exists"
 			return r.JobStatus, nil
 		}
 		return nil, errors.Wrapf(

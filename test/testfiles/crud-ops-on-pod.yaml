@@ -1,0 +1,44 @@
+apiVersion: metacontroller.app/v1
+kind: Job
+metadata:
+  name: crud-ops-on-pod
+  namespace: d-testing
+  labels:
+    d-testing.metacontroller.app/enabled: "true"
+spec:
+  tasks:
+  - name: apply-a-namespace
+    apply: 
+      state: 
+        kind: Namespace
+        apiVersion: v1
+        metadata:
+          name: my-ns
+  - name: create-a-pod
+    create: 
+      state: 
+        kind: Pod
+        apiVersion: v1
+        metadata:
+          name: my-pod
+          namespace: my-ns
+        spec:
+          containers:
+          - name: web
+            image: nginx
+  - name: delete-the-pod
+    delete: 
+      state: 
+        kind: Pod
+        apiVersion: v1
+        metadata:
+          name: my-pod
+          namespace: my-ns
+  - name: delete-the-namespace
+    delete: 
+      state: 
+        kind: Namespace
+        apiVersion: v1
+        metadata:
+          name: my-ns
+---

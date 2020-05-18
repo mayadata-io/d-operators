@@ -1,0 +1,60 @@
+apiVersion: metacontroller.app/v1
+kind: Job
+metadata:
+  name: assert-job-teardown
+  namespace: d-testing
+  labels:
+    d-testing.metacontroller.app/enabled: "true"
+spec:
+  tasks:
+  # this is an example of asserting a job by another job
+  - name: create-a-job-with-teardown-enabled
+    create: 
+      state: 
+        kind: Job
+        apiVersion: metacontroller.app/v1
+        metadata:
+          name: job-with-teardown-enabled
+          namespace: d-testing
+          labels:
+            d-testing.metacontroller.app/enabled: "true"
+        spec:
+          teardown: true # target under test
+          tasks:
+          - name: create-a-configmap
+            create:
+              state:
+                kind: ConfigMap
+                apiVersion: v1
+                metadata:
+                  name: i-get-auto-deleted
+                  namespace: d-testing
+          - name: assert-presence-of-configmap
+            assert:
+              state:
+                kind: ConfigMap
+                apiVersion: v1
+                metadata:
+                  name: i-get-auto-deleted
+                  namespace: d-testing
+  - name: assert-completion-of-job
+    assert:
+      state:
+        kind: Job
+        apiVersion: metacontroller.app/v1
+        metadata:
+          name: job-with-teardown-enabled
+          namespace: d-testing
+        status:
+          phase: Completed
+  - name: assert-absense-of-configmap
+    assert:
+      stateCheck:
+        stateCheckOperator: NotFound
+      state:
+        kind: ConfigMap
+        apiVersion: v1
+        metadata:
+          name: i-get-auto-deleted
+          namespace: d-testing
+---

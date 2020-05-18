@@ -1,0 +1,33 @@
+apiVersion: v1.0.0
+kind: TestOnControlPlane
+metadata:
+  name: test-one
+spec:
+  #etcd:
+  # downloadURL:
+  # version:
+  #kubernetes:
+  # downloadURL:
+  # version:
+  operator:
+    binary:
+      path: bin
+      name: dope
+      args:
+      - --logtostderr
+      - --alsologtostderr
+      - --run-as-local
+      - --v=2
+      - --discovery-interval=40s
+      - --cache-flush-interval=240s
+      - --metac-config-path=../config/
+      kubeAPIServerURLFlag: --kube-apiserver-url
+    manifest:
+      path: "../manifests"
+      files:
+      - crd.yaml
+      - namespace.yaml
+      - rbac.yaml
+    tests:
+      path: testfiles
+---

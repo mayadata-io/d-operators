@@ -57,7 +57,7 @@ func (r *Reconciler) validateHook() {
 
 // logSyncStart logs the start of sync
 func (r *Reconciler) logSyncStart() {
-	glog.V(3).Infof(
+	glog.V(4).Infof(
 		"Starting sync of %s: %s",
 		r.Name,
 		metacutil.GetDetailsFromRequest(r.HookRequest),
@@ -66,7 +66,7 @@ func (r *Reconciler) logSyncStart() {
 
 // logSyncFinish logs the completion of sync
 func (r *Reconciler) logSyncFinish() {
-	glog.V(3).Infof(
+	glog.V(4).Infof(
 		"Completed sync of %s: %s: %s",
 		r.Name,
 		metacutil.GetDetailsFromRequest(r.HookRequest),
@@ -116,12 +116,12 @@ func (r *Reconciler) handleError() {
 	}
 	// log this error with context
 	glog.Errorf(
-		"Failed to sync %s triggered from watch with kind=%q name=%q/%q: %+v",
+		"Failed to sync %s: Watch of kind=%s name=%s/%s: %s",
 		r.Name,
 		r.HookRequest.Watch.GetKind(),
 		r.HookRequest.Watch.GetNamespace(),
 		r.HookRequest.Watch.GetName(),
-		r.Err,
+		r.Err.Error(),
 	)
 	// stop further reconciliation at metac since there was an error
 	r.HookResponse.SkipReconcile = true
@@ -170,7 +170,7 @@ func (r *Reconciler) Reconcile() error {
 	// check if attachments / children need not be reconciled
 	if r.HookResponse.SkipReconcile {
 		glog.V(3).Infof(
-			"Skipping sync of %s triggered from watch with kind=%q name=%q/%q: %s",
+			"Skipping sync of %s: Watch of kind=%s name=%s/%s: Reason=%s",
 			r.Name,
 			r.HookRequest.Watch.GetKind(),
 			r.HookRequest.Watch.GetNamespace(),

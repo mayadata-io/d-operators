@@ -20,15 +20,18 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"mayadata.io/d-operators/common/pointer"
 	types "mayadata.io/d-operators/types/job"
+	"openebs.io/metac/dynamic/clientset"
 )
 
 // LockRunner executes a lock task
 type LockRunner struct {
 	*Fixture
-
-	LockForever bool
-	Task        types.Task
+	Retry              *Retryable
+	LockForever        bool
+	Task               types.Task
+	ProtectedTaskCount int
 }
 
 func (r *LockRunner) delete() (types.TaskStatus, error) {
@@ -38,11 +41,22 @@ func (r *LockRunner) delete() (types.TaskStatus, error) {
 		r.Task.Apply.State.GetName(),
 		r.Task.Apply.State.GroupVersionKind(),
 	)
-	client, err := r.dynamicClientset.
-		GetClientForAPIVersionAndKind(
-			r.Task.Apply.State.GetAPIVersion(),
-			r.Task.Apply.State.GetKind(),
-		)
+	var client *clientset.ResourceClient
+	var err error
+	err = r.Retry.Waitf(
+		func() (bool, error) {
+			client, err = r.dynamicClientset.
+				GetClientForAPIVersionAndKind(
+					r.Task.Apply.State.GetAPIVersion(),
+					r.Task.Apply.State.GetKind(),
+				)
+			if err != nil {
+				return false, err
+			}
+			return true, nil
+		},
+		message,
+	)
 	if err != nil {
 		return types.TaskStatus{}, err
 	}
@@ -56,8 +70,11 @@ func (r *LockRunner) delete() (types.TaskStatus, error) {
 		return types.TaskStatus{}, err
 	}
 	return types.TaskStatus{
-		Phase:   types.TaskStatusPassed,
-		Message: message,
+		// last step is always the unlock
+		Step:     r.ProtectedTaskCount + 1,
+		Internal: pointer.Bool(true),
+		Phase:    types.TaskStatusPassed,
+		Message:  message,
 	}, nil
 }
 
@@ -68,11 +85,22 @@ func (r *LockRunner) create() (types.TaskStatus, error) {
 		r.Task.Apply.State.GetName(),
 		r.Task.Apply.State.GroupVersionKind(),
 	)
-	client, err := r.dynamicClientset.
-		GetClientForAPIVersionAndKind(
-			r.Task.Apply.State.GetAPIVersion(),
-			r.Task.Apply.State.GetKind(),
-		)
+	var client *clientset.ResourceClient
+	var err error
+	err = r.Retry.Waitf(
+		func() (bool, error) {
+			client, err = r.dynamicClientset.
+				GetClientForAPIVersionAndKind(
+					r.Task.Apply.State.GetAPIVersion(),
+					r.Task.Apply.State.GetKind(),
+				)
+			if err != nil {
+				return false, err
+			}
+			return true, nil
+		},
+		message,
+	)
 	if err != nil {
 		return types.TaskStatus{}, err
 	}
@@ -86,8 +114,10 @@ func (r *LockRunner) create() (types.TaskStatus, error) {
 		return types.TaskStatus{}, err
 	}
 	return types.TaskStatus{
-		Phase:   types.TaskStatusPassed,
-		Message: message,
+		Step:     0, // 0 is reserved for lock
+		Internal: pointer.Bool(true),
+		Phase:    types.TaskStatusPassed,
+		Message:  message,
 	}, nil
 }
 
@@ -105,14 +135,18 @@ func (r *LockRunner) Lock() (
 	var unlock func() (types.TaskStatus, error)
 	if r.LockForever {
 		unlock = func() (types.TaskStatus, error) {
-			// it is a noop if this lock is meant
+			// this is a noop if this lock is meant
 			// to be present forever
 			return types.TaskStatus{
-				Phase:   types.TaskStatusPassed,
-				Message: "Locked forever",
+				// last step is always the unlock
+				Step:     r.ProtectedTaskCount + 1,
+				Internal: pointer.Bool(true),
+				Phase:    types.TaskStatusPassed,
+				Message:  "Locked forever",
 			}, nil
 		}
 	} else {
+		// this is a one time lock
 		unlock = r.delete
 	}
 	return lockstatus, unlock, nil
