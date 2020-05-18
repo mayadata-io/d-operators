@@ -62,10 +62,10 @@ const (
 	StateCheckResultPassed StateCheckResultPhase = "StateCheckPassed"
 
 	// StateCheckResultWarning defines a StateCheckResult that has warnings
-	StateCheckResultWarning StateCheckResultPhase = "StateCheckResultWarning"
+	StateCheckResultWarning StateCheckResultPhase = "StateCheckWarning"
 
 	// StateCheckResultFailed defines an un-successful StateCheckResult
-	StateCheckResultFailed StateCheckResultPhase = "StateCheckResultFailed"
+	StateCheckResultFailed StateCheckResultPhase = "StateCheckFailed"
 )
 
 // ToAssertResultPhase transforms StateCheckResultPhase to AssertResultPhase

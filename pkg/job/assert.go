@@ -25,9 +25,9 @@ import (
 // against observed state(s)
 type Assertable struct {
 	*Fixture
-	Retry  *Retryable
-	Name   string
-	Assert *types.Assert
+	Retry    *Retryable
+	TaskName string
+	Assert   *types.Assert
 
 	assertCheckType types.AssertCheckType
 	retryOnDiff     bool
@@ -40,20 +40,20 @@ type Assertable struct {
 
 // AssertableConfig is used to create an instance of Assertable
 type AssertableConfig struct {
-	Fixture *Fixture
-	Retry   *Retryable
-	Name    string
-	Assert  *types.Assert
+	Fixture  *Fixture
+	Retry    *Retryable
+	TaskName string
+	Assert   *types.Assert
 }
 
 // NewAsserter returns a new instance of Assertion
 func NewAsserter(config AssertableConfig) *Assertable {
 	return &Assertable{
-		Assert:  config.Assert,
-		Retry:   config.Retry,
-		Fixture: config.Fixture,
-		Name:    config.Name,
-		status:  &types.AssertStatus{},
+		Assert:   config.Assert,
+		Retry:    config.Retry,
+		Fixture:  config.Fixture,
+		TaskName: config.TaskName,
+		status:   &types.AssertStatus{},
 	}
 }
 
@@ -70,7 +70,7 @@ func (a *Assertable) init() {
 	if checks > 1 {
 		a.err = errors.Errorf(
 			"Failed to assert %q: More than one assert checks found",
-			a.Name,
+			a.TaskName,
 		)
 		return
 	}
@@ -85,7 +85,7 @@ func (a *Assertable) init() {
 func (a *Assertable) runAssertByPath() {
 	chk := NewPathChecker(
 		PathCheckingConfig{
-			Name:      a.Name,
+			TaskName:  a.TaskName,
 			Fixture:   a.Fixture,
 			State:     a.Assert.State,
 			PathCheck: *a.Assert.PathCheck,
@@ -108,7 +108,7 @@ func (a *Assertable) runAssertByPath() {
 func (a *Assertable) runAssertByState() {
 	chk := NewStateChecker(
 		StateCheckingConfig{
-			Name:       a.Name,
+			TaskName:   a.TaskName,
 			Fixture:    a.Fixture,
 			State:      a.Assert.State,
 			StateCheck: *a.Assert.StateCheck,
@@ -137,7 +137,7 @@ func (a *Assertable) runAssert() {
 	default:
 		a.err = errors.Errorf(
 			"Failed to run assert %q: Invalid operator %q",
-			a.Name,
+			a.TaskName,
 			a.assertCheckType,
 		)
 	}
@@ -145,7 +145,7 @@ func (a *Assertable) runAssert() {
 
 // Run executes the assertion
 func (a *Assertable) Run() (types.AssertStatus, error) {
-	if a.Name == "" {
+	if a.TaskName == "" {
 		return types.AssertStatus{}, errors.Errorf(
 			"Failed to run assert: Missing assert name",
 		)
@@ -153,7 +153,7 @@ func (a *Assertable) Run() (types.AssertStatus, error) {
 	if a.Assert == nil || a.Assert.State == nil {
 		return types.AssertStatus{}, errors.Errorf(
 			"Failed to run assert %q: Nil assert state",
-			a.Name,
+			a.TaskName,
 		)
 	}
 	var fns = []func(){

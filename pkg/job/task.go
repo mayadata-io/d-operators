@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	types "mayadata.io/d-operators/types/job"
+	"openebs.io/metac/dynamic/clientset"
 )
 
 // TaskRunner executes a Task
@@ -31,6 +32,7 @@ type TaskRunner struct {
 	*Fixture
 	TaskIndex int
 	Task      types.Task
+	Retry     *Retryable
 }
 
 func (r *TaskRunner) isDeleteFromApply() (bool, error) {
@@ -63,11 +65,22 @@ func (r *TaskRunner) delete() (*types.TaskStatus, error) {
 		r.Task.Delete.State.GetName(),
 		r.Task.Delete.State.GroupVersionKind(),
 	)
-	client, err := r.dynamicClientset.
-		GetClientForAPIVersionAndKind(
-			r.Task.Delete.State.GetAPIVersion(),
-			r.Task.Delete.State.GetKind(),
-		)
+	var client *clientset.ResourceClient
+	var err error
+	err = r.Retry.Waitf(
+		func() (bool, error) {
+			client, err = r.dynamicClientset.
+				GetClientForAPIVersionAndKind(
+					r.Task.Delete.State.GetAPIVersion(),
+					r.Task.Delete.State.GetKind(),
+				)
+			if err != nil {
+				return false, err
+			}
+			return true, nil
+		},
+		message,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -93,11 +106,22 @@ func (r *TaskRunner) create() (*types.TaskStatus, error) {
 		r.Task.Create.State.GetName(),
 		r.Task.Create.State.GroupVersionKind(),
 	)
-	client, err := r.dynamicClientset.
-		GetClientForAPIVersionAndKind(
-			r.Task.Create.State.GetAPIVersion(),
-			r.Task.Create.State.GetKind(),
-		)
+	var client *clientset.ResourceClient
+	var err error
+	err = r.Retry.Waitf(
+		func() (bool, error) {
+			client, err = r.dynamicClientset.
+				GetClientForAPIVersionAndKind(
+					r.Task.Create.State.GetAPIVersion(),
+					r.Task.Create.State.GetKind(),
+				)
+			if err != nil {
+				return false, err
+			}
+			return true, nil
+		},
+		message,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -141,11 +165,22 @@ func (r *TaskRunner) deleteFromApply() (*types.TaskStatus, error) {
 		r.Task.Apply.State.GetName(),
 		r.Task.Apply.State.GroupVersionKind(),
 	)
-	client, err := r.dynamicClientset.
-		GetClientForAPIVersionAndKind(
-			r.Task.Apply.State.GetAPIVersion(),
-			r.Task.Apply.State.GetKind(),
-		)
+	var client *clientset.ResourceClient
+	var err error
+	err = r.Retry.Waitf(
+		func() (bool, error) {
+			client, err = r.dynamicClientset.
+				GetClientForAPIVersionAndKind(
+					r.Task.Apply.State.GetAPIVersion(),
+					r.Task.Apply.State.GetKind(),
+				)
+			if err != nil {
+				return false, err
+			}
+			return true, nil
+		},
+		message,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -182,10 +217,10 @@ func (r *TaskRunner) deleteFromApply() (*types.TaskStatus, error) {
 
 func (r *TaskRunner) assert() (*types.TaskStatus, error) {
 	a := NewAsserter(AssertableConfig{
-		Name:    r.Task.Name,
-		Fixture: r.Fixture,
-		Assert:  r.Task.Assert,
-		Retry:   NewRetry(RetryConfig{}),
+		TaskName: r.Task.Name,
+		Fixture:  r.Fixture,
+		Assert:   r.Task.Assert,
+		Retry:    NewRetry(RetryConfig{}),
 	})
 	got, err := a.Run()
 	if err != nil {

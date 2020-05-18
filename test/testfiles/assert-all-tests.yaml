@@ -1,0 +1,25 @@
+# This is an internal job used by test suite runner
+# to evaluate if other jobs were successful or failed
+apiVersion: metacontroller.app/v1
+kind: Job
+metadata:
+  name: assert-all-tests # do-not-change
+  namespace: d-testing # do-not-change
+  labels:
+    d-testing.metacontroller.app/internal: "true"
+spec:
+  tasks:
+  - name: assert-all-jobs
+    assert: 
+      state: 
+        kind: Job
+        apiVersion: metacontroller.app/v1
+        metadata:
+          labels:
+            d-testing.metacontroller.app/enabled: "true"
+        status:
+          phase: Completed
+      stateCheck:
+        stateCheckOperator: ListCountEquals
+        count: 3 # number of successfully completed tests i.e. jobs
+---

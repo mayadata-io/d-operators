@@ -20,9 +20,19 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
+
+// RetryTimeout is an error implementation that is thrown
+// when retry fails post timeout
+type RetryTimeout struct {
+	Err string
+}
+
+// Error implements error interface
+func (rt *RetryTimeout) Error() string {
+	return rt.Err
+}
 
 // Retryable helps executing user provided functions as
 // conditions in a repeated manner till this condition succeeds
@@ -92,12 +102,14 @@ func (r *Retryable) Waitf(
 			return err
 		}
 		if time.Since(start) > r.WaitTimeout {
-			return errors.Errorf(
-				"Retry timed out after %s: %s: %s",
-				r.WaitTimeout,
-				context,
-				err,
-			)
+			return &RetryTimeout{
+				Err: fmt.Sprintf(
+					"Retry timed out after %s: %s: %s",
+					r.WaitTimeout,
+					context,
+					err,
+				),
+			}
 		}
 		if err != nil {
 			// Log error, but keep trying until timeout

@@ -117,10 +117,10 @@ const (
 	PathCheckResultPassed PathCheckResultPhase = "PathCheckPassed"
 
 	// PathCheckResultWarning defines a PathCheckResult that has warnings
-	PathCheckResultWarning PathCheckResultPhase = "PathCheckResultWarning"
+	PathCheckResultWarning PathCheckResultPhase = "PathCheckWarning"
 
 	// PathCheckResultFailed defines an un-successful PathCheckResult
-	PathCheckResultFailed PathCheckResultPhase = "PathCheckResultFailed"
+	PathCheckResultFailed PathCheckResultPhase = "PathCheckFailed"
 )
 
 // ToAssertResultPhase transforms StateCheckResultPhase to AssertResultPhase

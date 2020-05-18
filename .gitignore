@@ -1,2 +1,4 @@
 /vendor/
 d-operators
+test/bin/
+test/kubebin/
