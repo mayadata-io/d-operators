@@ -1,3 +1,4 @@
+# all the paths mentioned here are relative to suite.go
 apiVersion: v1.0.0
 kind: TestOnControlPlane
 metadata:

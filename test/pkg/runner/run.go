@@ -1,4 +1,4 @@
-package framework
+package runner
 
 import (
 	"fmt"
@@ -10,10 +10,22 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/klog/v2"
+	"mayadata.io/d-operators/test/pkg/controlplane"
 )
 
+// FailedRun defines a run that has resulted in error
+type FailedRun struct {
+	Err string
+}
+
+// Error implements error interface
+func (fr *FailedRun) Error() string {
+	return fr.Err
+}
+
 const (
-	notFoundErrMsg = "no such file or directory"
+	notFoundErrMsg    = "no such file or directory"
+	inferenceTestName = "inference"
 )
 
 // name of the namespace that host all the declarative tests
@@ -74,7 +86,7 @@ type TestRunner struct {
 	etcdVersion     string
 	etcdDownloadURL string
 
-	cp *ControlPlane
+	cp *controlplane.ControlPlane
 
 	stopOperatorFn func() error
 
@@ -432,17 +444,18 @@ func (r *TestRunner) wgetKubectlToTestLoc() error {
 	return nil
 }
 
-func (r *TestRunner) wgetKubectlToTestLocIfNotFound() error {
+func (r *TestRunner) wgetKubectlToTestLocIfNotFound() {
 	cmd := fmt.Sprintf("%s/kubectl", r.kubeBinPath)
 	err := sh.Run(cmd, "version", "--client")
 	if err == nil {
-		return nil
+		return
 	}
 	if !strings.Contains(err.Error(), notFoundErrMsg) {
 		// this is different than not found error
-		return errors.Wrapf(err, fmt.Sprintf("%s", r))
+		r.err = errors.Wrapf(err, fmt.Sprintf("%s", r))
+		return
 	}
-	return r.wgetKubectlToTestLoc()
+	r.err = r.wgetKubectlToTestLoc()
 }
 
 func (r *TestRunner) wgetETCDToTestLoc() error {
@@ -494,17 +507,19 @@ func (r *TestRunner) wgetETCDToTestLoc() error {
 	return nil
 }
 
-func (r *TestRunner) wgetETCDToTestLocIfNotFound() error {
+func (r *TestRunner) wgetETCDToTestLocIfNotFound() {
 	cmd := fmt.Sprintf("%s/etcd", r.kubeBinPath)
 	err := sh.Run(cmd, "--version")
 	if err == nil {
-		return nil
+		return
 	}
 	if !strings.Contains(err.Error(), notFoundErrMsg) {
 		// this is different than not found error
-		return errors.Wrapf(err, fmt.Sprintf("%s", r))
+		r.err = errors.Wrapf(err, fmt.Sprintf("%s", r))
+		return
 	}
-	return r.wgetETCDToTestLoc()
+	// download etcd
+	r.err = r.wgetETCDToTestLoc()
 }
 
 func (r *TestRunner) wgetKubeAPIServerToTestLoc() error {
@@ -544,33 +559,36 @@ func (r *TestRunner) wgetKubeAPIServerToTestLoc() error {
 	return nil
 }
 
-func (r *TestRunner) wgetKubeAPIServerToTestLocIfNotFound() error {
+func (r *TestRunner) wgetKubeAPIServerToTestLocIfNotFound() {
 	cmd := fmt.Sprintf("%s/kube-apiserver", r.kubeBinPath)
 	err := sh.Run(cmd, "--version")
 	if err == nil {
-		return nil
+		return
 	}
 	if !strings.Contains(err.Error(), notFoundErrMsg) {
 		// this is different than not found error
-		return errors.Wrapf(err, fmt.Sprintf("%s", r))
+		r.err = errors.Wrapf(err, fmt.Sprintf("%s", r))
+		return
 	}
-	return r.wgetKubeAPIServerToTestLoc()
+	// download kube api server
+	r.err = r.wgetKubeAPIServerToTestLoc()
 }
 
 // startKube starts kubernetes control plane
-func (r *TestRunner) startKube() error {
+func (r *TestRunner) startKube() {
 	klog.V(2).Infof("Starting k8s: %s", r)
-	r.cp = &ControlPlane{
+	r.cp = &controlplane.ControlPlane{
 		StartTimeout: 60 * time.Second,
 		StopTimeout:  60 * time.Second,
 	}
 	err := r.cp.Start()
 	if err != nil {
-		return errors.Wrapf(err, fmt.Sprintf("%s", r))
+		r.err = errors.Wrapf(err, fmt.Sprintf("%s", r))
+		return
 	}
 	r.addToSetupTeardown(r.stopKube)
 	klog.V(2).Infof("K8s started successfully: %s", r)
-	return nil
+	return
 }
 
 // stopKube stops kubernetes control plane
@@ -589,12 +607,14 @@ func (r *TestRunner) stopKube() (err error) {
 }
 
 // startOperator starts the operator
-func (r *TestRunner) startOperator() error {
+func (r *TestRunner) startOperator() {
 	klog.V(2).Infof("Starting operator: %s", r)
-	cmd := NewCommand(CommandConfig{
-		Err: os.Stderr,
-		Out: os.Stdout,
-	})
+	cmd := controlplane.NewCommand(
+		controlplane.CommandConfig{
+			Err: os.Stderr,
+			Out: os.Stdout,
+		},
+	)
 	var allArgs []string
 	allArgs = append(
 		allArgs,
@@ -614,12 +634,12 @@ func (r *TestRunner) startOperator() error {
 		allArgs...,
 	)
 	if err != nil {
-		return errors.Wrapf(err, fmt.Sprintf("%s", r))
+		r.err = errors.Wrapf(err, fmt.Sprintf("%s", r))
+		return
 	}
 	r.stopOperatorFn = stop
 	r.addToSetupTeardown(r.stopOperator)
 	klog.V(2).Infof("Operator started successfully: %s", r)
-	return nil
 }
 
 // StopOperator stops operator
@@ -637,36 +657,36 @@ func (r *TestRunner) stopOperator() (err error) {
 }
 
 // applyOperatorManifests applies operator's manifest files
-func (r *TestRunner) applyOperatorManifests() (err error) {
+func (r *TestRunner) applyOperatorManifests() {
 	klog.V(2).Infof(
 		"Applying manifests: Path %s: %s",
 		r.operatorManifestsPath,
 		r,
 	)
 	defer func() {
-		if err == nil {
+		if r.err == nil {
 			klog.V(2).Infof(
 				"Applied manifests successfully: %s",
 				r,
 			)
 		}
 	}()
-	return r.cp.KubeCtl().Apply(
-		ApplyConfig{
+	r.err = r.cp.KubeCtl().Apply(
+		controlplane.ApplyConfig{
 			Path:      r.operatorManifestsPath,
 			YAMLFiles: r.operatorManifestFiles,
 		},
 	)
 }
 
-func (r *TestRunner) createDeclarativeTestNamespace() (err error) {
+func (r *TestRunner) createDeclarativeTestNamespace() {
 	klog.V(2).Infof(
 		"Creating declarative test namespace %s: %s",
 		declarativeTestNamespace,
 		r,
 	)
 	defer func() {
-		if err == nil {
+		if r.err == nil {
 			klog.V(2).Infof(
 				"Created declarative test namespace %s successfully: %s",
 				declarativeTestNamespace,
@@ -675,7 +695,7 @@ func (r *TestRunner) createDeclarativeTestNamespace() (err error) {
 		}
 
 	}()
-	return r.cp.KubeCtl().Run(
+	r.err = r.cp.KubeCtl().Run(
 		"create",
 		"namespace",
 		declarativeTestNamespace,
@@ -683,14 +703,14 @@ func (r *TestRunner) createDeclarativeTestNamespace() (err error) {
 }
 
 // applyDeclarativeTests applies files to test an operator
-func (r *TestRunner) applyDeclarativeTests() (err error) {
+func (r *TestRunner) applyDeclarativeTests() {
 	klog.V(2).Infof(
 		"Applying declarative tests: Path %s: %s",
 		r.operatorTestsPath,
 		r,
 	)
 	defer func() {
-		if err == nil {
+		if r.err == nil {
 			klog.V(2).Infof(
 				"Applied declarative tests successfully: %s",
 				r,
@@ -698,8 +718,8 @@ func (r *TestRunner) applyDeclarativeTests() (err error) {
 		}
 
 	}()
-	return r.cp.KubeCtl().Apply(
-		ApplyConfig{
+	r.err = r.cp.KubeCtl().Apply(
+		controlplane.ApplyConfig{
 			Path:      r.operatorTestsPath,
 			YAMLFiles: r.operatorTestFiles,
 		},
@@ -707,7 +727,7 @@ func (r *TestRunner) applyDeclarativeTests() (err error) {
 }
 
 // waitTillAllJobsAreCompleted waits till all jobs are completed
-func (r *TestRunner) waitTillAllJobsAreCompleted() error {
+func (r *TestRunner) waitTillAllJobsAreCompleted() {
 	var counter int
 	for {
 		counter++
@@ -721,41 +741,48 @@ func (r *TestRunner) waitTillAllJobsAreCompleted() error {
 			"jobs.metacontroller.app",
 			"-n",
 			declarativeTestNamespace,
-			"assert-all-tests",
+			inferenceTestName,
 			"-o=jsonpath='{.status.phase}'",
 		)
 		if err != nil {
-			return err
+			r.err = err
+			return
 		}
 		if strings.Contains(strings.TrimSpace(op), "Completed") {
 			// testing is complete
-			return nil
+			return
 		}
 		if strings.Contains(strings.TrimSpace(op), "Failed") {
 			// test has failed
 			break
 		}
-		klog.V(2).Infof("Job 'assert-all-tests' has status.phase=%q", op)
+		klog.V(2).Infof("Job 'inference' has status.phase=%q", op)
 		// TODO (@amitkumardas):
 		// Need to expose sleep seconds as a tunable in setup.yaml
 		time.Sleep(3 * time.Second)
 	}
-	// At this point assert-all-tests job has failed
-	// It is wise to display the output then!
+	// At this point inference job has **failed**
+	// It is wise to display the output & then set error
 	op, _ := r.cp.KubeCtl().RunOp(
 		"get",
 		"jobs.metacontroller.app",
 		"-n",
 		declarativeTestNamespace,
-		"assert-all-tests",
+		inferenceTestName,
 		"-oyaml",
 	)
 	klog.Infof("\n%s", op)
-	return errors.Errorf("Tests might have failed or timedout")
+	r.err = &FailedRun{Err: "Tests might have failed or timedout"}
 }
 
 // printDeclarativeTestResultsV prints verbose test results on the terminal
 func (r *TestRunner) printDeclarativeTestResultsV() {
+	if r.err != nil {
+		if _, ok := r.err.(*FailedRun); !ok {
+			// will not print for runtime errors
+			return
+		}
+	}
 	op, err := r.cp.KubeCtl().RunOp(
 		"get",
 		"jobs.metacontroller.app",
@@ -766,6 +793,8 @@ func (r *TestRunner) printDeclarativeTestResultsV() {
 		"-oyaml",
 	)
 	if err != nil {
+		// log this error & continue
+		// we are not interested on this err
 		klog.Infof("%s", err)
 		return
 	}
@@ -776,7 +805,7 @@ func (r *TestRunner) run() error {
 	defer func() {
 		r.printDeclarativeTestResultsV()
 	}()
-	var fns = []func() error{
+	var fns = []func(){
 		r.wgetETCDToTestLocIfNotFound,
 		r.wgetKubeAPIServerToTestLocIfNotFound,
 		r.wgetKubectlToTestLocIfNotFound,
@@ -788,9 +817,9 @@ func (r *TestRunner) run() error {
 		r.waitTillAllJobsAreCompleted,
 	}
 	for _, f := range fns {
-		err := f()
-		if err != nil {
-			return err
+		f()
+		if r.err != nil {
+			return r.err
 		}
 	}
 	return nil

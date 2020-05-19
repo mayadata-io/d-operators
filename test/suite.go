@@ -4,7 +4,7 @@ import (
 	"flag"
 
 	"k8s.io/klog/v2"
-	"mayadata.io/d-operators/test/framework"
+	"mayadata.io/d-operators/test/pkg/runner"
 )
 
 // ---------------------------------------
@@ -27,7 +27,7 @@ func main() {
 	})
 	defer klog.Flush()
 
-	err := framework.Run()
+	err := runner.Run()
 	if err != nil {
 		klog.Exitf("%+v", err)
 	}

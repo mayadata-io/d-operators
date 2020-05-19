@@ -1,11 +1,11 @@
-package framework
+package controlplane
 
 import (
 	"bytes"
 	"io"
 	"path"
 
-	"mayadata.io/d-operators/test/framework/internal"
+	"mayadata.io/d-operators/test/pkg/controlplane/internal"
 )
 
 // KubeCtl is a wrapper around the kubectl binary.

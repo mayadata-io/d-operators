@@ -1,4 +1,4 @@
-package framework
+package runner
 
 import (
 	"io/ioutil"

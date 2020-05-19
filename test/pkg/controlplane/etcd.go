@@ -1,4 +1,4 @@
-package framework
+package controlplane
 
 import (
 	"io"
@@ -6,7 +6,7 @@ import (
 
 	"net/url"
 
-	"mayadata.io/d-operators/test/framework/internal"
+	"mayadata.io/d-operators/test/pkg/controlplane/internal"
 )
 
 // Etcd knows how to run an etcd server.
