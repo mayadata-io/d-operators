@@ -17,8 +17,9 @@ func init() {
 	}
 	assetsPath = filepath.Join(
 		filepath.Dir(thisFile),
-		"..",
-		"..",
+		"..", // internal
+		"..", // controlplane
+		"..", // pkg
 		"kubebin",
 	)
 }

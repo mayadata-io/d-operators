@@ -1,59 +1,47 @@
 apiVersion: metacontroller.app/v1
 kind: Job
 metadata:
-  name: assert-job-teardown
+  name: assert-lock-persists-for-job-that-runs-once
   namespace: d-testing
   labels:
     d-testing.metacontroller.app/enabled: "true"
 spec:
   tasks:
-  - name: create-a-job-with-teardown-enabled
+  - name: create-a-job-that-runs-only-once
     create: 
       state: 
         kind: Job
         apiVersion: metacontroller.app/v1
         metadata:
-          name: job-with-teardown-enabled
+          name: job-that-runs-only-once
           namespace: d-testing
           labels:
             d-testing.metacontroller.app/enabled: "true"
         spec:
-          teardown: true # target under test
           tasks:
-          - name: create-a-configmap
-            create:
-              state:
-                kind: ConfigMap
-                apiVersion: v1
-                metadata:
-                  name: i-get-auto-deleted
-                  namespace: d-testing
-          - name: assert-presence-of-configmap
+          - name: assert-presence-of-namespace
             assert:
               state:
-                kind: ConfigMap
+                kind: Namespace
                 apiVersion: v1
                 metadata:
-                  name: i-get-auto-deleted
-                  namespace: d-testing
+                  name: d-testing
   - name: assert-completion-of-job
     assert:
       state:
         kind: Job
         apiVersion: metacontroller.app/v1
         metadata:
-          name: job-with-teardown-enabled
+          name: job-that-runs-only-once
           namespace: d-testing
         status:
           phase: Completed
-  - name: assert-absense-of-configmap
+  - name: assert-presence-of-lock
     assert:
-      stateCheck:
-        stateCheckOperator: NotFound
       state:
         kind: ConfigMap
         apiVersion: v1
         metadata:
-          name: i-get-auto-deleted
+          name: job-that-runs-only-once-lock
           namespace: d-testing
 ---

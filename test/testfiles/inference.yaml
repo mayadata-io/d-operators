@@ -3,13 +3,15 @@
 apiVersion: metacontroller.app/v1
 kind: Job
 metadata:
-  name: assert-all-tests # do-not-change
+  name: inference # do-not-change
   namespace: d-testing # do-not-change
   labels:
     d-testing.metacontroller.app/internal: "true"
 spec:
   tasks:
-  - name: assert-all-jobs
+  # This is also an example of a Job making use of another
+  # Job as its task
+  - name: assert-all-tests-are-completed
     assert: 
       state: 
         kind: Job
@@ -21,5 +23,5 @@ spec:
           phase: Completed
       stateCheck:
         stateCheckOperator: ListCountEquals
-        count: 3 # number of successfully completed tests i.e. jobs
+        count: 5 # number of successfully completed tests i.e. jobs
 ---

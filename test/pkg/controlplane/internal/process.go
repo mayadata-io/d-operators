@@ -16,7 +16,7 @@ import (
 	"github.com/onsi/gomega/gexec"
 	"github.com/pkg/errors"
 
-	"openebs.io/metac/test/integration/framework/addr"
+	"mayadata.io/d-operators/test/pkg/controlplane/addr"
 )
 
 // ProcessState define the state of the process.

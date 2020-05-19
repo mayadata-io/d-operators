@@ -1,4 +1,4 @@
-package framework
+package controlplane
 
 import (
 	"io"
@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"mayadata.io/d-operators/test/framework/addr"
-	"mayadata.io/d-operators/test/framework/internal"
+	"mayadata.io/d-operators/test/pkg/controlplane/addr"
+	"mayadata.io/d-operators/test/pkg/controlplane/internal"
 )
 
 // APIServer knows how to run a kubernetes apiserver.

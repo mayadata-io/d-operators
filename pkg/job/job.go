@@ -139,7 +139,7 @@ func (r *Runner) buildLockRunner() *LockRunner {
 						"name":      r.Job.GetName() + "-lock",
 						"namespace": r.Job.GetNamespace(),
 						"labels": map[string]interface{}{
-							"job.doperators.metacontroller.io/lock": "true",
+							"jobs.metacontroller.app/lock": "true",
 						},
 					},
 				},

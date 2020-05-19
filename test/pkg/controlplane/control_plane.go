@@ -1,4 +1,4 @@
-package framework
+package controlplane
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 
-	"mayadata.io/d-operators/test/framework/internal"
+	"mayadata.io/d-operators/test/pkg/controlplane/internal"
 )
 
 // NewTinyCA creates a new a tiny CA utility for provisioning
@@ -96,6 +96,9 @@ func (cp *ControlPlane) Stop() error {
 
 // APIURL returns the URL you should connect to to talk to your API.
 func (cp *ControlPlane) APIURL() *url.URL {
+	if cp.APIServer == nil {
+		return nil
+	}
 	return cp.APIServer.URL
 }
 
