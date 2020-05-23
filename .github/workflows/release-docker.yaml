@@ -16,7 +16,6 @@ jobs:
         with:
           username: ${{ secrets.DNAME }}
           password: ${{ secrets.DPASS }}
-          repository: dope
-          registry: mayadataio
+          repository: mayadataio/dope
           tag_with_ref: true
           add_git_labels: true

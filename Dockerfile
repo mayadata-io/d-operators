@@ -82,8 +82,8 @@ FROM gcr.io/distroless/static:nonroot
 WORKDIR /
 
 COPY config/metac.yaml /etc/config/metac/metac.yaml
-COPY --from=builder /mayadata.io/d-operators/d-operators /usr/bin/
+COPY --from=builder /mayadata.io/d-operators/dope /usr/bin/
 
 USER nonroot:nonroot
 
-CMD ["/usr/bin/d-operators"]
+CMD ["/usr/bin/dope"]
