@@ -27,6 +27,8 @@ COPY cmd/ cmd/
 COPY common/ common/
 COPY config/ config/
 COPY controller/ controller/
+COPY pkg/ pkg/
+COPY test/ test/
 COPY types/ types/
 
 # test d-operators
@@ -60,6 +62,7 @@ COPY cmd/ cmd/
 COPY common/ common/
 COPY config/ config/
 COPY controller/ controller/
+COPY pkg/ pkg/
 COPY types/ types/
 
 # we run the test once again since this is one of the
