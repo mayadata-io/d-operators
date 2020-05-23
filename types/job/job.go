@@ -60,8 +60,8 @@ type Job struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 
-	JobSpec   JobSpec   `json:"spec"`
-	JobStatus JobStatus `json:"status"`
+	Spec   JobSpec   `json:"spec"`
+	Status JobStatus `json:"status"`
 }
 
 // JobSpec defines the tasks that get executed as part of

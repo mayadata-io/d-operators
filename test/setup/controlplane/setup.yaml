@@ -1,0 +1,38 @@
+# This is a config used by the test runner to create
+# a kubernetes control plane setup.
+#
+# NOTE: 
+# - All the paths mentioned here are relative to suite.go
+# - This yaml is not a kubernetes CustomResource
+apiVersion: v1.0.0
+kind: TestOnControlPlane
+metadata:
+  name: test-dope-on-ctrl-plane
+spec:
+  target:
+    binary:
+      path: bin
+      name: dope
+      args:
+      - --logtostderr
+      - --alsologtostderr
+      - --run-as-local
+      - --v=2
+      - --discovery-interval=40s
+      - --cache-flush-interval=240s
+      - --metac-config-path=../config/
+      kubeAPIServerURLFlag: --kube-apiserver-url
+    deploy:
+      path: "../manifests"
+  test:
+    deploy:
+      path: manifests
+    experiments:
+      path: experiments
+    inference:
+      experimentName: inference
+      experimentNamespace: d-testing
+      displaySelector:
+        matchLabels:
+          d-testing.metacontroller.app/enabled: "true"
+---

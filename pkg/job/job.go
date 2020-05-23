@@ -45,8 +45,8 @@ type Runner struct {
 // NewRunner returns a new instance of Runner
 func NewRunner(config RunnerConfig) *Runner {
 	var isTearDown bool
-	if config.Job.JobSpec.Teardown != nil {
-		isTearDown = *config.Job.JobSpec.Teardown
+	if config.Job.Spec.Teardown != nil {
+		isTearDown = *config.Job.Spec.Teardown
 	}
 	return &Runner{
 		isTearDown: isTearDown,
@@ -58,10 +58,10 @@ func NewRunner(config RunnerConfig) *Runner {
 }
 
 func (r *Runner) init() {
-	if r.Job.JobSpec.Enabled == nil {
+	if r.Job.Spec.Enabled == nil {
 		r.when = types.Once
 	} else {
-		r.when = r.Job.JobSpec.Enabled.When
+		r.when = r.Job.Spec.Enabled.When
 	}
 }
 
@@ -151,13 +151,13 @@ func (r *Runner) buildLockRunner() *LockRunner {
 		Task:               lock,
 		LockForever:        isLockForever,
 		Retry:              NewRetry(RetryConfig{}),
-		ProtectedTaskCount: len(r.Job.JobSpec.Tasks),
+		ProtectedTaskCount: len(r.Job.Spec.Tasks),
 	}
 }
 
 // evalAll evaluates all tasks
 func (r *Runner) evalAll() error {
-	for _, task := range r.Job.JobSpec.Tasks {
+	for _, task := range r.Job.Spec.Tasks {
 		err := r.eval(task)
 		if err != nil {
 			return err
@@ -197,7 +197,7 @@ func (r *Runner) runAll() (status *types.JobStatus, err error) {
 		r.fixture.TearDown()
 	}()
 	var failedTasks int
-	for idx, task := range r.Job.JobSpec.Tasks {
+	for idx, task := range r.Job.Spec.Tasks {
 		tr := &TaskRunner{
 			Fixture:   r.fixture,
 			TaskIndex: idx + 1,
@@ -225,7 +225,7 @@ func (r *Runner) runAll() (status *types.JobStatus, err error) {
 	} else {
 		r.JobStatus.Phase = r.mayBePassedOrCompletedStatus()
 	}
-	r.JobStatus.TaskCount = len(r.Job.JobSpec.Tasks)
+	r.JobStatus.TaskCount = len(r.Job.Spec.Tasks)
 	return r.JobStatus, nil
 }
 
