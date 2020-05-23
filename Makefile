@@ -2,11 +2,14 @@ PWD := ${CURDIR}
 
 OS = $(shell uname)
 
+GIT_TAGS = $(shell git fetch --all --tags)
+PACKAGE_VERSION ?= $(shell git describe --always --tags)
 ALL_SRC = $(shell find . -name "*.go" | grep -v -e "vendor")
 
-PACKAGE_VERSION ?= latest
-REGISTRY ?= quay.io/amitkumardas
-IMG_NAME ?= d-operators
+# We are using docker hub as the default registry
+#IMG_REGISTRY ?= quay.io
+IMG_NAME ?= dope
+IMG_REPO ?= mayadataio/dope
 
 all: bins
 
@@ -18,6 +21,8 @@ $(IMG_NAME): $(ALL_SRC)
 		go build -o $@ ./cmd/main.go
 
 $(ALL_SRC): ;
+
+$(GIT_TAGS): ;
 
 # go mod download modules to local cache
 # make vendored copy of dependencies
@@ -37,9 +42,9 @@ testv:
 	@go test ./... -cover -v -args --logtostderr -v=2
 
 .PHONY: image
-image:
-	docker build -t $(REGISTRY)/$(IMG_NAME):$(PACKAGE_VERSION) .
+image: $(GIT_TAGS)
+	docker build -t $(IMG_REPO):$(PACKAGE_VERSION) .
 
 .PHONY: push
 push: image
-	docker push $(REGISTRY)/$(IMG_NAME):$(PACKAGE_VERSION)
+	docker push $(IMG_REPO):$(PACKAGE_VERSION)
