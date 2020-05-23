@@ -14,8 +14,8 @@ jobs:
       - name: Deploy docker image
         uses: docker/build-push-action@v1
         with:
-          username: ${{ secrets.DNAME }}
-          password: ${{ secrets.DPASS }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
           repository: mayadataio/dope
           tag_with_ref: true
           add_git_labels: true
