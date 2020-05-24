@@ -1,0 +1,52 @@
+apiVersion: metacontroller.app/v1
+kind: Job
+metadata:
+  name: create-fifty-configmaps
+  namespace: d-testing
+spec:
+  tasks:
+  - name: create-fifty-configmaps
+    create: 
+      state: 
+        kind: ConfigMap
+        apiVersion: v1
+        metadata:
+          name: create-cm-elapsed-time
+          namespace: d-testing
+      replicas: 50
+---
+apiVersion: metacontroller.app/v1
+kind: Job
+metadata:
+  name: assert-creation-of-fifty-configmaps-elapsed-time
+  namespace: d-testing
+  labels:
+    d-testing.metacontroller.app/enabled: "true"
+spec:
+  tasks:
+  - name: assert-create-fifty-configmaps-job-completed
+    assert: 
+      state: 
+        kind: Job
+        apiVersion: metacontroller.app/v1
+        metadata:
+          name: create-fifty-configmaps
+          namespace: d-testing
+        status:
+          phase: Completed
+  - name: assert-creation-of-fifty-configmaps-within-time
+    assert: 
+      state: 
+        kind: Job
+        apiVersion: metacontroller.app/v1
+        metadata:
+          name: create-fifty-configmaps
+          namespace: d-testing
+      pathCheck:
+        path: status.taskListStatus.job-elapsed-time.elapsedTimeInSeconds
+        pathCheckOperator: LTE
+        # assert if the entire experiment of creating 50 configmaps
+        # completes in around 10 seconds
+        value: 10.001
+        dataType: float64
+---

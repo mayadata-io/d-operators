@@ -1,0 +1,35 @@
+apiVersion: metacontroller.app/v1
+kind: Job
+metadata:
+  name: create-assert-fifty-configmaps
+  namespace: d-testing
+  labels:
+    d-testing.metacontroller.app/enabled: "true"
+spec:
+  tasks:
+  - name: create-fifty-configmaps
+    create: 
+      state: 
+        kind: ConfigMap
+        apiVersion: v1
+        metadata:
+          name: create-cm
+          namespace: d-testing
+      replicas: 50
+  - name: assert-presence-of-0th-configmap
+    assert: 
+      state: 
+        kind: ConfigMap
+        apiVersion: v1
+        metadata:
+          name: create-cm-0
+          namespace: d-testing
+  - name: assert-presence-of-49th-configmap
+    assert: 
+      state: 
+        kind: ConfigMap
+        apiVersion: v1
+        metadata:
+          name: create-cm-49
+          namespace: d-testing
+---

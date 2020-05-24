@@ -17,6 +17,8 @@ limitations under the License.
 package types
 
 import (
+	"encoding/json"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -24,4 +26,57 @@ import (
 type Create struct {
 	// Desired state that needs to be created
 	State *unstructured.Unstructured `json:"state"`
+
+	// Desired count that needs to be created
+	Replicas *int `json:"replicas,omitempty"`
+}
+
+// String implements the Stringer interface
+func (a Create) String() string {
+	raw, err := json.MarshalIndent(
+		a,
+		" ",
+		".",
+	)
+	if err != nil {
+		panic(err)
+	}
+	return string(raw)
+}
+
+// CreateStatusPhase is a typed definition to determine the
+// result of executing a create
+type CreateStatusPhase string
+
+const (
+	// CreateStatusPassed defines a successful create
+	CreateStatusPassed CreateStatusPhase = "Passed"
+
+	// CreateStatusWarning defines a create that resulted in warnings
+	CreateStatusWarning CreateStatusPhase = "Warning"
+
+	// CreateStatusFailed defines a failed create
+	CreateStatusFailed CreateStatusPhase = "Failed"
+)
+
+// ToTaskStatusPhase transforms CreateStatusPhase to TestResultPhase
+func (phase CreateStatusPhase) ToTaskStatusPhase() TaskStatusPhase {
+	switch phase {
+	case CreateStatusPassed:
+		return TaskStatusPassed
+	case CreateStatusFailed:
+		return TaskStatusFailed
+	case CreateStatusWarning:
+		return TaskStatusWarning
+	default:
+		return ""
+	}
+}
+
+// CreateResult holds the result of the create operation
+type CreateResult struct {
+	Phase   CreateStatusPhase `json:"phase"`
+	Message string            `json:"message,omitempty"`
+	Verbose string            `json:"verbose,omitempty"`
+	Warning string            `json:"warning,omitempty"`
 }

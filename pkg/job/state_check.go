@@ -230,7 +230,7 @@ func (sc *StateChecking) assertNotFound() {
 		sc.State.GroupVersionKind(),
 		sc.TaskName,
 	)
-	var warning, verbose string
+	var warning string
 	// init result to Failed
 	var phase = types.StateCheckResultFailed
 	err := sc.Retry.Waitf(
@@ -277,12 +277,11 @@ func (sc *StateChecking) assertNotFound() {
 			sc.err = err
 			return
 		}
-		verbose = err.Error()
+		sc.result.Timeout = err.Error()
 	}
 	sc.result.Phase = phase
 	sc.result.Message = message
 	sc.result.Warning = warning
-	sc.result.Verbose = verbose
 }
 
 func (sc *StateChecking) isListCountMatch() (bool, error) {
@@ -316,7 +315,6 @@ func (sc *StateChecking) assertListCountEquals() {
 		sc.State.GroupVersionKind(),
 		sc.TaskName,
 	)
-	var verbose string
 	// init result to Failed
 	var phase = types.StateCheckResultFailed
 	err := sc.Retry.Waitf(
@@ -340,7 +338,7 @@ func (sc *StateChecking) assertListCountEquals() {
 			sc.err = err
 			return
 		}
-		verbose = err.Error()
+		sc.result.Timeout = err.Error()
 	}
 	sc.result.Phase = phase
 	sc.result.Message = message
@@ -349,7 +347,6 @@ func (sc *StateChecking) assertListCountEquals() {
 		*sc.StateCheck.Count,
 		sc.actualListCount,
 	)
-	sc.result.Verbose = verbose
 }
 
 func (sc *StateChecking) assertListCountNotEquals() {
@@ -359,7 +356,6 @@ func (sc *StateChecking) assertListCountNotEquals() {
 		sc.State.GroupVersionKind(),
 		sc.TaskName,
 	)
-	var verbose string
 	// init result to Failed
 	var phase = types.StateCheckResultFailed
 	err := sc.Retry.Waitf(
@@ -383,7 +379,7 @@ func (sc *StateChecking) assertListCountNotEquals() {
 			sc.err = err
 			return
 		}
-		verbose = err.Error()
+		sc.result.Timeout = err.Error()
 	}
 	sc.result.Phase = phase
 	sc.result.Message = message
@@ -392,7 +388,6 @@ func (sc *StateChecking) assertListCountNotEquals() {
 		*sc.StateCheck.Count,
 		sc.actualListCount,
 	)
-	sc.result.Verbose = verbose
 }
 
 func (sc *StateChecking) assert() {
