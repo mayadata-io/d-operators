@@ -100,61 +100,21 @@ func (r *TaskRunner) delete() (*types.TaskStatus, error) {
 }
 
 func (r *TaskRunner) create() (*types.TaskStatus, error) {
-	var message = fmt.Sprintf(
-		"Create: Resource %s %s: GVK %s",
-		r.Task.Create.State.GetNamespace(),
-		r.Task.Create.State.GetName(),
-		r.Task.Create.State.GroupVersionKind(),
-	)
-	var client *clientset.ResourceClient
-	var err error
-	err = r.Retry.Waitf(
-		func() (bool, error) {
-			client, err = r.dynamicClientset.
-				GetClientForAPIVersionAndKind(
-					r.Task.Create.State.GetAPIVersion(),
-					r.Task.Create.State.GetKind(),
-				)
-			if err != nil {
-				return false, err
-			}
-			return true, nil
-		},
-		message,
-	)
-	if err != nil {
-		return nil, err
-	}
-	_, err = client.
-		Namespace(r.Task.Create.State.GetNamespace()).
-		Create(
-			r.Task.Create.State,
-			metav1.CreateOptions{},
-		)
-	if err != nil {
-		return nil, err
-	}
-	r.AddToTeardown(func() error {
-		_, err := client.
-			Namespace(r.Task.Create.State.GetNamespace()).
-			Get(
-				r.Task.Create.State.GetName(),
-				metav1.GetOptions{},
-			)
-		if err != nil && apierrors.IsNotFound(err) {
-			// nothing to do since resource is already deleted
-			return nil
-		}
-		return client.
-			Namespace(r.Task.Create.State.GetNamespace()).
-			Delete(
-				r.Task.Create.State.GetName(),
-				&metav1.DeleteOptions{},
-			)
+	c := NewCreator(CreatableConfig{
+		TaskName: r.Task.Name,
+		Fixture:  r.Fixture,
+		Create:   r.Task.Create,
+		Retry:    NewRetry(RetryConfig{}),
 	})
+	got, err := c.Run()
+	if err != nil {
+		return nil, err
+	}
 	return &types.TaskStatus{
-		Phase:   types.TaskStatusPassed,
-		Message: message,
+		Phase:   got.Phase.ToTaskStatusPhase(),
+		Message: got.Message,
+		Verbose: got.Verbose,
+		Warning: got.Warning,
 	}, nil
 }
 
@@ -231,6 +191,7 @@ func (r *TaskRunner) assert() (*types.TaskStatus, error) {
 		Message: got.Message,
 		Verbose: got.Verbose,
 		Warning: got.Warning,
+		Timeout: got.Timeout,
 	}, nil
 }
 

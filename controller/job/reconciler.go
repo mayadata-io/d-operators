@@ -17,7 +17,9 @@ limitations under the License.
 package job
 
 import (
+	"k8s.io/utils/pointer"
 	"openebs.io/metac/controller/generic"
+	k8s "openebs.io/metac/third_party/kubernetes"
 
 	commonctrl "mayadata.io/d-operators/common/controller"
 	"mayadata.io/d-operators/common/unstruct"
@@ -77,6 +79,9 @@ func (r *Reconciler) setWatchStatusAsError() {
 		"phase":  "Error",
 		"reason": r.Err.Error(),
 	}
+	r.HookResponse.Labels = map[string]*string{
+		"job.dope.metacontroller.io/phase": k8s.StringPtr("Error"),
+	}
 }
 
 func (r *Reconciler) setWatchStatusFromJobStatus() {
@@ -87,6 +92,9 @@ func (r *Reconciler) setWatchStatusFromJobStatus() {
 		"failedTaskCount": int64(r.JobStatus.FailedTaskCount),
 		"taskCount":       int64(r.JobStatus.TaskCount),
 		"taskListStatus":  r.JobStatus.TaskListStatus,
+	}
+	r.HookResponse.Labels = map[string]*string{
+		"job.dope.metacontroller.io/phase": pointer.StringPtr(string(r.JobStatus.Phase)),
 	}
 }
 

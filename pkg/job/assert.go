@@ -102,6 +102,7 @@ func (a *Assertable) runAssertByPath() {
 		Message: got.Message,
 		Verbose: got.Verbose,
 		Warning: got.Warning,
+		Timeout: got.Timeout,
 	}
 }
 
@@ -125,6 +126,7 @@ func (a *Assertable) runAssertByState() {
 		Message: got.Message,
 		Verbose: got.Verbose,
 		Warning: got.Warning,
+		Timeout: got.Timeout,
 	}
 }
 

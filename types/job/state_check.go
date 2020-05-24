@@ -88,4 +88,5 @@ type StateCheckResult struct {
 	Message string                `json:"message,omitempty"`
 	Verbose string                `json:"verbose,omitempty"`
 	Warning string                `json:"warning,omitempty"`
+	Timeout string                `json:"timeout,omitempty"`
 }

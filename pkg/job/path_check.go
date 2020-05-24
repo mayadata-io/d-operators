@@ -109,10 +109,10 @@ func (pc *PathChecking) validate() {
 		types.PathCheckOperatorNotExists:
 		if pc.valueOnlyCheck {
 			pc.err = errors.Errorf(
-				"Invalid PathCheck %q: Operator %q can't be used with value %v",
-				pc.TaskName,
+				"Invalid PathCheck: Operator %q can't be used with value %v: TaskName %s",
 				pc.operator,
 				pc.PathCheck.Value,
+				pc.TaskName,
 			)
 		}
 	}
@@ -128,19 +128,19 @@ func (pc *PathChecking) assertValueInt64(obj *unstructured.Unstructured) (bool, 
 	}
 	if !found {
 		return false, errors.Errorf(
-			"PathCheck %q failed: Path %q not found",
-			pc.TaskName,
+			"PathCheck failed: Path %q not found: TaskName %s",
 			pc.PathCheck.Path,
+			pc.TaskName,
 		)
 	}
 	val := pc.PathCheck.Value
 	expected, ok := val.(int64)
 	if !ok {
 		return false, errors.Errorf(
-			"PathCheck %q failed: %v is of type %T, expected int64",
+			"PathCheck failed: %v is of type %T, expected int64: TaskName %s",
+			val,
+			val,
 			pc.TaskName,
-			val,
-			val,
 		)
 	}
 	pc.result.Verbose = fmt.Sprintf(
@@ -174,19 +174,19 @@ func (pc *PathChecking) assertValueFloat64(obj *unstructured.Unstructured) (bool
 	}
 	if !found {
 		return false, errors.Errorf(
-			"PathCheck %q failed: Path %q not found",
-			pc.TaskName,
+			"PathCheck failed: Path %q not found: TaskName %s",
 			pc.PathCheck.Path,
+			pc.TaskName,
 		)
 	}
 	val := pc.PathCheck.Value
 	expected, ok := val.(float64)
 	if !ok {
 		return false, errors.Errorf(
-			"PathCheck %q failed: Value %v is of type %T, expected float64",
+			"PathCheck failed: Value %v is of type %T, expected float64: TaskName %s",
+			val,
+			val,
 			pc.TaskName,
-			val,
-			val,
 		)
 	}
 	pc.result.Verbose = fmt.Sprintf(
@@ -238,7 +238,6 @@ func (pc *PathChecking) assertPath(obj *unstructured.Unstructured) (bool, error)
 
 func (pc *PathChecking) assertPathAndValue(context string) (bool, error) {
 	err := pc.Retry.Waitf(
-		// returning true will stop retrying this func
 		func() (bool, error) {
 			client, err := pc.dynamicClientset.
 				GetClientForAPIVersionAndKind(
@@ -365,8 +364,11 @@ func (pc *PathChecking) assertPathValueLTE() (success bool, err error) {
 
 func (pc *PathChecking) postAssert(success bool, err error) {
 	if err != nil {
-		pc.err = err
-		return
+		if _, ok := err.(*RetryTimeout); !ok {
+			pc.err = err
+			return
+		}
+		pc.result.Timeout = err.Error()
 	}
 	// initialise phase to failed
 	pc.result.Phase = types.PathCheckResultFailed

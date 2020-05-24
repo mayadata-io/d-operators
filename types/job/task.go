@@ -60,10 +60,12 @@ const (
 
 // TaskStatus holds task execution details
 type TaskStatus struct {
-	Step     int             `json:"step"`
-	Phase    TaskStatusPhase `json:"phase"`
-	Internal *bool           `json:"internal,omitempty"`
-	Message  string          `json:"message,omitempty"`
-	Verbose  string          `json:"verbose,omitempty"`
-	Warning  string          `json:"warning,omitempty"`
+	Step                 int             `json:"step"`
+	Phase                TaskStatusPhase `json:"phase"`
+	ElapsedTimeInSeconds *float64        `json:"elapsedTimeInSeconds,omitempty"`
+	Internal             *bool           `json:"internal,omitempty"`
+	Message              string          `json:"message,omitempty"`
+	Verbose              string          `json:"verbose,omitempty"`
+	Warning              string          `json:"warning,omitempty"`
+	Timeout              string          `json:"timeout,omitempty"`
 }

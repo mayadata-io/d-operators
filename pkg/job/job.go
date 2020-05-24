@@ -17,10 +17,13 @@ limitations under the License.
 package job
 
 import (
+	"time"
+
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/pointer"
 	types "mayadata.io/d-operators/types/job"
 	metacdiscovery "openebs.io/metac/dynamic/discovery"
 	metac "openebs.io/metac/start"
@@ -139,7 +142,7 @@ func (r *Runner) buildLockRunner() *LockRunner {
 						"name":      r.Job.GetName() + "-lock",
 						"namespace": r.Job.GetNamespace(),
 						"labels": map[string]interface{}{
-							"jobs.metacontroller.app/lock": "true",
+							"job.dope.metacontroller.io/lock": "true",
 						},
 					},
 				},
@@ -147,11 +150,12 @@ func (r *Runner) buildLockRunner() *LockRunner {
 		},
 	}
 	return &LockRunner{
-		Fixture:            r.fixture,
-		Task:               lock,
-		LockForever:        isLockForever,
-		Retry:              NewRetry(RetryConfig{}),
-		ProtectedTaskCount: len(r.Job.Spec.Tasks),
+		Fixture:     r.fixture,
+		Task:        lock,
+		LockForever: isLockForever,
+		Retry:       NewRetry(RetryConfig{}),
+		// no of tasks + elapsed time task
+		ProtectedTaskCount: len(r.Job.Spec.Tasks) + 1,
 	}
 }
 
@@ -191,12 +195,22 @@ func (r *Runner) getAPIDiscovery() *metacdiscovery.APIResourceDiscovery {
 	// return apiDiscovery
 }
 
+func (r *Runner) addJobElapsedTimeInSeconds(elapsedtime float64) {
+	r.JobStatus.TaskListStatus["job-elapsed-time"] = types.TaskStatus{
+		Step:                 len(r.Job.Spec.Tasks) + 1,
+		Internal:             pointer.BoolPtr(true),
+		Phase:                types.TaskStatusPassed,
+		ElapsedTimeInSeconds: pointer.Float64Ptr(elapsedtime),
+	}
+}
+
 // runAll runs all the tasks
 func (r *Runner) runAll() (status *types.JobStatus, err error) {
 	defer func() {
 		r.fixture.TearDown()
 	}()
 	var failedTasks int
+	var start = time.Now()
 	for idx, task := range r.Job.Spec.Tasks {
 		tr := &TaskRunner{
 			Fixture:   r.fixture,
@@ -218,6 +232,9 @@ func (r *Runner) runAll() (status *types.JobStatus, err error) {
 			failedTasks++
 		}
 	}
+	// time taken for this job
+	elapsedSeconds := time.Since(start).Seconds()
+	r.addJobElapsedTimeInSeconds(elapsedSeconds)
 	// build the result
 	if failedTasks > 0 {
 		r.JobStatus.Phase = types.JobStatusFailed

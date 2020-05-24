@@ -77,7 +77,7 @@ const (
 	ApplyStatusFailed ApplyStatusPhase = "Failed"
 )
 
-// ToTaskStatusPhase transforms ApplyResultPhase to TestResultPhase
+// ToTaskStatusPhase transforms ApplyStatusPhase to TestResultPhase
 func (phase ApplyStatusPhase) ToTaskStatusPhase() TaskStatusPhase {
 	switch phase {
 	case ApplyStatusPassed:
