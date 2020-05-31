@@ -17,8 +17,8 @@ spec:
       - --logtostderr
       - --alsologtostderr
       - --run-as-local
-      - --v=2
-      - --discovery-interval=40s
+      - -v=1
+      - --discovery-interval=30s
       - --cache-flush-interval=240s
       - --metac-config-path=../config/
       kubeAPIServerURLFlag: --kube-apiserver-url

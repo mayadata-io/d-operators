@@ -88,39 +88,43 @@ func (r *Retryable) Waitf(
 	for {
 		done, err := condition()
 		if err == nil && done {
-			klog.V(2).Infof(
-				"Retry completed: %s", context,
+			klog.V(3).Infof(
+				"Retryable condition succeeded: %s", context,
 			)
 			return nil
 		}
 		if err != nil && done {
-			klog.V(2).Infof(
-				"Retry completed with error: %s: %s",
+			klog.V(3).Infof(
+				"Retryable condition completed with error: %s: %s",
 				context,
 				err,
 			)
 			return err
 		}
 		if time.Since(start) > r.WaitTimeout {
+			var errmsg = "No errors found"
+			if err != nil {
+				errmsg = fmt.Sprintf("%+v", err)
+			}
 			return &RetryTimeout{
-				Err: fmt.Sprintf(
-					"Retry timed out after %s: %s: %s",
+				fmt.Sprintf(
+					"Retryable condition timed out after %s: %s: %s",
 					r.WaitTimeout,
 					context,
-					err,
+					errmsg,
 				),
 			}
 		}
 		if err != nil {
 			// Log error, but keep trying until timeout
-			klog.V(2).Infof(
-				"Retry condition has errors: Will retry: %s: %s",
+			klog.V(3).Infof(
+				"Retryable condition has errors: Will retry: %s: %s",
 				context,
 				err,
 			)
 		} else {
-			klog.V(2).Infof(
-				"Waiting for condition to succeed: Will retry: %s",
+			klog.V(3).Infof(
+				"Waiting for retryable condition to succeed: Will retry: %s",
 				context,
 			)
 		}

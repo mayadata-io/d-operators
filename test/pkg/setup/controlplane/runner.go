@@ -571,16 +571,22 @@ func (r *BuildRunner) waitTillAllExperimentsAreDone() {
 			r.err = err
 			return
 		}
-		if strings.Contains(strings.TrimSpace(op), "Completed") {
+		if strings.TrimSpace(op) != "''" {
+			klog.V(2).Infof(
+				"%d of %d: All experiments have completed: %s / %s has status.phase=%q",
+				counter,
+				maxRetries,
+				r.Setup.Spec.Test.Inference.ExperimentNamespace,
+				r.Setup.Spec.Test.Inference.ExperimentName,
+				op,
+			)
 			// testing is complete
 			return
 		}
-		if strings.Contains(strings.TrimSpace(op), "Failed") {
-			// test has failed; no need to retry
-			break
-		}
 		klog.V(2).Infof(
-			"Waiting to infer experiment results: %s / %s has status.phase=%q",
+			"%d of %d: Waiting for experiments to complete: %s / %s has status.phase=%q",
+			counter,
+			maxRetries,
 			r.Setup.Spec.Test.Inference.ExperimentNamespace,
 			r.Setup.Spec.Test.Inference.ExperimentName,
 			op,
@@ -626,15 +632,6 @@ func (r *BuildRunner) printExperimentResultsV() {
 			args = append(args, fmt.Sprintf("%s=%s", k, v))
 		}
 	}
-	// ------------------------------------------------------
-	// TODO (@amitkumardas):
-	// Make use of Spec.Test.Inference.DisplaySelector.Phases
-	// as label selector.
-	//
-	// This needs an enhancement in declarative job. It should
-	// set the status.phase value as a label against the job.
-	// ------------------------------------------------------
-
 	args = append(args, "-oyaml")
 	op, err := r.cp.KubeCtl().RunOp(args...)
 	if err != nil {

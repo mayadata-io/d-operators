@@ -29,10 +29,8 @@ import (
 
 // TaskRunner executes a Task
 type TaskRunner struct {
-	*Fixture
-	TaskIndex int
-	Task      types.Task
-	Retry     *Retryable
+	BaseRunner
+	Task types.Task
 }
 
 func (r *TaskRunner) isDeleteFromApply() (bool, error) {
@@ -69,13 +67,12 @@ func (r *TaskRunner) delete() (*types.TaskStatus, error) {
 	var err error
 	err = r.Retry.Waitf(
 		func() (bool, error) {
-			client, err = r.dynamicClientset.
-				GetClientForAPIVersionAndKind(
-					r.Task.Delete.State.GetAPIVersion(),
-					r.Task.Delete.State.GetKind(),
-				)
+			client, err = r.GetClientForAPIVersionAndKind(
+				r.Task.Delete.State.GetAPIVersion(),
+				r.Task.Delete.State.GetKind(),
+			)
 			if err != nil {
-				return false, err
+				return r.IsFailFastOnDiscoveryError(), err
 			}
 			return true, nil
 		},
@@ -101,10 +98,8 @@ func (r *TaskRunner) delete() (*types.TaskStatus, error) {
 
 func (r *TaskRunner) create() (*types.TaskStatus, error) {
 	c := NewCreator(CreatableConfig{
-		TaskName: r.Task.Name,
-		Fixture:  r.Fixture,
-		Create:   r.Task.Create,
-		Retry:    NewRetry(RetryConfig{}),
+		BaseRunner: r.BaseRunner,
+		Create:     r.Task.Create,
 	})
 	got, err := c.Run()
 	if err != nil {
@@ -129,13 +124,12 @@ func (r *TaskRunner) deleteFromApply() (*types.TaskStatus, error) {
 	var err error
 	err = r.Retry.Waitf(
 		func() (bool, error) {
-			client, err = r.dynamicClientset.
-				GetClientForAPIVersionAndKind(
-					r.Task.Apply.State.GetAPIVersion(),
-					r.Task.Apply.State.GetKind(),
-				)
+			client, err = r.GetClientForAPIVersionAndKind(
+				r.Task.Apply.State.GetAPIVersion(),
+				r.Task.Apply.State.GetKind(),
+			)
 			if err != nil {
-				return false, err
+				return r.IsFailFastOnDiscoveryError(), err
 			}
 			return true, nil
 		},
@@ -177,10 +171,8 @@ func (r *TaskRunner) deleteFromApply() (*types.TaskStatus, error) {
 
 func (r *TaskRunner) assert() (*types.TaskStatus, error) {
 	a := NewAsserter(AssertableConfig{
-		TaskName: r.Task.Name,
-		Fixture:  r.Fixture,
-		Assert:   r.Task.Assert,
-		Retry:    NewRetry(RetryConfig{}),
+		BaseRunner: r.BaseRunner,
+		Assert:     r.Task.Assert,
 	})
 	got, err := a.Run()
 	if err != nil {
@@ -198,9 +190,8 @@ func (r *TaskRunner) assert() (*types.TaskStatus, error) {
 func (r *TaskRunner) apply() (*types.TaskStatus, error) {
 	a := NewApplier(
 		ApplyableConfig{
-			Fixture: r.Fixture,
-			Apply:   r.Task.Apply,
-			Retry:   NewRetry(RetryConfig{}),
+			BaseRunner: r.BaseRunner,
+			Apply:      r.Task.Apply,
 		},
 	)
 	got, err := a.Run()
@@ -259,6 +250,7 @@ func (r *TaskRunner) tryRunCreate() (*types.TaskStatus, bool, error) {
 
 // Run executes the test step
 func (r *TaskRunner) Run() (types.TaskStatus, error) {
+	// only one of the probables will run
 	var probables = []func() (*types.TaskStatus, bool, error){
 		r.tryRunCreate,
 		r.tryRunAssert,
@@ -266,10 +258,9 @@ func (r *TaskRunner) Run() (types.TaskStatus, error) {
 		r.tryRunApply,
 	}
 	for _, fn := range probables {
-		got, isRun, err := fn()
+		got, hasRun, err := fn()
 		if err != nil {
-			if r.Task.LogErrorAsWarning != nil &&
-				*r.Task.LogErrorAsWarning {
+			if r.Task.IgnoreErrorRule == types.IgnoreErrorAsWarning {
 				// treat error as warning & continue
 				return types.TaskStatus{
 					Step:    r.TaskIndex,
@@ -279,10 +270,11 @@ func (r *TaskRunner) Run() (types.TaskStatus, error) {
 			}
 			return types.TaskStatus{}, err
 		}
-		if isRun {
-			got.Step = r.TaskIndex
-			return *got, nil
+		if !hasRun {
+			continue
 		}
+		got.Step = r.TaskIndex
+		return *got, nil
 	}
 	return types.TaskStatus{}, errors.Errorf(
 		"Invalid task: Can't determine action",

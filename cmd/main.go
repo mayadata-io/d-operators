@@ -17,6 +17,9 @@ limitations under the License.
 package main
 
 import (
+	"flag"
+
+	"k8s.io/klog/v2"
 	"openebs.io/metac/controller/generic"
 	"openebs.io/metac/start"
 
@@ -41,6 +44,22 @@ import (
 //	One can consider each registered function as an independent
 // kubernetes controller & this project as the operator.
 func main() {
+	flag.Set("alsologtostderr", "true")
+	flag.Parse()
+
+	klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
+	klog.InitFlags(klogFlags)
+
+	// Sync the glog and klog flags.
+	flag.CommandLine.VisitAll(func(f1 *flag.Flag) {
+		f2 := klogFlags.Lookup(f1.Name)
+		if f2 != nil {
+			value := f1.Value.String()
+			f2.Value.Set(value)
+		}
+	})
+	defer klog.Flush()
+
 	// controller name & corresponding controller reconcile function
 	var controllers = map[string]generic.InlineInvokeFn{
 		"sync/job":       job.Sync,

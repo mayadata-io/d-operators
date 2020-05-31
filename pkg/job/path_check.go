@@ -31,10 +31,7 @@ import (
 // against the field value of observed resource found in
 // the cluster
 type PathChecking struct {
-	*Fixture
-	Retry *Retryable
-
-	TaskName  string
+	BaseRunner
 	State     *unstructured.Unstructured
 	PathCheck types.PathCheck
 
@@ -56,9 +53,7 @@ type PathChecking struct {
 
 // PathCheckingConfig is used to create an instance of PathChecking
 type PathCheckingConfig struct {
-	Fixture   *Fixture
-	Retry     *Retryable
-	TaskName  string
+	BaseRunner
 	State     *unstructured.Unstructured
 	PathCheck types.PathCheck
 }
@@ -66,12 +61,10 @@ type PathCheckingConfig struct {
 // NewPathChecker returns a new instance of PathChecking
 func NewPathChecker(config PathCheckingConfig) *PathChecking {
 	return &PathChecking{
-		TaskName:  config.TaskName,
-		Fixture:   config.Fixture,
-		State:     config.State,
-		Retry:     config.Retry,
-		PathCheck: config.PathCheck,
-		result:    &types.PathCheckResult{},
+		BaseRunner: config.BaseRunner,
+		State:      config.State,
+		PathCheck:  config.PathCheck,
+		result:     &types.PathCheckResult{},
 	}
 }
 
@@ -239,13 +232,12 @@ func (pc *PathChecking) assertPath(obj *unstructured.Unstructured) (bool, error)
 func (pc *PathChecking) assertPathAndValue(context string) (bool, error) {
 	err := pc.Retry.Waitf(
 		func() (bool, error) {
-			client, err := pc.dynamicClientset.
-				GetClientForAPIVersionAndKind(
-					pc.State.GetAPIVersion(),
-					pc.State.GetKind(),
-				)
+			client, err := pc.GetClientForAPIVersionAndKind(
+				pc.State.GetAPIVersion(),
+				pc.State.GetKind(),
+			)
 			if err != nil {
-				return false, err
+				return pc.IsFailFastOnDiscoveryError(), err
 			}
 			observed, err := client.
 				Namespace(pc.State.GetNamespace()).

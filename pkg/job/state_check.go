@@ -34,10 +34,7 @@ import (
 // StateChecking helps in verifying expected state against the
 // state observed in the cluster
 type StateChecking struct {
-	*Fixture
-	Retry *Retryable
-
-	TaskName   string
+	BaseRunner
 	State      *unstructured.Unstructured
 	StateCheck types.StateCheck
 
@@ -51,20 +48,16 @@ type StateChecking struct {
 
 // StateCheckingConfig is used to create an instance of StateChecking
 type StateCheckingConfig struct {
-	TaskName   string
-	Fixture    *Fixture
+	BaseRunner
 	State      *unstructured.Unstructured
-	Retry      *Retryable
 	StateCheck types.StateCheck
 }
 
 // NewStateChecker returns a new instance of StateChecking
 func NewStateChecker(config StateCheckingConfig) *StateChecking {
 	return &StateChecking{
-		TaskName:   config.TaskName,
-		Fixture:    config.Fixture,
+		BaseRunner: config.BaseRunner,
 		State:      config.State,
-		Retry:      config.Retry,
 		StateCheck: config.StateCheck,
 		result:     &types.StateCheckResult{},
 	}
@@ -123,13 +116,13 @@ func (sc *StateChecking) isMergeEqualsObserved(context string) (bool, error) {
 	err := sc.Retry.Waitf(
 		// returning true will stop retrying this func
 		func() (bool, error) {
-			client, err := sc.dynamicClientset.
-				GetClientForAPIVersionAndKind(
-					sc.State.GetAPIVersion(),
-					sc.State.GetKind(),
-				)
+			client, err := sc.GetClientForAPIVersionAndKind(
+				sc.State.GetAPIVersion(),
+				sc.State.GetKind(),
+			)
 			if err != nil {
-				return false, err
+				// retry based on condition
+				return sc.IsFailFastOnDiscoveryError(), err
 			}
 			observed, err = client.
 				Namespace(sc.State.GetNamespace()).
@@ -138,6 +131,7 @@ func (sc *StateChecking) isMergeEqualsObserved(context string) (bool, error) {
 					metav1.GetOptions{},
 				)
 			if err != nil {
+				// Keep retrying
 				return false, err
 			}
 			merged = &unstructured.Unstructured{}
@@ -147,15 +141,19 @@ func (sc *StateChecking) isMergeEqualsObserved(context string) (bool, error) {
 				sc.State.UnstructuredContent(), // desired
 			)
 			if err != nil {
-				// we exit the wait condition in case of merge error
+				// Exit in case of merge error
+				// Stop retrying
 				return true, err
 			}
 			if sc.retryOnDiff && !reflect.DeepEqual(merged, observed) {
+				// Keep retrying
 				return false, nil
 			}
 			if sc.retryOnEqual && reflect.DeepEqual(merged, observed) {
+				// Keep retrying
 				return false, nil
 			}
+			// Stop retrying
 			return true, nil
 		},
 		context,
@@ -235,13 +233,13 @@ func (sc *StateChecking) assertNotFound() {
 	var phase = types.StateCheckResultFailed
 	err := sc.Retry.Waitf(
 		func() (bool, error) {
-			client, err := sc.dynamicClientset.
-				GetClientForAPIVersionAndKind(
-					sc.State.GetAPIVersion(),
-					sc.State.GetKind(),
-				)
+			client, err := sc.GetClientForAPIVersionAndKind(
+				sc.State.GetAPIVersion(),
+				sc.State.GetKind(),
+			)
 			if err != nil {
-				return false, err
+				// retry based on condition
+				return sc.IsFailFastOnDiscoveryError(), err
 			}
 			got, err := client.
 				Namespace(sc.State.GetNamespace()).
@@ -253,8 +251,10 @@ func (sc *StateChecking) assertNotFound() {
 				if apierrors.IsNotFound(err) {
 					// phase is set to Passed here
 					phase = types.StateCheckResultPassed
+					// Stop retrying
 					return true, nil
 				}
+				// Keep retrying
 				return false, err
 			}
 			if len(got.GetFinalizers()) == 0 && got.GetDeletionTimestamp() != nil {
@@ -265,9 +265,10 @@ func (sc *StateChecking) assertNotFound() {
 					len(got.GetFinalizers()),
 					got.GetDeletionTimestamp(),
 				)
+				// Stop retrying
 				return true, nil
 			}
-			// condition fails since resource still exists
+			// Keep retrying
 			return false, nil
 		},
 		message,
@@ -285,13 +286,12 @@ func (sc *StateChecking) assertNotFound() {
 }
 
 func (sc *StateChecking) isListCountMatch() (bool, error) {
-	client, err := sc.dynamicClientset.
-		GetClientForAPIVersionAndKind(
-			sc.State.GetAPIVersion(),
-			sc.State.GetKind(),
-		)
+	client, err := sc.GetClientForAPIVersionAndKind(
+		sc.State.GetAPIVersion(),
+		sc.State.GetKind(),
+	)
 	if err != nil {
-		return false, err
+		return false, &DiscoveryError{err.Error()}
 	}
 	list, err := client.
 		Namespace(sc.State.GetNamespace()).
@@ -321,14 +321,15 @@ func (sc *StateChecking) assertListCountEquals() {
 		func() (bool, error) {
 			match, err := sc.isListCountMatch()
 			if err != nil {
-				return false, err
+				// Retry on condition
+				return sc.IsFailFastOnError(err), err
 			}
 			if match {
 				phase = types.StateCheckResultPassed
-				// returning a true implies this condition will
-				// not be tried
+				// Stop retrying
 				return true, nil
 			}
+			// Keep retrying
 			return false, nil
 		},
 		message,
@@ -362,14 +363,15 @@ func (sc *StateChecking) assertListCountNotEquals() {
 		func() (bool, error) {
 			match, err := sc.isListCountMatch()
 			if err != nil {
-				return false, err
+				// Retry on condition
+				return sc.IsFailFastOnError(err), err
 			}
 			if !match {
 				phase = types.StateCheckResultPassed
-				// returning a true implies this condition will
-				// not be tried
+				// Stop retrying
 				return true, nil
 			}
+			// Keep retrying
 			return false, nil
 		},
 		message,

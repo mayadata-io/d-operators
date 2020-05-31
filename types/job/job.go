@@ -20,37 +20,69 @@ import (
 	"encoding/json"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	metac "openebs.io/metac/apis/metacontroller/v1alpha1"
 )
 
-// When defines when an action should take place
-type When string
+// EnabledRule defines when & how often a Job should get executed
+type EnabledRule string
 
 const (
-	// Always marks an action to get executed always
-	Always When = "Always"
+	// EnabledRuleAlways enables the job to get executed as
+	// many times this job resource is reconciled
+	EnabledRuleAlways EnabledRule = "Always"
 
-	// Never marks an action to never get executed
-	Never When = "Never"
+	// EnabledRuleNever disables the job execution forever
+	//
+	// NOTE:
+	//	This is as good as disabling execution
+	EnabledRuleNever EnabledRule = "Never"
 
-	// Once marks an action to get executed only once
-	Once When = "Once"
+	// EnabledRuleOnce enables the job to get executed only once
+	// in its lifetime
+	//
+	// NOTE:
+	//	This is the default mode of execution
+	EnabledRuleOnce EnabledRule = "Once"
+)
 
-	// Exists marks an action to get executed when corresponding
-	// reference (kubernetes resource, etc) exists
-	Exists When = "Exists"
+// EligibleItemRule defines the eligibility criteria to grant a Job to get executed
+type EligibleItemRule string
 
-	// NotExists marks an action to get executed when corresponding
-	// reference (kubernetes resource, etc) does not exist
-	NotExists When = "NotExists"
+const (
+	// EligibleItemRuleExists allows Job execution if desired resources exist
+	EligibleItemRuleExists EligibleItemRule = "Exists"
 
-	// ListCountEquals marks an action to get executed when corresponding
-	// list of references (kubernetes resource, etc) equals the given count
-	ListCountEquals When = "ListCountEquals"
+	// EligibleItemRuleNotFound allows Job execution if desired resources
+	// are not found
+	EligibleItemRuleNotFound EligibleItemRule = "NotFound"
 
-	// ListCountNotEquals marks an action to get executed when corresponding
-	// list of references (kubernetes resource, etc) does not equal the given count
-	ListCountNotEquals When = "ListCountNotEquals"
+	// EligibleItemRuleListCountEquals allows Job execution if desired resources
+	// count match the provided count
+	EligibleItemRuleListCountEquals EligibleItemRule = "ListCountEquals"
+
+	// EligibleItemRuleListCountNotEquals allows Job execution if desired resources
+	// count do not match the provided count
+	EligibleItemRuleListCountNotEquals EligibleItemRule = "ListCountNotEquals"
+
+	// EligibleItemRuleListCountGTE allows Job execution if desired resources
+	// count is greater than or equal to the provided count
+	EligibleItemRuleListCountGTE EligibleItemRule = "ListCountGreaterThanEquals"
+
+	// EligibleItemRuleListCountLTE allows Job execution if desired resources
+	// count is less than or equal to the provided count
+	EligibleItemRuleListCountLTE EligibleItemRule = "ListCountLessThanEquals"
+)
+
+// EligibleRule defines the eligibility criteria to grant a Job to get executed
+type EligibleRule string
+
+const (
+	// EligibleRuleAllChecksPass allows Job execution if all
+	// specified checks passes
+	EligibleRuleAllChecksPass EligibleRule = "AllChecksPass"
+
+	// EligibleRuleAnyCheckPass allows Job execution if any
+	// specified checks pass
+	EligibleRuleAnyCheckPass EligibleRule = "AnyCheckPass"
 )
 
 // Job is a kubernetes custom resource that defines
@@ -67,17 +99,43 @@ type Job struct {
 // JobSpec defines the tasks that get executed as part of
 // executing this Job
 type JobSpec struct {
-	Teardown *bool    `json:"teardown,omitempty"`
-	Enabled  *Enabled `json:"enabled,omitempty"`
-	Tasks    []Task   `json:"tasks"`
+	Teardown           *bool     `json:"teardown,omitempty"`
+	ThinkTimeInSeconds *float64  `json:"thinkTimeInSeconds,omitempty"`
+	Enabled            *Enabled  `json:"enabled,omitempty"`
+	Eligible           *Eligible `json:"eligible,omitempty"`
+	Refresh            Refresh   `json:"refresh,omitempty"`
+	Tasks              []Task    `json:"tasks"`
+}
+
+// Refresh options to reconcile Job
+type Refresh struct {
+	ResyncAfterSeconds        *float64 `json:"resyncAfterSeconds,omitempty"`
+	OnErrorResyncAfterSeconds *float64 `json:"onErrorResyncAfterSeconds,omitempty"`
 }
 
 // Enabled defines if the job is enabled to be executed
 // or not
 type Enabled struct {
-	If    metac.ResourceSelector `json:"if,omitempty"`
-	When  When                   `json:"when,omitempty"`
-	Count *int                   `json:"count,omitempty"`
+	// Condition to enable or disable this Job
+	When EnabledRule `json:"when,omitempty"`
+}
+
+// Eligible defines the eligibility criteria to grant a Job to get
+// executed
+type Eligible struct {
+	Checks []EligibleItem `json:"checks"`
+	When   EligibleRule   `json:"when,omitempty"`
+}
+
+// EligibleItem defines the eligibility criteria to grant a Job to get
+// executed
+type EligibleItem struct {
+	ID            string               `json:"id,omitempty"`
+	APIVersion    string               `json:"apiVersion,omitempty"`
+	Kind          string               `json:"kind,omitempty"`
+	LabelSelector metav1.LabelSelector `json:"labelSelector"`
+	When          EligibleItemRule     `json:"when,omitempty"`
+	Count         *int                 `json:"count,omitempty"`
 }
 
 // JobStatusPhase is a typed definition to determine the

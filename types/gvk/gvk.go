@@ -28,6 +28,14 @@ const (
 )
 
 const (
+	// KindJob represents Job custom resource
+	KindJob string = "Job"
+
+	// APIVersionJob represent Job custom resource's api version
+	APIVersionJob string = "metacontroller.app/v1"
+)
+
+const (
 	// APIExtensionsK8sIOV1Beta1 represents apiextensions.k8s.io
 	// as group & v1beta1 as version
 	APIExtensionsK8sIOV1Beta1 string = "apiextensions.k8s.io/v1beta1"

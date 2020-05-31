@@ -11,6 +11,7 @@ import (
 // go run suite.go -v=2
 // ---------------------------------------
 func main() {
+	flag.Set("logtostderr", "true")
 	flag.Set("alsologtostderr", "true")
 	flag.Parse()
 

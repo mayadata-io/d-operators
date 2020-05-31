@@ -19,6 +19,7 @@ package job
 import (
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"mayadata.io/d-operators/common/pointer"
 	types "mayadata.io/d-operators/types/job"
@@ -27,8 +28,7 @@ import (
 
 // LockRunner executes a lock task
 type LockRunner struct {
-	*Fixture
-	Retry              *Retryable
+	BaseRunner
 	LockForever        bool
 	Task               types.Task
 	ProtectedTaskCount int
@@ -45,13 +45,12 @@ func (r *LockRunner) delete() (types.TaskStatus, error) {
 	var err error
 	err = r.Retry.Waitf(
 		func() (bool, error) {
-			client, err = r.dynamicClientset.
-				GetClientForAPIVersionAndKind(
-					r.Task.Apply.State.GetAPIVersion(),
-					r.Task.Apply.State.GetKind(),
-				)
+			client, err = r.GetClientForAPIVersionAndKind(
+				r.Task.Apply.State.GetAPIVersion(),
+				r.Task.Apply.State.GetKind(),
+			)
 			if err != nil {
-				return false, err
+				return r.IsFailFastOnDiscoveryError(), err
 			}
 			return true, nil
 		},
@@ -89,13 +88,12 @@ func (r *LockRunner) create() (types.TaskStatus, error) {
 	var err error
 	err = r.Retry.Waitf(
 		func() (bool, error) {
-			client, err = r.dynamicClientset.
-				GetClientForAPIVersionAndKind(
-					r.Task.Apply.State.GetAPIVersion(),
-					r.Task.Apply.State.GetKind(),
-				)
+			client, err = r.GetClientForAPIVersionAndKind(
+				r.Task.Apply.State.GetAPIVersion(),
+				r.Task.Apply.State.GetKind(),
+			)
 			if err != nil {
-				return false, err
+				return r.IsFailFastOnDiscoveryError(), err
 			}
 			return true, nil
 		},
@@ -156,4 +154,27 @@ func (r *LockRunner) Lock() (
 // at any criteria
 func (r *LockRunner) MustUnlock() (types.TaskStatus, error) {
 	return r.delete()
+}
+
+// IsLocked returns true if lock was taken previously
+func (r *LockRunner) IsLocked() (bool, error) {
+	client, err := r.GetClientForAPIVersionAndKind(
+		r.Task.Apply.State.GetAPIVersion(),
+		r.Task.Apply.State.GetKind(),
+	)
+	if err != nil {
+		return r.IsFailFastOnDiscoveryError(), err
+	}
+	found, err := client.
+		Namespace(r.Task.Apply.State.GetNamespace()).
+		Get(
+			r.Task.Apply.State.GetName(),
+			metav1.GetOptions{},
+		)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
+	}
+	return found != nil, err
 }

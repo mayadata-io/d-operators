@@ -15,8 +15,6 @@ spec:
         metadata:
           name: job-that-runs-only-once
           namespace: d-testing
-          labels:
-            d-testing.metacontroller.app/enabled: "true"
         spec:
           tasks:
           - name: assert-presence-of-namespace

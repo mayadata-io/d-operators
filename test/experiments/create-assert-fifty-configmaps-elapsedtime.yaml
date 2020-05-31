@@ -46,7 +46,7 @@ spec:
         path: status.taskListStatus.job-elapsed-time.elapsedTimeInSeconds
         pathCheckOperator: LTE
         # assert if the entire experiment of creating 50 configmaps
-        # completes in around 10 seconds
-        value: 10.001
+        # completes in around 20 seconds
+        value: 20.0001
         dataType: float64
 ---

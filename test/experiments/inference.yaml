@@ -10,6 +10,20 @@ metadata:
   labels:
     d-testing.metacontroller.app/internal: "true"
 spec:
+  # delay start of execution by 30 seconds
+  thinkTimeInSeconds: 30.0001
+  # this experiment is enabled only after all other desired experiments
+  # are executed & are set with status.phase
+  eligible:
+    checks:
+    - labelSelector:
+        matchLabels:
+          d-testing.metacontroller.app/enabled: "true"
+        matchLabelExpressions:
+        - key: job.dope.metacontroller.io/phase
+          operator: Exists
+      when: ListCountEquals
+      count: 6
   tasks:
   - name: assert-all-tests-are-completed
     assert: 
@@ -23,7 +37,7 @@ spec:
             job.dope.metacontroller.io/phase: Completed
       stateCheck:
         stateCheckOperator: ListCountEquals
-        count: 7
+        count: 6
   - name: assert-no-tests-have-failed
     assert: 
       state: 
