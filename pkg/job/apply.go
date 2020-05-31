@@ -30,8 +30,7 @@ import (
 
 // Applyable helps applying desired state(s) against the cluster
 type Applyable struct {
-	*Fixture
-	Retry *Retryable
+	BaseRunner
 	Apply *types.Apply
 
 	result *types.ApplyResult
@@ -40,18 +39,16 @@ type Applyable struct {
 
 // ApplyableConfig helps in creating new instance of Applyable
 type ApplyableConfig struct {
-	Fixture *Fixture
-	Retry   *Retryable
-	Apply   *types.Apply
+	BaseRunner
+	Apply *types.Apply
 }
 
 // NewApplier returns a new instance of Applyable
 func NewApplier(config ApplyableConfig) *Applyable {
 	return &Applyable{
-		Apply:   config.Apply,
-		Fixture: config.Fixture,
-		Retry:   config.Retry,
-		result:  &types.ApplyResult{},
+		BaseRunner: config.BaseRunner,
+		Apply:      config.Apply,
+		result:     &types.ApplyResult{},
 	}
 }
 
@@ -66,27 +63,26 @@ func (a *Applyable) postCreateCRD(
 	// discover custom resource API
 	err := a.Retry.Waitf(
 		func() (bool, error) {
-			got := a.apiDiscovery.
-				GetAPIForAPIVersionAndResource(
-					crd.Spec.Group+"/"+crd.Spec.Version,
-					crd.Spec.Names.Plural,
-				)
+			got := a.GetAPIForAPIVersionAndResource(
+				crd.Spec.Group+"/"+crd.Spec.Version,
+				crd.Spec.Names.Plural,
+			)
 			if got == nil {
-				return false, errors.Errorf(
-					"Failed to discover: Kind %s: APIVersion %s",
-					crd.Spec.Names.Singular,
-					crd.Spec.Group+"/"+crd.Spec.Version,
-				)
+				return a.IsFailFastOnDiscoveryError(),
+					errors.Errorf(
+						"Failed to discover: Kind %s: APIVersion %s",
+						crd.Spec.Names.Singular,
+						crd.Spec.Group+"/"+crd.Spec.Version,
+					)
 			}
 			// fetch dynamic client for the custom resource
 			// corresponding to this CRD
-			customResourceClient, err := a.dynamicClientset.
-				GetClientForAPIVersionAndResource(
-					crd.Spec.Group+"/"+crd.Spec.Version,
-					crd.Spec.Names.Plural,
-				)
+			customResourceClient, err := a.GetClientForAPIVersionAndResource(
+				crd.Spec.Group+"/"+crd.Spec.Version,
+				crd.Spec.Names.Plural,
+			)
 			if err != nil {
-				return false, err
+				return a.IsFailFastOnDiscoveryError(), err
 			}
 			_, err = customResourceClient.List(metav1.ListOptions{})
 			if err != nil {
@@ -256,11 +252,10 @@ func (a *Applyable) createResource() (*types.ApplyResult, error) {
 		a.Apply.State.GetName(),
 		a.Apply.State.GroupVersionKind(),
 	)
-	client, err := a.dynamicClientset.
-		GetClientForAPIVersionAndKind(
-			a.Apply.State.GetAPIVersion(),
-			a.Apply.State.GetKind(),
-		)
+	client, err := a.GetClientForAPIVersionAndKind(
+		a.Apply.State.GetAPIVersion(),
+		a.Apply.State.GetKind(),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -307,13 +302,12 @@ func (a *Applyable) updateResource() (*types.ApplyResult, error) {
 	err := a.Retry.Waitf(
 		func() (bool, error) {
 			// get appropriate dynamic client
-			client, err := a.dynamicClientset.
-				GetClientForAPIVersionAndKind(
-					a.Apply.State.GetAPIVersion(),
-					a.Apply.State.GetKind(),
-				)
+			client, err := a.GetClientForAPIVersionAndKind(
+				a.Apply.State.GetAPIVersion(),
+				a.Apply.State.GetKind(),
+			)
 			if err != nil {
-				return false, err
+				return a.IsFailFastOnDiscoveryError(), err
 			}
 			// get the resource from cluster to update
 			target, err := client.
@@ -372,13 +366,12 @@ func (a *Applyable) applyResource() (*types.ApplyResult, error) {
 	err := a.Retry.Waitf(
 		func() (bool, error) {
 			var err error
-			client, err := a.dynamicClientset.
-				GetClientForAPIVersionAndKind(
-					a.Apply.State.GetAPIVersion(),
-					a.Apply.State.GetKind(),
-				)
+			client, err := a.GetClientForAPIVersionAndKind(
+				a.Apply.State.GetAPIVersion(),
+				a.Apply.State.GetKind(),
+			)
 			if err != nil {
-				return false, err
+				return a.IsFailFastOnDiscoveryError(), err
 			}
 			_, err = client.
 				Namespace(a.Apply.State.GetNamespace()).

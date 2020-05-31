@@ -96,15 +96,20 @@ func (r *Reconciler) setWatchStatusFromJobStatus() {
 	r.HookResponse.Labels = map[string]*string{
 		"job.dope.metacontroller.io/phase": pointer.StringPtr(string(r.JobStatus.Phase)),
 	}
+	if r.ObservedJob != nil &&
+		r.ObservedJob.Spec.Refresh.ResyncAfterSeconds != nil {
+		r.HookResponse.ResyncAfterSeconds = *r.ObservedJob.Spec.Refresh.ResyncAfterSeconds
+	}
 }
 
 func (r *Reconciler) setWatchStatus() {
 	if r.Err != nil {
-		// resync since this might be a temporary error
-		//
-		// TODO:
-		// 	Might be better to expose this from job.spec
-		r.HookResponse.ResyncAfterSeconds = 5.0
+		if r.ObservedJob != nil &&
+			r.ObservedJob.Spec.Refresh.OnErrorResyncAfterSeconds != nil {
+			// resync based on configuration
+			r.HookResponse.ResyncAfterSeconds =
+				*r.ObservedJob.Spec.Refresh.OnErrorResyncAfterSeconds
+		}
 		r.setWatchStatusAsError()
 		return
 	}

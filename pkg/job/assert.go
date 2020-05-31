@@ -24,10 +24,8 @@ import (
 // Assertable is used to perform matches of desired state(s)
 // against observed state(s)
 type Assertable struct {
-	*Fixture
-	Retry    *Retryable
-	TaskName string
-	Assert   *types.Assert
+	BaseRunner
+	Assert *types.Assert
 
 	assertCheckType types.AssertCheckType
 	retryOnDiff     bool
@@ -40,20 +38,16 @@ type Assertable struct {
 
 // AssertableConfig is used to create an instance of Assertable
 type AssertableConfig struct {
-	Fixture  *Fixture
-	Retry    *Retryable
-	TaskName string
-	Assert   *types.Assert
+	BaseRunner
+	Assert *types.Assert
 }
 
 // NewAsserter returns a new instance of Assertion
 func NewAsserter(config AssertableConfig) *Assertable {
 	return &Assertable{
-		Assert:   config.Assert,
-		Retry:    config.Retry,
-		Fixture:  config.Fixture,
-		TaskName: config.TaskName,
-		status:   &types.AssertStatus{},
+		BaseRunner: config.BaseRunner,
+		Assert:     config.Assert,
+		status:     &types.AssertStatus{},
 	}
 }
 
@@ -85,11 +79,9 @@ func (a *Assertable) init() {
 func (a *Assertable) runAssertByPath() {
 	chk := NewPathChecker(
 		PathCheckingConfig{
-			TaskName:  a.TaskName,
-			Fixture:   a.Fixture,
-			State:     a.Assert.State,
-			PathCheck: *a.Assert.PathCheck,
-			Retry:     a.Retry,
+			BaseRunner: a.BaseRunner,
+			State:      a.Assert.State,
+			PathCheck:  *a.Assert.PathCheck,
 		},
 	)
 	got, err := chk.Run()
@@ -109,11 +101,9 @@ func (a *Assertable) runAssertByPath() {
 func (a *Assertable) runAssertByState() {
 	chk := NewStateChecker(
 		StateCheckingConfig{
-			TaskName:   a.TaskName,
-			Fixture:    a.Fixture,
+			BaseRunner: a.BaseRunner,
 			State:      a.Assert.State,
 			StateCheck: *a.Assert.StateCheck,
-			Retry:      a.Retry,
 		},
 	)
 	got, err := chk.Run()

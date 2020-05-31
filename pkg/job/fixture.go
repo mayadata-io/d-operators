@@ -23,6 +23,7 @@ import (
 	"k8s.io/klog/v2"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"openebs.io/metac/dynamic/clientset"
 	dynamicclientset "openebs.io/metac/dynamic/clientset"
 	dynamicdiscovery "openebs.io/metac/dynamic/discovery"
 )
@@ -104,19 +105,6 @@ func NewFixture(config FixtureConfig) (*Fixture, error) {
 	return f, nil
 }
 
-// GetTypedClientset returns the Kubernetes clientset that is
-// used to invoke CRUD operations against Kubernetes native
-// resources.
-// func (f *Fixture) GetTypedClientset() kubernetes.Interface {
-// 	return f.typedClientset
-// }
-
-// GetCRDClient returns the CRD client that can be used to invoke
-// CRUD operations against CRDs itself
-// func (f *Fixture) GetCRDClient() apiextensionsclientset.ApiextensionsV1beta1Interface {
-// 	return f.crdClient
-// }
-
 // TearDown cleans up resources created through this instance
 // of the test fixture.
 func (f *Fixture) TearDown() {
@@ -158,4 +146,41 @@ func (f *Fixture) AddToTeardown(teardown func() error) {
 		return
 	}
 	f.teardownFuncs = append(f.teardownFuncs, teardown)
+}
+
+// GetClientForAPIVersionAndKind returns the dynamic client for the
+// given api version & kind
+func (f *Fixture) GetClientForAPIVersionAndKind(
+	apiversion string,
+	kind string,
+) (*clientset.ResourceClient, error) {
+	return f.dynamicClientset.GetClientForAPIVersionAndKind(
+		apiversion,
+		kind,
+	)
+}
+
+// GetClientForAPIVersionAndResource returns the dynamic client for the
+// given api version & resource
+func (f *Fixture) GetClientForAPIVersionAndResource(
+	apiversion string,
+	resource string,
+) (*clientset.ResourceClient, error) {
+	return f.dynamicClientset.GetClientForAPIVersionAndResource(
+		apiversion,
+		resource,
+	)
+}
+
+// GetAPIForAPIVersionAndResource returns the discovered api based
+// on the provided api version & resource
+func (f *Fixture) GetAPIForAPIVersionAndResource(
+	apiversion string,
+	resource string,
+) *dynamicdiscovery.APIResource {
+	return f.apiDiscovery.
+		GetAPIForAPIVersionAndResource(
+			apiversion,
+			resource,
+		)
 }

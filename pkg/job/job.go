@@ -17,15 +17,14 @@ limitations under the License.
 package job
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
 	types "mayadata.io/d-operators/types/job"
-	metacdiscovery "openebs.io/metac/dynamic/discovery"
 	metac "openebs.io/metac/start"
 )
 
@@ -42,7 +41,9 @@ type Runner struct {
 	fixture    *Fixture
 	isTearDown bool
 	hasCRDTask bool
-	when       types.When
+
+	// err as value
+	err error
 }
 
 // NewRunner returns a new instance of Runner
@@ -60,16 +61,65 @@ func NewRunner(config RunnerConfig) *Runner {
 	}
 }
 
-func (r *Runner) init() {
+func (r *Runner) initFixture() {
+	f, err := NewFixture(FixtureConfig{
+		KubeConfig:   metac.KubeDetails.Config,
+		APIDiscovery: metac.KubeDetails.GetMetacAPIDiscovery(),
+		IsTearDown:   r.isTearDown,
+	})
+	if err != nil {
+		r.err = err
+	}
+	r.fixture = f
+}
+
+func (r *Runner) initEnabled() {
 	if r.Job.Spec.Enabled == nil {
-		r.when = types.Once
-	} else {
-		r.when = r.Job.Spec.Enabled.When
+		r.Job.Spec.Enabled = &types.Enabled{
+			When: types.EnabledRuleOnce,
+		}
 	}
 }
 
-func (r *Runner) isRunEnabled() bool {
-	return r.when != types.Never
+func (r *Runner) waitTillThinkTimeExpires() {
+	if r.Job.Spec.ThinkTimeInSeconds == nil {
+		return
+	}
+	wait := *r.Job.Spec.ThinkTimeInSeconds
+	if wait < 0 {
+		wait = 0
+	}
+	time.Sleep(time.Duration(wait) * time.Second)
+}
+
+func (r *Runner) init() error {
+	var fns = []func(){
+		r.initEnabled,
+		r.initFixture,
+	}
+	for _, fn := range fns {
+		fn()
+		if r.err != nil {
+			return r.err
+		}
+	}
+	return nil
+}
+
+func (r *Runner) isRunEnabled() (bool, error) {
+	// we shall wait for think time to expire if it was set
+	r.waitTillThinkTimeExpires()
+
+	e, err := NewEligibility(EligibilityConfig{
+		JobName:  fmt.Sprintf("%s %s", r.Job.GetNamespace(), r.Job.GetName()),
+		Fixture:  r.fixture,
+		Eligible: r.Job.Spec.Eligible,
+		Retry:    NewRetry(RetryConfig{}),
+	})
+	if err != nil {
+		return false, err
+	}
+	return e.IsEligible()
 }
 
 func (r *Runner) eval(task types.Task) error {
@@ -114,25 +164,13 @@ func (r *Runner) eval(task types.Task) error {
 	return nil
 }
 
-func (r *Runner) setFixture() error {
-	f, err := NewFixture(FixtureConfig{
-		KubeConfig:   metac.KubeDetails.Config,
-		APIDiscovery: r.getAPIDiscovery(),
-		IsTearDown:   r.isTearDown,
-	})
-	if err != nil {
-		return err
-	}
-	r.fixture = f
-	return nil
-}
-
 func (r *Runner) buildLockRunner() *LockRunner {
 	var isLockForever = false
-	if r.when == types.Once {
+	if r.Job.Spec.Enabled.When == types.EnabledRuleOnce {
 		isLockForever = true
 	}
 	lock := types.Task{
+		FailFastRule: types.FailFastOnDiscoveryError,
 		Apply: &types.Apply{
 			State: &unstructured.Unstructured{
 				Object: map[string]interface{}{
@@ -150,10 +188,13 @@ func (r *Runner) buildLockRunner() *LockRunner {
 		},
 	}
 	return &LockRunner{
-		Fixture:     r.fixture,
+		BaseRunner: BaseRunner{
+			Fixture:      r.fixture,
+			Retry:        NewRetry(RetryConfig{}),
+			FailFastRule: lock.FailFastRule,
+		},
 		Task:        lock,
 		LockForever: isLockForever,
-		Retry:       NewRetry(RetryConfig{}),
 		// no of tasks + elapsed time task
 		ProtectedTaskCount: len(r.Job.Spec.Tasks) + 1,
 	}
@@ -171,29 +212,29 @@ func (r *Runner) evalAll() error {
 }
 
 func (r *Runner) mayBePassedOrCompletedStatus() types.JobStatusPhase {
-	if r.when == types.Once {
+	if r.Job.Spec.Enabled.When == types.EnabledRuleOnce {
 		return types.JobStatusCompleted
 	}
 	return types.JobStatusPassed
 }
 
-func (r *Runner) getAPIDiscovery() *metacdiscovery.APIResourceDiscovery {
-	// if !r.hasCRDTask {
-	klog.V(3).Infof("Using metac api discovery instance")
-	return metac.KubeDetails.GetMetacAPIDiscovery()
-	// }
+// func (r *Runner) getAPIDiscovery() *metacdiscovery.APIResourceDiscovery {
+// 	// if !r.hasCRDTask {
+// 	klog.V(3).Infof("Using metac api discovery instance")
+// 	return metac.KubeDetails.GetMetacAPIDiscovery()
+// 	// }
 
-	// TODO
-	//	If we need a api discovery with more frequent refreshes
-	// then we might use below. We need to stop the discovery
-	// once this Job instance is done.
-	//
-	// klog.V(3).Infof("Using new instance of api discovery")
-	// // return a discovery that refreshes more frequently
-	// apiDiscovery := metac.KubeDetails.NewAPIDiscovery()
-	// apiDiscovery.Start(5 * time.Second)
-	// return apiDiscovery
-}
+// 	// TODO
+// 	//	If we need a api discovery with more frequent refreshes
+// 	// then we might use below. We need to stop the discovery
+// 	// once this Job instance is done.
+// 	//
+// 	// klog.V(3).Infof("Using new instance of api discovery")
+// 	// // return a discovery that refreshes more frequently
+// 	// apiDiscovery := metac.KubeDetails.NewAPIDiscovery()
+// 	// apiDiscovery.Start(5 * time.Second)
+// 	// return apiDiscovery
+// }
 
 func (r *Runner) addJobElapsedTimeInSeconds(elapsedtime float64) {
 	r.JobStatus.TaskListStatus["job-elapsed-time"] = types.TaskStatus{
@@ -213,10 +254,14 @@ func (r *Runner) runAll() (status *types.JobStatus, err error) {
 	var start = time.Now()
 	for idx, task := range r.Job.Spec.Tasks {
 		tr := &TaskRunner{
-			Fixture:   r.fixture,
-			TaskIndex: idx + 1,
-			Task:      task,
-			Retry:     NewRetry(RetryConfig{}),
+			BaseRunner: BaseRunner{
+				Fixture:      r.fixture,
+				TaskIndex:    idx + 1,
+				TaskName:     task.Name,
+				Retry:        NewRetry(RetryConfig{}),
+				FailFastRule: task.FailFastRule,
+			},
+			Task: task,
 		}
 		got, err := tr.Run()
 		if err != nil {
@@ -248,38 +293,33 @@ func (r *Runner) runAll() (status *types.JobStatus, err error) {
 
 // Run executes the tasks in a sequential order
 func (r *Runner) Run() (status *types.JobStatus, err error) {
-	r.init()
-
-	if !r.isRunEnabled() {
-		return &types.JobStatus{
-			Phase: types.JobStatusDisabled,
-		}, nil
-	}
-
-	err = r.setFixture()
+	err = r.init()
 	if err != nil {
 		return nil, err
 	}
 
-	err = r.evalAll()
+	lockrunner := r.buildLockRunner()
+	locked, err := lockrunner.IsLocked()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(
+			err,
+			"Failed to check for existence of lock",
+		)
+	}
+	if locked {
+		klog.V(2).Infof(
+			"Will skip executing job %s %s: Previous lock exists",
+			r.Job.GetNamespace(),
+			r.Job.GetName(),
+		)
+		// if this job is locked then skip its execution
+		r.JobStatus.Phase = types.JobStatusLocked
+		r.JobStatus.Reason = "Job was skipped: Previous lock exists"
+		return r.JobStatus, nil
 	}
 
-	lockstatus, unlock, err := r.buildLockRunner().Lock()
+	lockstatus, unlock, err := lockrunner.Lock()
 	if err != nil {
-		if apierrors.IsAlreadyExists(err) {
-			klog.V(3).Infof(
-				"Will skip job %s %s: Previous lock exists: %+v",
-				r.Job.GetNamespace(),
-				r.Job.GetName(),
-				err,
-			)
-			// if this job is locked then skip its execution
-			r.JobStatus.Phase = types.JobStatusLocked
-			r.JobStatus.Reason = "Job was skipped: Previous lock exists"
-			return r.JobStatus, nil
-		}
 		return nil, errors.Wrapf(
 			err,
 			"Failed to take lock",
@@ -304,6 +344,26 @@ func (r *Runner) Run() (status *types.JobStatus, err error) {
 		r.JobStatus.TaskListStatus[r.Job.GetName()+"-unlock"] = unlockstatus
 	}()
 	r.JobStatus.TaskListStatus[r.Job.GetName()+"-lock"] = lockstatus
+
+	err = r.evalAll()
+	if err != nil {
+		return nil, err
+	}
+
+	isEnabled, err := r.isRunEnabled()
+	if err != nil {
+		return nil, err
+	}
+	if !isEnabled {
+		klog.V(2).Infof(
+			"Will skip executing job %s %s: It is disabled",
+			r.Job.GetNamespace(),
+			r.Job.GetName(),
+		)
+		return &types.JobStatus{
+			Phase: types.JobStatusDisabled,
+		}, nil
+	}
 
 	return r.runAll()
 }

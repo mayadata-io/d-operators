@@ -15,8 +15,6 @@ spec:
         metadata:
           name: job-with-teardown-enabled
           namespace: d-testing
-          labels:
-            d-testing.metacontroller.app/enabled: "true"
         spec:
           teardown: true # target under test
           tasks:

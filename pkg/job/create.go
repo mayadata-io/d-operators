@@ -30,18 +30,14 @@ import (
 
 // CreatableConfig helps in creating new instance of Creatable
 type CreatableConfig struct {
-	Fixture  *Fixture
-	Retry    *Retryable
-	Create   *types.Create
-	TaskName string
+	BaseRunner
+	Create *types.Create
 }
 
 // Creatable helps creating desired state(s) against the cluster
 type Creatable struct {
-	*Fixture
-	Retry    *Retryable
-	TaskName string
-	Create   *types.Create
+	BaseRunner
+	Create *types.Create
 
 	result *types.CreateResult
 	err    error
@@ -63,11 +59,9 @@ func (c *Creatable) String() string {
 // NewCreator returns a new instance of Creatable
 func NewCreator(config CreatableConfig) *Creatable {
 	return &Creatable{
-		Create:   config.Create,
-		Fixture:  config.Fixture,
-		Retry:    config.Retry,
-		TaskName: config.TaskName,
-		result:   &types.CreateResult{},
+		BaseRunner: config.BaseRunner,
+		Create:     config.Create,
+		result:     &types.CreateResult{},
 	}
 }
 
@@ -83,27 +77,26 @@ func (c *Creatable) postCreateCRD(
 	// discover custom resource API
 	return c.Retry.Waitf(
 		func() (bool, error) {
-			got := c.apiDiscovery.
-				GetAPIForAPIVersionAndResource(
-					crd.Spec.Group+"/"+crd.Spec.Version,
-					crd.Spec.Names.Plural,
-				)
-			if got == nil {
-				return false, errors.Errorf(
-					"Failed to discover: Kind %s: APIVersion %s",
-					crd.Spec.Names.Singular,
-					crd.Spec.Group+"/"+crd.Spec.Version,
-				)
+			api := c.GetAPIForAPIVersionAndResource(
+				crd.Spec.Group+"/"+crd.Spec.Version,
+				crd.Spec.Names.Plural,
+			)
+			if api == nil {
+				return c.IsFailFastOnDiscoveryError(),
+					errors.Errorf(
+						"Failed to discover: Kind %s: APIVersion %s",
+						crd.Spec.Names.Singular,
+						crd.Spec.Group+"/"+crd.Spec.Version,
+					)
 			}
 			// fetch dynamic client for the custom resource
 			// corresponding to this CRD
-			customResourceClient, err := c.dynamicClientset.
-				GetClientForAPIVersionAndResource(
-					crd.Spec.Group+"/"+crd.Spec.Version,
-					crd.Spec.Names.Plural,
-				)
+			customResourceClient, err := c.GetClientForAPIVersionAndResource(
+				crd.Spec.Group+"/"+crd.Spec.Version,
+				crd.Spec.Names.Plural,
+			)
 			if err != nil {
-				return false, err
+				return c.IsFailFastOnDiscoveryError(), err
 			}
 			_, err = customResourceClient.List(metav1.ListOptions{})
 			if err != nil {
@@ -233,11 +226,10 @@ func (c *Creatable) createResourceReplicas() (*types.CreateResult, error) {
 			c,
 		)
 	}
-	client, err := c.dynamicClientset.
-		GetClientForAPIVersionAndKind(
-			c.Create.State.GetAPIVersion(),
-			c.Create.State.GetKind(),
-		)
+	client, err := c.GetClientForAPIVersionAndKind(
+		c.Create.State.GetAPIVersion(),
+		c.Create.State.GetKind(),
+	)
 	if err != nil {
 		return nil, err
 	}

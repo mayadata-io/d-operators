@@ -18,17 +18,40 @@ package types
 
 import "encoding/json"
 
+// FailFastRule defines the condition that leads to fail fast
+type FailFastRule string
+
+const (
+	// FailFastOnDiscoveryError defines a fail fast based on
+	// DiscoveryError
+	FailFastOnDiscoveryError FailFastRule = "OnDiscoveryError"
+)
+
+// IgnoreErrorRule defines the rule to ignore an error
+type IgnoreErrorRule string
+
+const (
+	// IgnoreErrorAsPassed defines the rule to ignore error
+	// and treat it as passed
+	IgnoreErrorAsPassed IgnoreErrorRule = "AsPassed"
+
+	// IgnoreErrorAsWarning defines the rule to ignore error
+	// and treat it as a warning
+	IgnoreErrorAsWarning IgnoreErrorRule = "AsWarning"
+)
+
 // Task that needs to be executed as part of a Job
 //
 // Task forms the fundamental unit of execution within a
 // Job
 type Task struct {
-	Name              string  `json:"name"`
-	Assert            *Assert `json:"assert,omitempty"`
-	Apply             *Apply  `json:"apply,omitempty"`
-	Delete            *Delete `json:"delete,omitempty"`
-	Create            *Create `json:"create,omitempty"`
-	LogErrorAsWarning *bool   `json:"logErrAsWarn,omitempty"`
+	Name            string          `json:"name"`
+	Assert          *Assert         `json:"assert,omitempty"`
+	Apply           *Apply          `json:"apply,omitempty"`
+	Delete          *Delete         `json:"delete,omitempty"`
+	Create          *Create         `json:"create,omitempty"`
+	IgnoreErrorRule IgnoreErrorRule `json:"ignoreError,omitempty"`
+	FailFastRule    FailFastRule    `json:"failFast,omitempty"`
 }
 
 // String implements the Stringer interface
