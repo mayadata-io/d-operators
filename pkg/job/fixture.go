@@ -17,7 +17,7 @@ limitations under the License.
 package job
 
 import (
-	apiextnclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
+	apiextnv1beta1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -40,17 +40,17 @@ type FixtureConfig struct {
 type Fixture struct {
 	apiDiscovery *dynamicdiscovery.APIResourceDiscovery
 
-	// dynamic clientset to invoke kubernetes operations
+	// dynamic client to invoke kubernetes operations
 	// against kubernetes native as well as custom resources
 	dynamicClientset *dynamicclientset.Clientset
 
-	// typed clientset to invoke kubernetes operations
+	// clientset to invoke kubernetes operations
 	kubeClientset kubernetes.Interface
 
-	// crdClient is based on k8s.io/apiextensions-apiserver &
-	// is all about invoking operations against custom
-	// resource definitions aka CRDs
-	crdClient apiextnclientset.ApiextensionsV1beta1Interface
+	// client to invoke operations against
+	// k8s.io/apiextensions-apiserver i.e. invoke operations
+	// against custom resource definitions aka CRDs
+	crdClient apiextnv1beta1.ApiextensionsV1beta1Interface
 
 	tearDown      bool
 	teardownFuncs []func() error
@@ -68,7 +68,7 @@ func (f *Fixture) setAPIDiscovery(config FixtureConfig) {
 }
 
 func (f *Fixture) setCRDClient(config FixtureConfig) {
-	f.crdClient, f.err = apiextnclientset.NewForConfig(
+	f.crdClient, f.err = apiextnv1beta1.NewForConfig(
 		config.KubeConfig,
 	)
 }

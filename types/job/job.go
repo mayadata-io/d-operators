@@ -133,7 +133,7 @@ type EligibleItem struct {
 	ID            string               `json:"id,omitempty"`
 	APIVersion    string               `json:"apiVersion,omitempty"`
 	Kind          string               `json:"kind,omitempty"`
-	LabelSelector metav1.LabelSelector `json:"labelSelector"`
+	LabelSelector metav1.LabelSelector `json:"labelSelector,omitempty"`
 	When          EligibleItemRule     `json:"when,omitempty"`
 	Count         *int                 `json:"count,omitempty"`
 }
