@@ -17,6 +17,7 @@ limitations under the License.
 package job
 
 import (
+	"github.com/pkg/errors"
 	apiextnv1beta1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -35,9 +36,20 @@ type FixtureConfig struct {
 	IsTearDown   bool
 }
 
+// BaseFixture holds the common fields of Fixture structure
+type BaseFixture struct {
+
+	// functions useful to mock during unit tests
+	getClientForAPIVersionAndKindFn     func(string, string) (*clientset.ResourceClient, error)
+	getClientForAPIVersionAndResourceFn func(string, string) (*clientset.ResourceClient, error)
+	getAPIForAPIVersionAndResourceFn    func(string, string) *dynamicdiscovery.APIResource
+}
+
 // Fixture is the base structure that ties a job specification
 // with one or more kubernetes api operations.
 type Fixture struct {
+	*BaseFixture
+
 	apiDiscovery *dynamicdiscovery.APIResourceDiscovery
 
 	// dynamic client to invoke kubernetes operations
@@ -68,6 +80,12 @@ func (f *Fixture) setAPIDiscovery(config FixtureConfig) {
 }
 
 func (f *Fixture) setCRDClient(config FixtureConfig) {
+	if config.KubeConfig == nil {
+		f.err = errors.Errorf(
+			"Failed to set crd client: Nil kube config provided",
+		)
+		return
+	}
 	f.crdClient, f.err = apiextnv1beta1.NewForConfig(
 		config.KubeConfig,
 	)
@@ -88,7 +106,9 @@ func (f *Fixture) setKubeClientset(config FixtureConfig) {
 
 // NewFixture returns a new instance of Fixture
 func NewFixture(config FixtureConfig) (*Fixture, error) {
-	f := &Fixture{}
+	f := &Fixture{
+		BaseFixture: &BaseFixture{},
+	}
 	var setters = []func(FixtureConfig){
 		f.setTearDown,
 		f.setAPIDiscovery,
@@ -154,6 +174,9 @@ func (f *Fixture) GetClientForAPIVersionAndKind(
 	apiversion string,
 	kind string,
 ) (*clientset.ResourceClient, error) {
+	if f.getClientForAPIVersionAndKindFn != nil {
+		return f.getClientForAPIVersionAndKindFn(apiversion, kind)
+	}
 	return f.dynamicClientset.GetClientForAPIVersionAndKind(
 		apiversion,
 		kind,
@@ -166,6 +189,9 @@ func (f *Fixture) GetClientForAPIVersionAndResource(
 	apiversion string,
 	resource string,
 ) (*clientset.ResourceClient, error) {
+	if f.getClientForAPIVersionAndResourceFn != nil {
+		return f.getClientForAPIVersionAndResourceFn(apiversion, resource)
+	}
 	return f.dynamicClientset.GetClientForAPIVersionAndResource(
 		apiversion,
 		resource,
@@ -178,6 +204,9 @@ func (f *Fixture) GetAPIForAPIVersionAndResource(
 	apiversion string,
 	resource string,
 ) *dynamicdiscovery.APIResource {
+	if f.getAPIForAPIVersionAndResourceFn != nil {
+		return f.getAPIForAPIVersionAndResourceFn(apiversion, resource)
+	}
 	return f.apiDiscovery.
 		GetAPIForAPIVersionAndResource(
 			apiversion,

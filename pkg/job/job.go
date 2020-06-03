@@ -30,13 +30,15 @@ import (
 
 // RunnerConfig helps constructing new Runner instances
 type RunnerConfig struct {
-	Job types.Job
+	Job   types.Job
+	Retry *Retryable
 }
 
 // Runner helps executing a Job
 type Runner struct {
 	Job       types.Job
 	JobStatus *types.JobStatus
+	Retry     *Retryable
 
 	fixture    *Fixture
 	isTearDown bool
@@ -48,9 +50,15 @@ type Runner struct {
 
 // NewRunner returns a new instance of Runner
 func NewRunner(config RunnerConfig) *Runner {
+	// check teardown
 	var isTearDown bool
 	if config.Job.Spec.Teardown != nil {
 		isTearDown = *config.Job.Spec.Teardown
+	}
+	// check retry
+	var retry = NewRetry(RetryConfig{})
+	if config.Retry != nil {
+		retry = config.Retry
 	}
 	return &Runner{
 		isTearDown: isTearDown,
@@ -58,6 +66,7 @@ func NewRunner(config RunnerConfig) *Runner {
 		JobStatus: &types.JobStatus{
 			TaskListStatus: map[string]types.TaskStatus{},
 		},
+		Retry: retry,
 	}
 }
 
@@ -114,7 +123,7 @@ func (r *Runner) isRunEnabled() (bool, error) {
 		JobName:  fmt.Sprintf("%s %s", r.Job.GetNamespace(), r.Job.GetName()),
 		Fixture:  r.fixture,
 		Eligible: r.Job.Spec.Eligible,
-		Retry:    NewRetry(RetryConfig{}),
+		Retry:    r.Retry,
 	})
 	if err != nil {
 		return false, err
@@ -170,7 +179,9 @@ func (r *Runner) buildLockRunner() *LockRunner {
 		isLockForever = true
 	}
 	lock := types.Task{
-		FailFastRule: types.FailFastOnDiscoveryError,
+		FailFast: &types.FailFast{
+			When: types.FailFastOnDiscoveryError,
+		},
 		Apply: &types.Apply{
 			State: &unstructured.Unstructured{
 				Object: map[string]interface{}{
@@ -190,8 +201,8 @@ func (r *Runner) buildLockRunner() *LockRunner {
 	return &LockRunner{
 		BaseRunner: BaseRunner{
 			Fixture:      r.fixture,
-			Retry:        NewRetry(RetryConfig{}),
-			FailFastRule: lock.FailFastRule,
+			Retry:        r.Retry,
+			FailFastRule: lock.FailFast.When,
 		},
 		Task:        lock,
 		LockForever: isLockForever,
@@ -253,13 +264,17 @@ func (r *Runner) runAll() (status *types.JobStatus, err error) {
 	var failedTasks int
 	var start = time.Now()
 	for idx, task := range r.Job.Spec.Tasks {
+		var failFastRule types.FailFastRule
+		if task.FailFast != nil {
+			failFastRule = task.FailFast.When
+		}
 		tr := &TaskRunner{
 			BaseRunner: BaseRunner{
 				Fixture:      r.fixture,
 				TaskIndex:    idx + 1,
 				TaskName:     task.Name,
-				Retry:        NewRetry(RetryConfig{}),
-				FailFastRule: task.FailFastRule,
+				Retry:        r.Retry,
+				FailFastRule: failFastRule,
 			},
 			Task: task,
 		}
