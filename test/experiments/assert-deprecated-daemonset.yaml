@@ -8,7 +8,8 @@ metadata:
 spec:
   tasks:
   - name: assert-daemonset-with-extensions-v1beta1
-    failFast: OnDiscoveryError # TODO (refactor)
+    failFast: 
+      when: OnDiscoveryError
     ignoreError: AsWarning # TODO (refactor)
     assert: 
       state: 

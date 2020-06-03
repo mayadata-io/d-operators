@@ -40,6 +40,13 @@ const (
 	IgnoreErrorAsWarning IgnoreErrorRule = "AsWarning"
 )
 
+// FailFast holds the condition that determines if an error
+// should not result in retries and instead be allowed to fail
+// immediately
+type FailFast struct {
+	When FailFastRule `json:"when,omitempty"`
+}
+
 // Task that needs to be executed as part of a Job
 //
 // Task forms the fundamental unit of execution within a
@@ -51,7 +58,7 @@ type Task struct {
 	Delete          *Delete         `json:"delete,omitempty"`
 	Create          *Create         `json:"create,omitempty"`
 	IgnoreErrorRule IgnoreErrorRule `json:"ignoreError,omitempty"`
-	FailFastRule    FailFastRule    `json:"failFast,omitempty"`
+	FailFast        *FailFast       `json:"failFast,omitempty"`
 }
 
 // String implements the Stringer interface

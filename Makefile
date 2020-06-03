@@ -22,7 +22,7 @@ $(IMG_NAME): $(ALL_SRC)
 
 $(ALL_SRC): ;
 
-#$(GIT_TAGS): ;
+$(GIT_TAGS): ;
 
 # go mod download modules to local cache
 # make vendored copy of dependencies
