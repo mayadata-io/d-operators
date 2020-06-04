@@ -1,0 +1,31 @@
+---
+# This StatefulSet deploys dope
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app.mayadata.io/name: dope
+  name: dope
+  namespace: dope
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.mayadata.io/name: dope
+  serviceName: ""
+  template:
+    metadata:
+      labels:
+        app.mayadata.io/name: dope
+    spec:
+      serviceAccountName: dope
+      containers:
+      - name: dope
+        image: mayadataio/dope:v1.3.0 
+        command: ["/usr/bin/dope"]
+        args:
+        - --logtostderr
+        - --run-as-local
+        - -v=1
+        - --discovery-interval=30s
+        - --cache-flush-interval=240s
