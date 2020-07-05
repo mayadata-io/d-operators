@@ -88,6 +88,8 @@ const (
 // Job is a kubernetes custom resource that defines
 // the specifications to invoke kubernetes operations
 // against any kubernetes custom resource
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 type Job struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
@@ -98,6 +100,7 @@ type Job struct {
 
 // JobSpec defines the tasks that get executed as part of
 // executing this Job
+// +kubebuilder:subresource:status
 type JobSpec struct {
 	Teardown           *bool     `json:"teardown,omitempty"`
 	ThinkTimeInSeconds *float64  `json:"thinkTimeInSeconds,omitempty"`
@@ -108,6 +111,7 @@ type JobSpec struct {
 }
 
 // Refresh options to reconcile Job
+// +kubebuilder:subresource:status
 type Refresh struct {
 	ResyncAfterSeconds        *float64 `json:"resyncAfterSeconds,omitempty"`
 	OnErrorResyncAfterSeconds *float64 `json:"onErrorResyncAfterSeconds,omitempty"`
@@ -115,6 +119,7 @@ type Refresh struct {
 
 // Enabled defines if the job is enabled to be executed
 // or not
+// +kubebuilder:subresource:status
 type Enabled struct {
 	// Condition to enable or disable this Job
 	When EnabledRule `json:"when,omitempty"`
@@ -122,6 +127,7 @@ type Enabled struct {
 
 // Eligible defines the eligibility criteria to grant a Job to get
 // executed
+// +kubebuilder:subresource:status
 type Eligible struct {
 	Checks []EligibleItem `json:"checks"`
 	When   EligibleRule   `json:"when,omitempty"`
@@ -129,6 +135,7 @@ type Eligible struct {
 
 // EligibleItem defines the eligibility criteria to grant a Job to get
 // executed
+// +kubebuilder:subresource:status
 type EligibleItem struct {
 	ID            string               `json:"id,omitempty"`
 	APIVersion    string               `json:"apiVersion,omitempty"`
@@ -164,6 +171,7 @@ const (
 
 // JobStatus holds the results of all tasks specified
 // in a Job
+// +kubebuilder:subresource:status
 type JobStatus struct {
 	Phase           JobStatusPhase        `json:"phase"`
 	Reason          string                `json:"reason,omitempty"`
