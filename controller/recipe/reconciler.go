@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package job
+package recipe
 
 import (
 	"k8s.io/utils/pointer"
@@ -23,36 +23,36 @@ import (
 
 	commonctrl "mayadata.io/d-operators/common/controller"
 	"mayadata.io/d-operators/common/unstruct"
-	"mayadata.io/d-operators/pkg/job"
-	types "mayadata.io/d-operators/types/job"
+	"mayadata.io/d-operators/pkg/recipe"
+	types "mayadata.io/d-operators/types/recipe"
 )
 
-// Reconciler manages reconciliation of Job custom resource
+// Reconciler manages reconciliation of Recipe custom resource
 type Reconciler struct {
 	commonctrl.Reconciler
 
-	ObservedJob *types.Job
-	JobStatus   *types.JobStatus
+	ObservedRecipe *types.Recipe
+	RecipeStatus   *types.RecipeStatus
 }
 
 func (r *Reconciler) eval() {
-	var j types.Job
+	var j types.Recipe
 	// convert from unstructured instance to typed instance
 	err := unstruct.ToTyped(r.HookRequest.Watch, &j)
 	if err != nil {
 		r.Err = err
 		return
 	}
-	r.ObservedJob = &j
+	r.ObservedRecipe = &j
 }
 
 func (r *Reconciler) invoke() {
-	runner := job.NewRunner(
-		job.RunnerConfig{
-			Job: *r.ObservedJob,
+	runner := recipe.NewRunner(
+		recipe.RunnerConfig{
+			Recipe: *r.ObservedRecipe,
 		},
 	)
-	r.JobStatus, r.Err = runner.Run()
+	r.RecipeStatus, r.Err = runner.Run()
 }
 
 func (r *Reconciler) setSyncResponse() {
@@ -60,16 +60,16 @@ func (r *Reconciler) setSyncResponse() {
 	// to reconcile
 	r.HookResponse.SkipReconcile = true
 	r.SkipReason = "No attachments to reconcile"
-	// update the skip reason for locked jobs
-	if r.JobStatus.Phase == types.JobStatusLocked {
-		r.SkipReason = r.JobStatus.Reason
+	// update the skip reason for locked recipes
+	if r.RecipeStatus.Phase == types.RecipeStatusLocked {
+		r.SkipReason = r.RecipeStatus.Reason
 	}
-	// set resync period for jobs with errors
+	// set resync period for recipes with errors
 	if r.Err != nil {
 		// resync since this might be a temporary error
 		//
 		// TODO:
-		// 	Might be better to expose this from job.spec
+		// 	Might be better to expose this from recipe.spec
 		r.HookResponse.ResyncAfterSeconds = 5.0
 	}
 }
@@ -80,48 +80,48 @@ func (r *Reconciler) setWatchStatusAsError() {
 		"reason": r.Err.Error(),
 	}
 	r.HookResponse.Labels = map[string]*string{
-		"job.dope.metacontroller.io/phase": k8s.StringPtr("Error"),
+		"recipe.dope.metacontroller.io/phase": k8s.StringPtr("Error"),
 	}
 }
 
-func (r *Reconciler) setWatchStatusFromJobStatus() {
+func (r *Reconciler) setWatchStatusFromRecipeStatus() {
 	r.HookResponse.Status = map[string]interface{}{
-		"phase":           string(r.JobStatus.Phase),
-		"reason":          r.JobStatus.Reason,
-		"message":         r.JobStatus.Message,
-		"failedTaskCount": int64(r.JobStatus.FailedTaskCount),
-		"taskCount":       int64(r.JobStatus.TaskCount),
-		"taskListStatus":  r.JobStatus.TaskListStatus,
+		"phase":           string(r.RecipeStatus.Phase),
+		"reason":          r.RecipeStatus.Reason,
+		"message":         r.RecipeStatus.Message,
+		"failedTaskCount": int64(r.RecipeStatus.FailedTaskCount),
+		"taskCount":       int64(r.RecipeStatus.TaskCount),
+		"taskListStatus":  r.RecipeStatus.TaskListStatus,
 	}
 	r.HookResponse.Labels = map[string]*string{
-		"job.dope.metacontroller.io/phase": pointer.StringPtr(string(r.JobStatus.Phase)),
+		"recipe.dope.metacontroller.io/phase": pointer.StringPtr(string(r.RecipeStatus.Phase)),
 	}
-	if r.ObservedJob != nil &&
-		r.ObservedJob.Spec.Refresh.ResyncAfterSeconds != nil {
-		r.HookResponse.ResyncAfterSeconds = *r.ObservedJob.Spec.Refresh.ResyncAfterSeconds
+	if r.ObservedRecipe != nil &&
+		r.ObservedRecipe.Spec.Refresh.ResyncAfterSeconds != nil {
+		r.HookResponse.ResyncAfterSeconds = *r.ObservedRecipe.Spec.Refresh.ResyncAfterSeconds
 	}
 }
 
 func (r *Reconciler) setWatchStatus() {
 	if r.Err != nil {
-		if r.ObservedJob != nil &&
-			r.ObservedJob.Spec.Refresh.OnErrorResyncAfterSeconds != nil {
+		if r.ObservedRecipe != nil &&
+			r.ObservedRecipe.Spec.Refresh.OnErrorResyncAfterSeconds != nil {
 			// resync based on configuration
 			r.HookResponse.ResyncAfterSeconds =
-				*r.ObservedJob.Spec.Refresh.OnErrorResyncAfterSeconds
+				*r.ObservedRecipe.Spec.Refresh.OnErrorResyncAfterSeconds
 		}
 		r.setWatchStatusAsError()
 		return
 	}
-	if r.JobStatus.Phase == types.JobStatusLocked {
+	if r.RecipeStatus.Phase == types.RecipeStatusLocked {
 		// nothing needs to be done
 		// old status will persist
 		return
 	}
-	r.setWatchStatusFromJobStatus()
+	r.setWatchStatusFromRecipeStatus()
 }
 
-// Sync implements the idempotent logic to sync Job resource
+// Sync implements the idempotent logic to sync Recipe resource
 //
 // NOTE:
 // 	SyncHookRequest is the payload received as part of reconcile
@@ -129,11 +129,11 @@ func (r *Reconciler) setWatchStatus() {
 // response as part of reconcile response.
 //
 // NOTE:
-//	This controller watches Job custom resource
+//	This controller watches Recipe custom resource
 func Sync(request *generic.SyncHookRequest, response *generic.SyncHookResponse) error {
 	r := &Reconciler{
 		Reconciler: commonctrl.Reconciler{
-			Name:         "job-sync-reconciler",
+			Name:         "recipe-sync-reconciler",
 			HookRequest:  request,
 			HookResponse: response,
 		},

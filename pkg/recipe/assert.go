@@ -14,11 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package job
+package recipe
 
 import (
 	"github.com/pkg/errors"
-	types "mayadata.io/d-operators/types/job"
+	types "mayadata.io/d-operators/types/recipe"
 )
 
 // Assertable is used to perform matches of desired state(s)

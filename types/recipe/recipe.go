@@ -22,21 +22,21 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EnabledRule defines when & how often a Job should get executed
+// EnabledRule defines when & how often a Recipe should get executed
 type EnabledRule string
 
 const (
-	// EnabledRuleAlways enables the job to get executed as
-	// many times this job resource is reconciled
+	// EnabledRuleAlways enables the recipe to get executed as
+	// many times this recipe resource is reconciled
 	EnabledRuleAlways EnabledRule = "Always"
 
-	// EnabledRuleNever disables the job execution forever
+	// EnabledRuleNever disables the recipe execution forever
 	//
 	// NOTE:
 	//	This is as good as disabling execution
 	EnabledRuleNever EnabledRule = "Never"
 
-	// EnabledRuleOnce enables the job to get executed only once
+	// EnabledRuleOnce enables the recipe to get executed only once
 	// in its lifetime
 	//
 	// NOTE:
@@ -44,61 +44,61 @@ const (
 	EnabledRuleOnce EnabledRule = "Once"
 )
 
-// EligibleItemRule defines the eligibility criteria to grant a Job to get executed
+// EligibleItemRule defines the eligibility criteria to grant a Recipe to get executed
 type EligibleItemRule string
 
 const (
-	// EligibleItemRuleExists allows Job execution if desired resources exist
+	// EligibleItemRuleExists allows Recipe execution if desired resources exist
 	EligibleItemRuleExists EligibleItemRule = "Exists"
 
-	// EligibleItemRuleNotFound allows Job execution if desired resources
+	// EligibleItemRuleNotFound allows Recipe execution if desired resources
 	// are not found
 	EligibleItemRuleNotFound EligibleItemRule = "NotFound"
 
-	// EligibleItemRuleListCountEquals allows Job execution if desired resources
+	// EligibleItemRuleListCountEquals allows Recipe execution if desired resources
 	// count match the provided count
 	EligibleItemRuleListCountEquals EligibleItemRule = "ListCountEquals"
 
-	// EligibleItemRuleListCountNotEquals allows Job execution if desired resources
+	// EligibleItemRuleListCountNotEquals allows Recipe execution if desired resources
 	// count do not match the provided count
 	EligibleItemRuleListCountNotEquals EligibleItemRule = "ListCountNotEquals"
 
-	// EligibleItemRuleListCountGTE allows Job execution if desired resources
+	// EligibleItemRuleListCountGTE allows Recipe execution if desired resources
 	// count is greater than or equal to the provided count
 	EligibleItemRuleListCountGTE EligibleItemRule = "ListCountGreaterThanEquals"
 
-	// EligibleItemRuleListCountLTE allows Job execution if desired resources
+	// EligibleItemRuleListCountLTE allows Recipe execution if desired resources
 	// count is less than or equal to the provided count
 	EligibleItemRuleListCountLTE EligibleItemRule = "ListCountLessThanEquals"
 )
 
-// EligibleRule defines the eligibility criteria to grant a Job to get executed
+// EligibleRule defines the eligibility criteria to grant a Recipe to get executed
 type EligibleRule string
 
 const (
-	// EligibleRuleAllChecksPass allows Job execution if all
+	// EligibleRuleAllChecksPass allows Recipe execution if all
 	// specified checks passes
 	EligibleRuleAllChecksPass EligibleRule = "AllChecksPass"
 
-	// EligibleRuleAnyCheckPass allows Job execution if any
+	// EligibleRuleAnyCheckPass allows Recipe execution if any
 	// specified checks pass
 	EligibleRuleAnyCheckPass EligibleRule = "AnyCheckPass"
 )
 
-// Job is a kubernetes custom resource that defines
+// Recipe is a kubernetes custom resource that defines
 // the specifications to invoke kubernetes operations
 // against any kubernetes custom resource
-type Job struct {
+type Recipe struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   JobSpec   `json:"spec"`
-	Status JobStatus `json:"status"`
+	Spec   RecipeSpec   `json:"spec"`
+	Status RecipeStatus `json:"status"`
 }
 
-// JobSpec defines the tasks that get executed as part of
-// executing this Job
-type JobSpec struct {
+// RecipeSpec defines the tasks that get executed as part of
+// executing this Recipe
+type RecipeSpec struct {
 	Teardown           *bool     `json:"teardown,omitempty"`
 	ThinkTimeInSeconds *float64  `json:"thinkTimeInSeconds,omitempty"`
 	Enabled            *Enabled  `json:"enabled,omitempty"`
@@ -107,27 +107,27 @@ type JobSpec struct {
 	Tasks              []Task    `json:"tasks"`
 }
 
-// Refresh options to reconcile Job
+// Refresh options to reconcile Recipe
 type Refresh struct {
 	ResyncAfterSeconds        *float64 `json:"resyncAfterSeconds,omitempty"`
 	OnErrorResyncAfterSeconds *float64 `json:"onErrorResyncAfterSeconds,omitempty"`
 }
 
-// Enabled defines if the job is enabled to be executed
+// Enabled defines if the recipe is enabled to be executed
 // or not
 type Enabled struct {
-	// Condition to enable or disable this Job
+	// Condition to enable or disable this Recipe
 	When EnabledRule `json:"when,omitempty"`
 }
 
-// Eligible defines the eligibility criteria to grant a Job to get
+// Eligible defines the eligibility criteria to grant a Recipe to get
 // executed
 type Eligible struct {
 	Checks []EligibleItem `json:"checks"`
 	When   EligibleRule   `json:"when,omitempty"`
 }
 
-// EligibleItem defines the eligibility criteria to grant a Job to get
+// EligibleItem defines the eligibility criteria to grant a Recipe to get
 // executed
 type EligibleItem struct {
 	ID            string               `json:"id,omitempty"`
@@ -138,34 +138,34 @@ type EligibleItem struct {
 	Count         *int                 `json:"count,omitempty"`
 }
 
-// JobStatusPhase is a typed definition to determine the
-// result of executing a Job
-type JobStatusPhase string
+// RecipeStatusPhase is a typed definition to determine the
+// result of executing a Recipe
+type RecipeStatusPhase string
 
 const (
-	// JobStatusLocked implies a locked Job
-	JobStatusLocked JobStatusPhase = "Locked"
+	// RecipeStatusLocked implies a locked Recipe
+	RecipeStatusLocked RecipeStatusPhase = "Locked"
 
-	// JobStatusDisabled implies a disabled Job
-	JobStatusDisabled JobStatusPhase = "Disabled"
+	// RecipeStatusDisabled implies a disabled Recipe
+	RecipeStatusDisabled RecipeStatusPhase = "Disabled"
 
-	// JobStatusPassed implies a passed Job
-	JobStatusPassed JobStatusPhase = "Passed"
+	// RecipeStatusPassed implies a passed Recipe
+	RecipeStatusPassed RecipeStatusPhase = "Passed"
 
-	// JobStatusCompleted implies a successfully completed Job
-	JobStatusCompleted JobStatusPhase = "Completed"
+	// RecipeStatusCompleted implies a successfully completed Recipe
+	RecipeStatusCompleted RecipeStatusPhase = "Completed"
 
-	// JobStatusFailed implies a failed Job
-	JobStatusFailed JobStatusPhase = "Failed"
+	// RecipeStatusFailed implies a failed Recipe
+	RecipeStatusFailed RecipeStatusPhase = "Failed"
 
-	// JobStatusWarning implies a Job with warnings
-	JobStatusWarning JobStatusPhase = "Warning"
+	// RecipeStatusWarning implies a Recipe with warnings
+	RecipeStatusWarning RecipeStatusPhase = "Warning"
 )
 
-// JobStatus holds the results of all tasks specified
-// in a Job
-type JobStatus struct {
-	Phase           JobStatusPhase        `json:"phase"`
+// RecipeStatus holds the results of all tasks specified
+// in a Recipe
+type RecipeStatus struct {
+	Phase           RecipeStatusPhase     `json:"phase"`
 	Reason          string                `json:"reason,omitempty"`
 	Message         string                `json:"message,omitempty"`
 	FailedTaskCount int                   `json:"failedTaskCount"`
@@ -174,7 +174,7 @@ type JobStatus struct {
 }
 
 // String implements the Stringer interface
-func (jr JobStatus) String() string {
+func (jr RecipeStatus) String() string {
 	raw, err := json.MarshalIndent(
 		jr,
 		" ",

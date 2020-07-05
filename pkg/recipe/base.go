@@ -14,9 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package job
+package recipe
 
-import types "mayadata.io/d-operators/types/job"
+import types "mayadata.io/d-operators/types/recipe"
 
 // BaseRunner is the common runner used by all action runners
 type BaseRunner struct {

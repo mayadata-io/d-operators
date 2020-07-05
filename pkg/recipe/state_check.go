@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package job
+package recipe
 
 import (
 	"fmt"
@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/klog/v2"
-	types "mayadata.io/d-operators/types/job"
+	types "mayadata.io/d-operators/types/recipe"
 	dynamicapply "openebs.io/metac/dynamic/apply"
 )
 

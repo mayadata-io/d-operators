@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package job
+package recipe
 
 import (
 	"fmt"
@@ -24,7 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/klog/v2"
-	types "mayadata.io/d-operators/types/job"
+	types "mayadata.io/d-operators/types/recipe"
 )
 
 // PathChecking helps in verifying expected field value

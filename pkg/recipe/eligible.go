@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package job
+package recipe
 
 import (
 	"encoding/json"
@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/klog/v2"
 	typesgvk "mayadata.io/d-operators/types/gvk"
-	types "mayadata.io/d-operators/types/job"
+	types "mayadata.io/d-operators/types/recipe"
 	metac "openebs.io/metac/apis/metacontroller/v1alpha1"
 	"openebs.io/metac/controller/common/selector"
 )
@@ -48,15 +48,15 @@ func NewEligibleItemKey(item types.EligibleItem) EligibleItemKey {
 }
 
 // NewDefaultingEligibleItemKey returns a new APIVersionKindKey that
-// defaults to Job's types if kind or apiversion is not specified
+// defaults to Recipe's types if kind or apiversion is not specified
 func NewDefaultingEligibleItemKey(item types.EligibleItem) EligibleItemKey {
 	var apiversion = item.APIVersion
 	var kind = item.Kind
 	if apiversion == "" {
-		apiversion = typesgvk.APIVersionJob
+		apiversion = typesgvk.APIVersionRecipe
 	}
 	if kind == "" {
-		kind = typesgvk.KindJob
+		kind = typesgvk.KindRecipe
 	}
 	return EligibleItemKey{
 		ID:         item.ID,
@@ -77,18 +77,18 @@ func (k EligibleItemKey) String() string {
 // EligibilityConfig helps in constructing new instance of
 // Eligibility
 type EligibilityConfig struct {
-	JobName  string
-	Fixture  *Fixture
-	Eligible *types.Eligible
-	Retry    *Retryable
+	RecipeName string
+	Fixture    *Fixture
+	Eligible   *types.Eligible
+	Retry      *Retryable
 }
 
-// Eligibility flags if a Job should get executed or not
+// Eligibility flags if a Recipe should get executed or not
 type Eligibility struct {
 	*Fixture
-	Eligible *types.Eligible
-	Retry    *Retryable
-	JobName  string
+	Eligible   *types.Eligible
+	Retry      *Retryable
+	RecipeName string
 
 	eligibles   map[string]types.EligibleItem
 	observed    map[string][]unstructured.Unstructured
@@ -111,7 +111,7 @@ func (e *Eligibility) initAndValidate() error {
 	if len(e.Eligible.Checks) == 0 && e.Eligible.When != "" {
 		return errors.Errorf(
 			"Invalid Eligible check: When can not be set with nil checks: %s",
-			e.JobName,
+			e.RecipeName,
 		)
 	}
 
@@ -134,9 +134,9 @@ func (e *Eligibility) initAndValidate() error {
 				errs = append(
 					errs,
 					fmt.Sprintf(
-						"Invalid Eligible check %q: Missing count: JobName %q",
+						"Invalid Eligible check %q: Missing count: RecipeName %q",
 						when,
-						e.JobName,
+						e.RecipeName,
 					),
 				)
 				continue
@@ -145,9 +145,9 @@ func (e *Eligibility) initAndValidate() error {
 			errs = append(
 				errs,
 				fmt.Sprintf(
-					"Unsupported Eligible check %q: JobName %q",
+					"Unsupported Eligible check %q: RecipeName %q",
 					when,
-					e.JobName,
+					e.RecipeName,
 				),
 			)
 			continue
@@ -157,9 +157,9 @@ func (e *Eligibility) initAndValidate() error {
 			errs = append(
 				errs,
 				fmt.Sprintf(
-					"Duplicate Eligible check %q: JobName %q",
+					"Duplicate Eligible check %q: RecipeName %q",
 					when,
-					e.JobName,
+					e.RecipeName,
 				),
 			)
 			continue
@@ -180,14 +180,14 @@ func (e *Eligibility) initAndValidate() error {
 // NewEligibility returns a new instance of Eligibility
 func NewEligibility(config EligibilityConfig) (*Eligibility, error) {
 	e := &Eligibility{
-		JobName:   config.JobName,
-		Fixture:   config.Fixture,
-		Eligible:  config.Eligible,
-		Retry:     config.Retry,
-		eligibles: make(map[string]types.EligibleItem),
-		observed:  make(map[string][]unstructured.Unstructured),
-		selected:  make(map[string][]NamespaceName),
-		grants:    make(map[string]bool),
+		RecipeName: config.RecipeName,
+		Fixture:    config.Fixture,
+		Eligible:   config.Eligible,
+		Retry:      config.Retry,
+		eligibles:  make(map[string]types.EligibleItem),
+		observed:   make(map[string][]unstructured.Unstructured),
+		selected:   make(map[string][]NamespaceName),
+		grants:     make(map[string]bool),
 	}
 	err := e.initAndValidate()
 	if err != nil {
@@ -198,7 +198,7 @@ func NewEligibility(config EligibilityConfig) (*Eligibility, error) {
 
 // EligibilityLog helps in debugging
 type EligibilityLog struct {
-	JobName           string                        `json:"jobName"`
+	RecipeName        string                        `json:"recipeName"`
 	IsEligible        bool                          `json:"isEligible"`
 	Attempts          int                           `json:"attempts"`
 	IsTimeout         bool                          `json:"isTimeout"`
@@ -212,10 +212,10 @@ type EligibilityLog struct {
 
 func (e *Eligibility) isEligibleCheck() (result bool) {
 	defer func() {
-		klog.V(1).Infof("IsEligible=%t: %s", result, e.JobName)
+		klog.V(1).Infof("IsEligible=%t: %s", result, e.RecipeName)
 	}()
 	if len(e.grants) == 0 {
-		klog.V(1).Infof("No grants found: %s", e.JobName)
+		klog.V(1).Infof("No grants found: %s", e.RecipeName)
 		return
 	}
 
@@ -372,7 +372,7 @@ func (e *Eligibility) setObservedResources() error {
 	return nil
 }
 
-// IsEligible returns true if Job is eligible to be executed
+// IsEligible returns true if Recipe is eligible to be executed
 func (e *Eligibility) IsEligible() (ok bool, err error) {
 	if e.Eligible == nil || len(e.Eligible.Checks) == 0 {
 		// nothing to check
@@ -388,7 +388,7 @@ func (e *Eligibility) IsEligible() (ok bool, err error) {
 		}
 		logfn := func() string {
 			log := EligibilityLog{
-				JobName:           e.JobName,
+				RecipeName:        e.RecipeName,
 				IsEligible:        ok,
 				Attempts:          attempts,
 				IsTimeout:         timeout,
@@ -424,8 +424,8 @@ func (e *Eligibility) IsEligible() (ok bool, err error) {
 			ok = e.isEligibleCheck()
 			return ok, nil
 		},
-		"IsEnable check: JobName %s",
-		e.JobName,
+		"IsEnable check: RecipeName %s",
+		e.RecipeName,
 	)
 	if err != nil {
 		if _, timeout = err.(*RetryTimeout); timeout {
