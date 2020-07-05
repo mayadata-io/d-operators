@@ -14,13 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package job
+package recipe
 
 import (
 	"testing"
 
 	"mayadata.io/d-operators/common/pointer"
-	types "mayadata.io/d-operators/types/job"
+	types "mayadata.io/d-operators/types/recipe"
 )
 
 func TestEligibilityInitAndValidate(t *testing.T) {
