@@ -10,3 +10,11 @@ It is important to understand that these declarative patterns are built upon pro
 D-operators is not meant to build complex controllers like Deployment, StatefulSet or Pod in a declarative yaml. However, if one needs to use Deployment, StatefulSet, Pod, etc. to build new k8s controller(s) then d-operators' declarative constructs _(read custom resources)_ should be considered to build one. 
 
 However, any controller which is complex and at the same time is **generic** enough to be used along with other kubernetes resources, can be implemented as a core d-operator custom resource.
+
+### Available controllers
+- [x] kind: Recipe
+- [ ] kind: HTTP
+- [ ] kind: Chef
+- [ ] kind: Command
+- [ ] kind: DaemonJob
+- [ ] kind: MasterChef
