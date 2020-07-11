@@ -2,8 +2,8 @@ PWD := ${CURDIR}
 
 OS = $(shell uname)
 
-GIT_TAGS = $(shell git fetch --all --tags)
 PACKAGE_VERSION ?= $(shell git describe --always --tags)
+GIT_TAGS = $(shell git fetch --all --tags)
 ALL_SRC = $(shell find . -name "*.go" | grep -v -e "vendor")
 
 # We are using docker hub as the default registry
@@ -44,6 +44,7 @@ testv:
 .PHONY: image
 image: $(GIT_TAGS)
 	docker build -t $(IMG_REPO):$(PACKAGE_VERSION) .
+
 
 .PHONY: push
 push: image
