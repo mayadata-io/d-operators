@@ -7,7 +7,7 @@ const (
 
 	// ExperimentAPIGroup represent the api group of the experiment
 	// considered for testcase implementation
-	ExperimentAPIGroup = "jobs.metacontroller.app"
+	ExperimentAPIGroup = "recipes.dope.metacontroller.io"
 
 	// DefaultK8sDownloadURL is the default kubernetes download url
 	DefaultK8sDownloadURL = "https://dl.k8s.io"

@@ -36,7 +36,7 @@ type Reconciler struct {
 }
 
 func (r *Reconciler) eval() {
-	var j types.Recipe
+	var j types.recipe
 	// convert from unstructured instance to typed instance
 	err := unstruct.ToTyped(r.HookRequest.Watch, &j)
 	if err != nil {
