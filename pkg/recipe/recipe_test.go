@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package job
+package recipe
 
 import (
 	"testing"
@@ -22,22 +22,22 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"mayadata.io/d-operators/common/pointer"
-	types "mayadata.io/d-operators/types/job"
+	types "mayadata.io/d-operators/types/recipe"
 )
 
 func TestRunnerRunAllTasks(t *testing.T) {
 	var tests = map[string]struct {
 		baseFixture         *BaseFixture
-		job                 types.Job
-		expectedStatusPhase types.JobStatusPhase
+		recipe              types.Recipe
+		expectedStatusPhase types.RecipeStatusPhase
 		isErr               bool
 	}{
 		"no tasks": {
-			expectedStatusPhase: types.JobStatusCompleted,
+			expectedStatusPhase: types.RecipeStatusCompleted,
 		},
 		"create a config map": {
-			job: types.Job{
-				Spec: types.JobSpec{
+			recipe: types.Recipe{
+				Spec: types.RecipeSpec{
 					Tasks: []types.Task{
 						{
 							Name: "create-config-map",
@@ -56,12 +56,12 @@ func TestRunnerRunAllTasks(t *testing.T) {
 					},
 				},
 			},
-			expectedStatusPhase: types.JobStatusCompleted,
+			expectedStatusPhase: types.RecipeStatusCompleted,
 			isErr:               false,
 		},
 		"create a failfast config map": {
-			job: types.Job{
-				Spec: types.JobSpec{
+			recipe: types.Recipe{
+				Spec: types.RecipeSpec{
 					Tasks: []types.Task{
 						{
 							Name: "create-config-map",
@@ -83,12 +83,12 @@ func TestRunnerRunAllTasks(t *testing.T) {
 					},
 				},
 			},
-			expectedStatusPhase: types.JobStatusCompleted,
+			expectedStatusPhase: types.RecipeStatusCompleted,
 			isErr:               false,
 		},
 		"invalid assertion of config map": {
-			job: types.Job{
-				Spec: types.JobSpec{
+			recipe: types.Recipe{
+				Spec: types.RecipeSpec{
 					Tasks: []types.Task{
 						{
 							Name: "invalid-assertion-of-config-map",
@@ -114,12 +114,12 @@ func TestRunnerRunAllTasks(t *testing.T) {
 					},
 				},
 			},
-			expectedStatusPhase: types.JobStatusCompleted,
+			expectedStatusPhase: types.RecipeStatusCompleted,
 			isErr:               true,
 		},
 		"assert absence of config map": {
-			job: types.Job{
-				Spec: types.JobSpec{
+			recipe: types.Recipe{
+				Spec: types.RecipeSpec{
 					Tasks: []types.Task{
 						{
 							Name: "assert-absence-of-config-map",
@@ -144,13 +144,13 @@ func TestRunnerRunAllTasks(t *testing.T) {
 					},
 				},
 			},
-			expectedStatusPhase: types.JobStatusCompleted,
+			expectedStatusPhase: types.RecipeStatusCompleted,
 			isErr:               false,
 		},
 		"assert presence of the fake config map": {
 			baseFixture: NoopConfigMapFixture,
-			job: types.Job{
-				Spec: types.JobSpec{
+			recipe: types.Recipe{
+				Spec: types.RecipeSpec{
 					Tasks: []types.Task{
 						{
 							Name: "assert-presence-of-fake-config-map",
@@ -172,13 +172,13 @@ func TestRunnerRunAllTasks(t *testing.T) {
 					},
 				},
 			},
-			expectedStatusPhase: types.JobStatusCompleted,
+			expectedStatusPhase: types.RecipeStatusCompleted,
 			isErr:               false,
 		},
 		"assert presence of spec in the fake config map": {
 			baseFixture: NoopConfigMapFixture,
-			job: types.Job{
-				Spec: types.JobSpec{
+			recipe: types.Recipe{
+				Spec: types.RecipeSpec{
 					Tasks: []types.Task{
 						{
 							Name: "assert-presence-of-spec-in-the-fake-config-map",
@@ -204,13 +204,13 @@ func TestRunnerRunAllTasks(t *testing.T) {
 					},
 				},
 			},
-			expectedStatusPhase: types.JobStatusCompleted,
+			expectedStatusPhase: types.RecipeStatusCompleted,
 			isErr:               false,
 		},
 		"assert presence of spec in the fake config map - ii": {
 			baseFixture: NoopConfigMapFixture,
-			job: types.Job{
-				Spec: types.JobSpec{
+			recipe: types.Recipe{
+				Spec: types.RecipeSpec{
 					Tasks: []types.Task{
 						{
 							Name: "assert-presence-of-spec-in-the-fake-config-map",
@@ -233,13 +233,13 @@ func TestRunnerRunAllTasks(t *testing.T) {
 					},
 				},
 			},
-			expectedStatusPhase: types.JobStatusCompleted,
+			expectedStatusPhase: types.RecipeStatusCompleted,
 			isErr:               false,
 		},
 		"assert absence of junk in the fake config map": {
 			baseFixture: NoopConfigMapFixture,
-			job: types.Job{
-				Spec: types.JobSpec{
+			recipe: types.Recipe{
+				Spec: types.RecipeSpec{
 					Tasks: []types.Task{
 						{
 							Name: "assert-absence-of-junk-in-the-fake-config-map",
@@ -265,13 +265,13 @@ func TestRunnerRunAllTasks(t *testing.T) {
 					},
 				},
 			},
-			expectedStatusPhase: types.JobStatusCompleted,
+			expectedStatusPhase: types.RecipeStatusCompleted,
 			isErr:               false,
 		},
 		"assert absence of junk in the fake config map - ii": {
 			baseFixture: NoopConfigMapFixture,
-			job: types.Job{
-				Spec: types.JobSpec{
+			recipe: types.Recipe{
+				Spec: types.RecipeSpec{
 					Tasks: []types.Task{
 						{
 							Name: "assert-absence-of-junk-in-the-fake-config-map",
@@ -297,7 +297,7 @@ func TestRunnerRunAllTasks(t *testing.T) {
 					},
 				},
 			},
-			expectedStatusPhase: types.JobStatusCompleted,
+			expectedStatusPhase: types.RecipeStatusCompleted,
 			isErr:               false,
 		},
 	}
@@ -316,8 +316,8 @@ func TestRunnerRunAllTasks(t *testing.T) {
 				Retry: NewRetry(RetryConfig{
 					WaitTimeout: &timeout,
 				}),
-				Job: mock.job,
-				JobStatus: &types.JobStatus{
+				Recipe: mock.recipe,
+				RecipeStatus: &types.RecipeStatus{
 					TaskListStatus: make(map[string]types.TaskStatus),
 				},
 				fixture: f,

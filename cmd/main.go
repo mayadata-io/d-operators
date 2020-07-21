@@ -25,7 +25,7 @@ import (
 
 	"mayadata.io/d-operators/controller/doperator"
 	"mayadata.io/d-operators/controller/http"
-	"mayadata.io/d-operators/controller/job"
+	"mayadata.io/d-operators/controller/recipe"
 	"mayadata.io/d-operators/controller/run"
 )
 
@@ -62,7 +62,7 @@ func main() {
 
 	// controller name & corresponding controller reconcile function
 	var controllers = map[string]generic.InlineInvokeFn{
-		"sync/job":       job.Sync,
+		"sync/recipe":    recipe.Sync,
 		"sync/http":      http.Sync,
 		"sync/doperator": doperator.Sync,
 		"sync/run":       run.Sync,

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package job
+package recipe
 
 import (
 	"github.com/pkg/errors"
@@ -45,7 +45,7 @@ type BaseFixture struct {
 	getAPIForAPIVersionAndResourceFn    func(string, string) *dynamicdiscovery.APIResource
 }
 
-// Fixture is the base structure that ties a job specification
+// Fixture is the base structure that ties a recipe specification
 // with one or more kubernetes api operations.
 type Fixture struct {
 	*BaseFixture

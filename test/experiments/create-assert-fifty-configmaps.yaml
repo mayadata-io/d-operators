@@ -1,10 +1,10 @@
-apiVersion: metacontroller.app/v1
-kind: Job
+apiVersion: dope.metacontroller.io/v1
+kind: Recipe
 metadata:
   name: create-assert-fifty-configmaps
   namespace: d-testing
   labels:
-    d-testing.metacontroller.app/enabled: "true"
+    d-testing.dope.metacontroller.io/enabled: "true"
 spec:
   tasks:
   - name: create-fifty-configmaps
