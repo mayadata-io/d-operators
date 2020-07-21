@@ -28,11 +28,11 @@ const (
 )
 
 const (
-	// KindJob represents Job custom resource
-	KindJob string = "Job"
+	// KindRecipe represents Recipe custom resource
+	KindRecipe string = "Recipe"
 
-	// APIVersionJob represent Job custom resource's api version
-	APIVersionJob string = "metacontroller.app/v1"
+	// APIVersionRecipe represent Recipe custom resource's api version
+	APIVersionRecipe string = "metacontroller.app/v1"
 )
 
 const (
