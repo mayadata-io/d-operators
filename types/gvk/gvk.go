@@ -32,7 +32,7 @@ const (
 	KindRecipe string = "Recipe"
 
 	// APIVersionRecipe represent Recipe custom resource's api version
-	APIVersionRecipe string = "metacontroller.app/v1"
+	APIVersionRecipe string = "dope.metacontroller.io/v1"
 )
 
 const (

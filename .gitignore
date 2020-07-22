@@ -2,3 +2,4 @@
 d-operators
 test/bin/
 test/kubebin/
+test/e2e/uninstall-k3s.txt

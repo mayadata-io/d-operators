@@ -1,19 +1,19 @@
 apiVersion: dope.metacontroller.io/v1
 kind: Recipe
 metadata:
-  name: assert-lock-persists-for-job-that-runs-once
+  name: assert-lock-persists-for-recipe-that-runs-once
   namespace: d-testing
   labels:
     d-testing.dope.metacontroller.io/enabled: "true"
 spec:
   tasks:
-  - name: create-a-job-that-runs-only-once
+  - name: create-a-recipe-that-runs-only-once
     create: 
       state: 
         kind: Recipe
         apiVersion: dope.metacontroller.io/v1
         metadata:
-          name: job-that-runs-only-once
+          name: recipe-that-runs-only-once
           namespace: d-testing
         spec:
           tasks:
@@ -24,13 +24,13 @@ spec:
                 apiVersion: v1
                 metadata:
                   name: d-testing
-  - name: assert-completion-of-job
+  - name: assert-completion-of-recipe
     assert:
       state:
         kind: Recipe
         apiVersion: dope.metacontroller.io/v1
         metadata:
-          name: job-that-runs-only-once
+          name: recipe-that-runs-only-once
           namespace: d-testing
         status:
           phase: Completed
@@ -40,6 +40,6 @@ spec:
         kind: ConfigMap
         apiVersion: v1
         metadata:
-          name: job-that-runs-only-once-lock
+          name: recipe-that-runs-only-once-lock
           namespace: d-testing
 ---

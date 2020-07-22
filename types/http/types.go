@@ -21,12 +21,47 @@ import (
 )
 
 const (
+	// SecretTypeBasicAuth refers to basic authentication based secret
+	SecretTypeBasicAuth string = "kubernetes.io/basic-auth"
+
+	// BasicAuthUsernameKey is the key used to refer the username for
+	// SecretTypeBasicAuth secrets
+	BasicAuthUsernameKey = "username"
+
+	// BasicAuthPasswordKey is the key used to refer the password or
+	// token for SecretTypeBasicAuth secrets
+	BasicAuthPasswordKey = "password"
+)
+
+const (
 	// POST based http request
 	POST string = "post"
 
 	// GET based http request
 	GET string = "get"
 )
+
+// When is a typed definition to determine if HTTP custom resource
+// is enabled to be reconciled
+type When string
+
+const (
+	// Always flags the HTTP custom resource to be reconciled always
+	Always When = "always"
+
+	// Never disables the HTTP custom resource from being reconciled
+	Never When = "never"
+
+	// Once flags the HTTP custom resource to be reconciled only once
+	// This is useful to invoke http requests to create or delete entity
+	Once When = "once"
+)
+
+// Enabled determines if HTTP custom resource is enabled to be
+// reconciled
+type Enabled struct {
+	When When `json:"when,omitempty"`
+}
 
 // HTTP is a kubernetes custom resource that defines
 // the specifications to invoke http request & store its
@@ -42,26 +77,55 @@ type HTTP struct {
 // HTTPRequestSpec defines the configuration required
 // to invoke http request
 type HTTPRequestSpec struct {
-	SecretName  string            `json:"secretName"`
-	URL         string            `json:"url"`
-	Method      string            `json:"method,omitempty"`
-	Headers     map[string]string `json:"headers,omitempty"`
+	// Enabled flags this custom resource as enabled or disabled
+	// for reconciliation
+	Enabled *Enabled `json:"enabled,omitempty"`
+
+	// Kubernetes secret to authorise the HTTP request
+	SecretName string `json:"secretName"`
+
+	// URL to be invoked
+	URL string `json:"url"`
+
+	// Post or Get call
+	Method string `json:"method,omitempty"`
+
+	// Headers used during API invocation
+	Headers map[string]string `json:"headers,omitempty"`
+
+	// QueryParams set against the URL query parameters
 	QueryParams map[string]string `json:"queryParams,omitempty"`
-	PathParams  map[string]string `json:"pathParams,omitempty"`
-	Body        string            `json:"body,omitempty"`
+
+	// PathParams set against the URL path
+	PathParams map[string]string `json:"pathParams,omitempty"`
+
+	// HTTP body used during API invocation
+	Body string `json:"body,omitempty"`
 }
 
 // HTTPRequestStatus has the status & response of an
 // invoked http URL
 type HTTPRequestStatus struct {
-	Phase          string                 `json:"phase"`
-	Reason         string                 `json:"reason"`
-	Warn           string                 `json:"warn"`
-	Completion     map[string]interface{} `json:"completion"`
-	Body           interface{}            `json:"body"`
-	HTTPStatusCode int                    `json:"httpStatusCode"`
-	HTTPStatus     string                 `json:"httpStatus"`
-	HTTPError      interface{}            `json:"httpError"`
+	// Phase represents a single word status of http invocation
+	Phase string `json:"phase"`
+
+	// Reason reflects a decription of what happened after http invocation
+	Reason string `json:"reason,omitempty"`
+
+	// Warning message(s) if any
+	Warn string `json:"warn,omitempty"`
+
+	// Response received after invoking http request
+	Response HTTPResponse `json:"response,omitempty"`
+}
+
+// HTTPResponse represents the response received after invoking http request
+type HTTPResponse struct {
+	Body           interface{} `json:"body,omitempty"`
+	HTTPStatusCode int         `json:"httpStatusCode"`
+	HTTPStatus     string      `json:"httpStatus"`
+	HTTPError      interface{} `json:"httpError,omitempty"`
+	IsError        bool        `json:"isError"`
 }
 
 const (

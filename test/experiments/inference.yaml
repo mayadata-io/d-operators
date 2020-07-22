@@ -1,4 +1,4 @@
-# This is an internal job used by test suite runner
+# This is an internal recipe used by test suite runner
 # to evaluate if desired experiments were successful
 # or not
 apiVersion: dope.metacontroller.io/v1
@@ -20,7 +20,7 @@ spec:
         matchLabels:
           d-testing.dope.metacontroller.io/enabled: "true"
         matchLabelExpressions:
-        - key: job.dope.metacontroller.io/phase
+        - key: recipe.dope.metacontroller.io/phase
           operator: Exists
       when: ListCountEquals
       count: 6
@@ -34,7 +34,7 @@ spec:
           namespace: d-testing
           labels:
             d-testing.dope.metacontroller.io/enabled: "true"
-            job.dope.metacontroller.io/phase: Completed
+            recipe.dope.metacontroller.io/phase: Completed
       stateCheck:
         stateCheckOperator: ListCountEquals
         count: 6
@@ -47,7 +47,7 @@ spec:
           namespace: d-testing
           labels:
             d-testing.dope.metacontroller.io/enabled: "true"
-            job.dope.metacontroller.io/phase: Failed
+            recipe.dope.metacontroller.io/phase: Failed
       stateCheck:
         stateCheckOperator: ListCountEquals
         count: 0
@@ -60,7 +60,7 @@ spec:
           namespace: d-testing
           labels:
             d-testing.dope.metacontroller.io/enabled: "true"
-            job.dope.metacontroller.io/phase: Error
+            recipe.dope.metacontroller.io/phase: Error
       stateCheck:
         stateCheckOperator: ListCountEquals
         count: 0
