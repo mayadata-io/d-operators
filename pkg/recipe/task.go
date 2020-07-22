@@ -223,6 +223,15 @@ func (r *TaskRunner) tryRunDelete() (*types.TaskStatus, bool, error) {
 
 }
 
+func (r *TaskRunner) tryRunDeleteAll() (*types.TaskStatus, bool, error) {
+	if r.Task.DeleteAll == nil || r.Task.DeleteAll.State == nil {
+		return nil, false, nil
+	}
+	// delete from Delete action
+	got, err := r.deleteAll()
+	return got, true, err
+}
+
 func (r *TaskRunner) tryRunApply() (*types.TaskStatus, bool, error) {
 	// check if this is delete from Apply action
 	isDel, err := r.isDeleteFromApply()
@@ -256,6 +265,7 @@ func (r *TaskRunner) Run() (types.TaskStatus, error) {
 		r.tryRunAssert,
 		r.tryRunDelete,
 		r.tryRunApply,
+		r.tryRunDeleteAll,
 	}
 	for _, fn := range probables {
 		got, hasRun, err := fn()

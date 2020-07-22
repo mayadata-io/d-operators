@@ -56,6 +56,7 @@ type Task struct {
 	Assert          *Assert         `json:"assert,omitempty"`
 	Apply           *Apply          `json:"apply,omitempty"`
 	Delete          *Delete         `json:"delete,omitempty"`
+	DeleteAll       *DeleteAll      `json:"deleteAll,omitempty"`
 	Create          *Create         `json:"create,omitempty"`
 	IgnoreErrorRule IgnoreErrorRule `json:"ignoreError,omitempty"`
 	FailFast        *FailFast       `json:"failFast,omitempty"`

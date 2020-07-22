@@ -155,6 +155,10 @@ func (r *Runner) eval(task types.Task) error {
 		action++
 		state = task.Create.State
 	}
+	if task.DeleteAll != nil {
+		action++
+		state = task.DeleteAll.State
+	}
 	if action == 0 {
 		return errors.Errorf(
 			"Invalid task %q: Task needs one action",
