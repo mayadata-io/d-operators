@@ -212,10 +212,13 @@ type EligibilityLog struct {
 
 func (e *Eligibility) isEligibleCheck() (result bool) {
 	defer func() {
-		klog.V(1).Infof("IsEligible=%t: %s", result, e.RecipeName)
+		klog.V(3).Infof("IsEligible=%t: %s", result, e.RecipeName)
 	}()
 	if len(e.grants) == 0 {
-		klog.V(1).Infof("No grants found: %s", e.RecipeName)
+		klog.V(1).Infof(
+			"Failed to evaluate: No grants found: %s",
+			e.RecipeName,
+		)
 		return
 	}
 
@@ -224,6 +227,7 @@ func (e *Eligibility) isEligibleCheck() (result bool) {
 	case types.EligibleRuleAnyCheckPass:
 		for _, ok := range e.grants {
 			if ok {
+				// at-least one grant should pass to be eligible
 				result = true
 				return
 			}
@@ -232,6 +236,7 @@ func (e *Eligibility) isEligibleCheck() (result bool) {
 	default:
 		for _, ok := range e.grants {
 			if !ok {
+				// all grants should pass to be eligible
 				return
 			}
 		}
@@ -383,8 +388,18 @@ func (e *Eligibility) IsEligible() (ok bool, err error) {
 	var timeout bool
 	var errmsg string
 	defer func() {
+		var islog = false
 		if err != nil {
+			// we should log in-case of any error
+			islog = true
 			errmsg = err.Error()
+		}
+		if klog.V(3).Enabled() || !ok {
+			// log if log level >= 3 or eligibility has failed
+			islog = true
+		}
+		if !islog {
+			return
 		}
 		logfn := func() string {
 			log := EligibilityLog{
@@ -429,7 +444,8 @@ func (e *Eligibility) IsEligible() (ok bool, err error) {
 	)
 	if err != nil {
 		if _, timeout = err.(*RetryTimeout); timeout {
-			// we swallow the error & return false i.e. not eligible
+			// in case of timeout we swallow the error &
+			// return false i.e. mark the recipe as not eligible
 			errmsg = err.Error()
 			// eligibility check has failed after several retries
 			return false, nil

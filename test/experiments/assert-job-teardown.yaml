@@ -1,19 +1,19 @@
 apiVersion: dope.metacontroller.io/v1
 kind: Recipe
 metadata:
-  name: assert-job-teardown
+  name: assert-recipe-teardown
   namespace: d-testing
   labels:
     d-testing.dope.metacontroller.io/enabled: "true"
 spec:
   tasks:
-  - name: create-a-job-with-teardown-enabled
+  - name: create-a-recipe-with-teardown-enabled
     create: 
       state: 
         kind: Recipe
         apiVersion: dope.metacontroller.io/v1
         metadata:
-          name: job-with-teardown-enabled
+          name: recipe-with-teardown-enabled
           namespace: d-testing
         spec:
           teardown: true # target under test
@@ -34,13 +34,13 @@ spec:
                 metadata:
                   name: i-get-auto-deleted
                   namespace: d-testing
-  - name: assert-completion-of-job
+  - name: assert-completion-of-recipe
     assert:
       state:
         kind: Recipe
         apiVersion: dope.metacontroller.io/v1
         metadata:
-          name: job-with-teardown-enabled
+          name: recipe-with-teardown-enabled
           namespace: d-testing
         status:
           phase: Completed

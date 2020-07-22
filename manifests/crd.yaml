@@ -11,7 +11,7 @@ spec:
     listKind: RecipeList
     plural: recipes
     shortNames:
-    - rp
+    - rcp
     singular: recipe
   scope: Namespaced
   subresources:

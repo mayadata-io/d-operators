@@ -41,11 +41,14 @@ test:
 testv:
 	@go test ./... -cover -v -args --logtostderr -v=2
 
+.PHONY: e2e-test
+e2e-test: 
+	@cd test/e2e && ./suite.sh
+
 .PHONY: image
 image: $(GIT_TAGS)
 	docker build -t $(IMG_REPO):$(PACKAGE_VERSION) .
 
-
 .PHONY: push
 push: image
-	docker push $(IMG_REPO):$(PACKAGE_VERSION)
+	docker push $(IMG_REPO):$(PACKAGE_VERSION

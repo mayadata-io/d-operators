@@ -47,10 +47,10 @@ type FailFast struct {
 	When FailFastRule `json:"when,omitempty"`
 }
 
-// Task that needs to be executed as part of a Job
+// Task that needs to be executed as part of a Recipe
 //
 // Task forms the fundamental unit of execution within a
-// Job
+// Recipe
 type Task struct {
 	Name            string          `json:"name"`
 	Assert          *Assert         `json:"assert,omitempty"`

@@ -24,7 +24,7 @@ metadata:
     d-testing.dope.metacontroller.io/enabled: "true"
 spec:
   tasks:
-  - name: assert-create-fifty-configmaps-job-completed
+  - name: assert-create-fifty-configmaps-recipe-completed
     assert: 
       state: 
         kind: Recipe
@@ -43,7 +43,7 @@ spec:
           name: create-fifty-configmaps
           namespace: d-testing
       pathCheck:
-        path: status.taskListStatus.job-elapsed-time.elapsedTimeInSeconds
+        path: status.taskListStatus.recipe-elapsed-time.elapsedTimeInSeconds
         pathCheckOperator: LTE
         # assert if the entire experiment of creating 50 configmaps
         # completes in around 20 seconds

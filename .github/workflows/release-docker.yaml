@@ -1,17 +1,17 @@
 ---
-name: Release docker image
+name: Release Docker Image
 on:
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
 jobs:
   release-docker:
-    name: Release docker image
+    name: Release Docker Image
     runs-on: ubuntu-18.04
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v2
-      - name: Deploy docker image
+      - name: Setup Docker
         uses: docker/build-push-action@v1
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
