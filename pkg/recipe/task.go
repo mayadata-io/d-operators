@@ -263,9 +263,9 @@ func (r *TaskRunner) Run() (types.TaskStatus, error) {
 	var probables = []func() (*types.TaskStatus, bool, error){
 		r.tryRunCreate,
 		r.tryRunAssert,
+		r.tryRunDeleteAll,
 		r.tryRunDelete,
 		r.tryRunApply,
-		r.tryRunDeleteAll,
 	}
 	for _, fn := range probables {
 		got, hasRun, err := fn()
