@@ -10,9 +10,9 @@ It is important to understand that these declarative patterns are built upon pro
 D-operators is not meant to build complex controller logic like Deployment, StatefulSet or Pod in a declarative yaml. However, if one needs to use available Kubernetes resources to build new k8s controller(s) then d-operators should be considered to build one. D-operators helps implement the last mile automation needed to manage applications & infrastructure in Kubernetes clusters.
 
 ### E to E testing
-D-operators make use of d-operators _(i.e. its own self)_ to test its controllers. It does not need kubectl, bash, sed, awk etc to test its controllers. In addition, it does not depend on writing go code to write tests. It makes use of declarative YAMLs to test its controllers.
+D-operators make use of its custom resource(s) to test its controllers. One can imagine these custom resources acting as the building blocks to implement a custom CI framework. One of the primary advantages with this approach, is to let custom resources remove the need to write code to implement test cases.
 
-_NOTE: One can make use of these YAMLs (kind: Recipe) to test any Kubernetes controllers declaratively_
+_NOTE: One can make use of these YAMLs (kind: Recipe) to test their own Kubernetes controllers declaratively_
 
 Navigate to test/experiments to learn more on these YAMLs.
 
