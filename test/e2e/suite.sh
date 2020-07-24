@@ -44,13 +44,13 @@ echo "--------------------------"
 echo "++ E to E suite started"
 echo "--------------------------"
 
-# Name of the Kubernetes controller binary under test
+# Name of the targeted controller binary under test
 ctrlbin="dope"
 
-# kind: Recipe custom resource is used to build the test cases
+# group that defines the Recipe custom resource
 group="recipes.dope.metacontroller.io"
 
-# Namespace used by all Recipe custom resources
+# Namespace used by inference Recipe custom resource
 ns="d-testing"
 
 echo -e "\n Remove locally cached image $ctrlbin:e2e"
@@ -87,44 +87,11 @@ fi
 echo -e "\n Verify if K3s is up and running"
 k3s kubectl get node
 
-echo -e "\n Apply $ctrlbin manifests to K3s cluster..."
-k3s kubectl apply -f ./../../manifests/
+echo -e "\n Apply d-operators based ci to K3s cluster"
+k3s kubectl apply -f ci.yaml
 
-echo -e "\n Apply $ctrlbin as a statefulset to K3s cluster..."
-cat <<EOF | k3s kubectl apply -f -
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  labels:
-    app.mayadata.io/name: dope
-  name: dope
-  namespace: dope
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app.mayadata.io/name: dope
-  serviceName: ""
-  template:
-    metadata:
-      labels:
-        app.mayadata.io/name: dope
-    spec:
-      serviceAccountName: dope
-      containers:
-      - name: dope
-        image: localhost:5000/dope
-        command: ["/usr/bin/dope"]
-        args:
-        - --logtostderr
-        - --run-as-local
-        - -v=1
-        - --discovery-interval=30s
-        - --cache-flush-interval=240s
-EOF
-
-echo -e "\n Apply test namespace to K3s cluster"
-k3s kubectl apply -f namespace.yaml
+echo -e "\n Apply ci inference to K3s cluster"
+k3s kubectl apply -f inference.yaml
 
 echo -e "\n Apply test experiments to K3s cluster"
 k3s kubectl apply -f ./../experiments/
