@@ -35,9 +35,9 @@ func (r *TaskRunner) deleteAll() (*types.TaskStatus, error) {
 	}
 	err = client.
 		Namespace(r.Task.DeleteAll.State.GetNamespace()).
-		Delete(
-			r.Task.DeleteAll.State.GetKind(),
+		DeleteCollection(
 			&metav1.DeleteOptions{},
+			metav1.ListOptions{},
 		)
 	if err != nil {
 		return nil, err
