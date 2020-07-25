@@ -10,7 +10,7 @@ import (
 
 func (r *TaskRunner) deleteAll() (*types.TaskStatus, error) {
 	var message = fmt.Sprintf(
-		"Delete: Resource %s %s: GVK %s",
+		"DeleteAll: Resource %s %s: GVK %s",
 		r.Task.DeleteAll.State.GetNamespace(),
 		r.Task.DeleteAll.State.GetAPIVersion(),
 		r.Task.DeleteAll.State.GetKind(),

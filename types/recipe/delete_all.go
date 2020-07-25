@@ -20,7 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-// DeleteAll deletes the state found in the cluster
+// DeleteAll deletes all the resouces present in the given namespace
 type DeleteAll struct {
 	// Desired state that needs to be deleted
 	State *unstructured.Unstructured `json:"state"`
