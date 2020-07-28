@@ -4,7 +4,7 @@ metadata:
   name: assert-recipe-teardown
   namespace: d-testing
   labels:
-    d-testing.dope.metacontroller.io/enabled: "true"
+    d-testing.dope.metacontroller.io/inference: "true"
 spec:
   tasks:
   - name: create-a-recipe-with-teardown-enabled

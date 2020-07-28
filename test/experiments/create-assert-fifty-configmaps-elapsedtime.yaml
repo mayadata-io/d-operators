@@ -1,52 +1,101 @@
 apiVersion: dope.metacontroller.io/v1
 kind: Recipe
 metadata:
-  name: create-fifty-configmaps
+  name: create-fifty-configmaps-in-time
   namespace: d-testing
+  labels:
+    i-create-50-configs: "true"
+    i-am-tested-if-creation-of-configs-happen-in-time: "true"
 spec:
   tasks:
+  # This task creates 50 config maps
+  # The names of these config maps are suffixed
+  # with numbers 
+  #
+  # NOTE:
+  #   Following config maps will get created:
+  # - create-cm-in-time-0,
+  # - create-cm-in-time-1,
+  # ...
+  # - create-cm-in-time-48,
+  # - create-cm-in-time-49
+  #
+  # NOTE:
+  #   Task will error out if any of these config maps
+  # already exist in the cluster
   - name: create-fifty-configmaps
     create: 
       state: 
         kind: ConfigMap
         apiVersion: v1
         metadata:
-          name: create-cm-elapsed-time
+          name: create-cm-in-time
           namespace: d-testing
       replicas: 50
 ---
 apiVersion: dope.metacontroller.io/v1
 kind: Recipe
 metadata:
-  name: assert-creation-of-fifty-configmaps-elapsed-time
+  name: assert-creation-of-fifty-configmaps-in-time
   namespace: d-testing
   labels:
-    d-testing.dope.metacontroller.io/enabled: "true"
+    d-testing.dope.metacontroller.io/inference: "true"
 spec:
+  # This will delay the start of execution of this Recipe based
+  # on the specified time
+  #
+  # NOTE:
+  #   This think time should be sufficient to let all 
+  # experiments (read Recipes used as test cases) get executed
+  #
+  # NOTE:
+  #   In other words, we want this Recipe to execute its tasks
+  # after waiting for the specified time
+  thinkTimeInSeconds: 10.0001
+  # This Recipe is eligible to run only when the checks succeed
+  #
+  # NOTE:
+  #   In this case, this Recipe will be eligible only after the
+  # number of Recipes with matching labels equal the given count
+  #
+  # NOTE:
+  #   Eligibility check will get triggered after above think time 
+  # has elapsed
+  eligible:
+    checks:
+    - labelSelector:
+        matchLabels:
+          i-create-50-configs: "true"
+          i-am-tested-if-creation-of-configs-happen-in-time: "true"
+        matchLabelExpressions:
+        - key: recipe.dope.metacontroller.io/phase
+          operator: Exists
+      when: ListCountEquals
+      count: 1
   tasks:
-  - name: assert-create-fifty-configmaps-recipe-completed
+  - name: assert-completion-of-fifty-configmaps-recipe
     assert: 
       state: 
         kind: Recipe
         apiVersion: dope.metacontroller.io/v1
         metadata:
-          name: create-fifty-configmaps
+          name: create-fifty-configmaps-in-time
           namespace: d-testing
         status:
           phase: Completed
-  - name: assert-creation-of-fifty-configmaps-within-time
+  - name: assert-creation-of-fifty-configmaps-in-time
     assert: 
       state: 
         kind: Recipe
         apiVersion: dope.metacontroller.io/v1
         metadata:
-          name: create-fifty-configmaps
+          name: create-fifty-configmaps-in-time
           namespace: d-testing
       pathCheck:
         path: status.taskListStatus.recipe-elapsed-time.elapsedTimeInSeconds
         pathCheckOperator: LTE
-        # assert if the entire experiment of creating 50 configmaps
-        # completes in around 20 seconds
+        # assert if the recipe to create 50 configmaps
+        # completes within 20 seconds
         value: 20.0001
         dataType: float64
 ---

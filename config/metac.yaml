@@ -1,14 +1,30 @@
-apiVersion: metac.openebs.io/v1alpha1
+apiVersion: dope/v1
 kind: GenericController
 metadata:
   name: sync-recipe
   namespace: dope
 spec:
-  watch: # kind: Recipe custom resource is watched
+  watch: 
+    # kind: Recipe custom resource is watched
     apiVersion: dope.metacontroller.io/v1
     resource: recipes
   hooks:
     sync:
       inline:
         funcName: sync/recipe
+---
+apiVersion: dope/v1
+kind: GenericController
+metadata:
+  name: sync-http
+  namespace: dope
+spec:
+  watch: 
+    # kind: HTTP custom resource is watched
+    apiVersion: dope.metacontroller.io/v1
+    resource: https
+  hooks:
+    sync:
+      inline:
+        funcName: sync/http
 ---

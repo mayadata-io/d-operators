@@ -322,8 +322,8 @@ func TestRunnerRunAllTasks(t *testing.T) {
 				},
 				fixture: f,
 			}
-			r.initEnabled()        // init to avoid nil pointers
-			got, err := r.runAll() // method under test
+			r.initEnabled()             // init to avoid nil pointers
+			got, err := r.runAllTasks() // method under test
 			if mock.isErr && err == nil {
 				t.Fatal("Expected error got none")
 			}

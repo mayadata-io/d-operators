@@ -74,17 +74,24 @@ func (r *Reconciler) evalObservedHTTP() {
 	}
 	r.observedHTTP = &http
 
-	// validate presence of secret
+	// extract secret name if set
 	r.observedSecretName = http.Spec.SecretName
-	if r.observedSecretName == "" {
-		r.Err = errors.Errorf("Missing spec.secretName")
-		return
-	}
+
+	// validate presence of secret
+	// if r.observedSecretName == "" {
+	// 	r.Err = errors.Errorf("Missing spec.secretName")
+	// 	return
+	// }
 }
 
 // evalObservedSecret parses the relevant secret found in Kubernetes
 // cluster. This secret is used to authenticate the request invocation.
 func (r *Reconciler) evalObservedSecret() {
+	if r.observedSecretName == "" {
+		// absence of secret name implies http invocation does not
+		// require authentication
+		return
+	}
 	r.observedSecret = r.HookRequest.Attachments.FindByGroupKindName(
 		"v1",
 		"Secret",
@@ -199,7 +206,7 @@ func (r *Reconciler) handleRuntimeError() {
 // NOTE:
 //	Status forms the core business logic of reconciling a HTTP
 // custom resource.
-func (r *Reconciler) updateWatchStatus() {
+func (r *Reconciler) updateHTTPStatus() {
 	// check for runtime errors
 	if r.Err != nil {
 		r.handleRuntimeError()
@@ -277,7 +284,7 @@ func Sync(request *generic.SyncHookRequest, response *generic.SyncHookResponse) 
 	// NOTE:
 	//	HTTP custom resource is the watch here
 	r.DesiredWatchFns = []func(){
-		r.updateWatchStatus,
+		r.updateHTTPStatus,
 	}
 
 	// run reconcile

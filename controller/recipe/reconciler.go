@@ -74,7 +74,7 @@ func (r *Reconciler) setSyncResponse() {
 	}
 }
 
-func (r *Reconciler) setWatchStatusAsError() {
+func (r *Reconciler) setRecipeStatusAsError() {
 	r.HookResponse.Status = map[string]interface{}{
 		"phase":  "Error",
 		"reason": r.Err.Error(),
@@ -84,7 +84,7 @@ func (r *Reconciler) setWatchStatusAsError() {
 	}
 }
 
-func (r *Reconciler) setWatchStatusFromRecipeStatus() {
+func (r *Reconciler) setRecipeStatus() {
 	r.HookResponse.Status = map[string]interface{}{
 		"phase":           string(r.RecipeStatus.Phase),
 		"reason":          r.RecipeStatus.Reason,
@@ -110,7 +110,7 @@ func (r *Reconciler) setWatchStatus() {
 			r.HookResponse.ResyncAfterSeconds =
 				*r.ObservedRecipe.Spec.Refresh.OnErrorResyncAfterSeconds
 		}
-		r.setWatchStatusAsError()
+		r.setRecipeStatusAsError()
 		return
 	}
 	if r.RecipeStatus.Phase == types.RecipeStatusLocked {
@@ -118,7 +118,7 @@ func (r *Reconciler) setWatchStatus() {
 		// old status will persist
 		return
 	}
-	r.setWatchStatusFromRecipeStatus()
+	r.setRecipeStatus()
 }
 
 // Sync implements the idempotent logic to sync Recipe resource

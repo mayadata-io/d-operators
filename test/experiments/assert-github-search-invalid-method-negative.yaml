@@ -1,0 +1,39 @@
+apiVersion: dope.metacontroller.io/v1
+kind: Recipe
+metadata:
+  name: assert-github-search-with-invalid-method-neg
+  namespace: d-testing
+  labels:
+    d-testing.dope.metacontroller.io/inference: "true"
+spec:
+  tasks:
+  # Start by applying this HTTP resource
+  - name: apply-github-search-with-invalid-method-neg
+    apply: 
+      state: 
+        apiVersion: dope.metacontroller.io/v1
+        kind: HTTP
+        metadata:
+          name: github-search-with-invalid-method-neg
+          namespace: d-testing
+        spec:
+          url: https://github.com/search
+          # This is an invalid value
+          method: GETT
+  # Then assert status of this HTTP resource
+  - name: assert-github-search-with-invalid-method-neg
+    assert: 
+      state: 
+        apiVersion: dope.metacontroller.io/v1
+        kind: HTTP
+        metadata:
+          name: github-search-with-invalid-method-neg
+          namespace: d-testing
+        status:
+          # Phase of this HTTP resource will never be Completed
+          # It will have Error instead
+          #
+          # This is a negative test case
+          # In other words this Recipe will Fail
+          phase: Completed
+---

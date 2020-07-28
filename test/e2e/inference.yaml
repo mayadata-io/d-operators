@@ -1,31 +1,56 @@
 # This is an internal recipe used by test suite runner
-# to evaluate if desired experiments were successful
-# or not
+# to evaluate if desired experiments (read Recipes) were
+# successful or not
+#
+# NOTE:
+#   This Recipe evaluates number of successful, failed &
+# errored Recipes
 apiVersion: dope.metacontroller.io/v1
 kind: Recipe
 metadata:
-  # should match setup.yaml 
-  name: inference # matches spec.test.inference.experimentName
-  namespace: d-testing # matches spec.test.inference.experimentNamespace
+  name: inference
+  namespace: d-testing
   labels:
     d-testing.dope.metacontroller.io/internal: "true"
 spec:
-  # delay start of execution by 30 seconds
-  thinkTimeInSeconds: 30.0001
-  # this experiment is enabled only after all other desired experiments
-  # are executed & are set with status.phase
+  # This will delay the start of execution of this Recipe based
+  # on the specified time
+  #
+  # NOTE:
+  #   This think time should be sufficient to let all 
+  # experiments (read Recipes used as test cases) get executed
+  #
+  # NOTE:
+  #   In other words, we want this Recipe to execute its tasks
+  # after waiting for the specified time
+  #
+  # NOTE:
+  #   This also implies that CI will definitely take this much 
+  # time to decide the result of the CI run
+  thinkTimeInSeconds: 20.0001
+  # This Recipe is eligible to run only when the checks succeed
+  #
+  # NOTE:
+  #   In this case, this Recipe will be eligible only after the
+  # number of Recipes with matching labels equal the given count
+  #
+  # NOTE:
+  #   Eligibility check will get triggered after above think time 
+  # has elapsed
   eligible:
     checks:
     - labelSelector:
         matchLabels:
-          d-testing.dope.metacontroller.io/enabled: "true"
+          d-testing.dope.metacontroller.io/inference: "true"
         matchLabelExpressions:
         - key: recipe.dope.metacontroller.io/phase
           operator: Exists
       when: ListCountEquals
-      count: 6
+      count: 10
   tasks:
-  - name: assert-all-tests-are-completed
+  # Start with asserting the count of Recipes that should 
+  # complete successfully
+  - name: assert-count-of-tests-that-completed
     assert: 
       state: 
         kind: Recipe
@@ -33,12 +58,14 @@ spec:
         metadata:
           namespace: d-testing
           labels:
-            d-testing.dope.metacontroller.io/enabled: "true"
+            d-testing.dope.metacontroller.io/inference: "true"
             recipe.dope.metacontroller.io/phase: Completed
       stateCheck:
         stateCheckOperator: ListCountEquals
-        count: 6
-  - name: assert-no-tests-have-failed
+        # These many Recipes should succeed
+        count: 8
+  # Then assert the count of Recipes that should fail
+  - name: assert-count-of-tests-that-failed
     assert: 
       state: 
         kind: Recipe
@@ -46,12 +73,14 @@ spec:
         metadata:
           namespace: d-testing
           labels:
-            d-testing.dope.metacontroller.io/enabled: "true"
+            d-testing.dope.metacontroller.io/inference: "true"
             recipe.dope.metacontroller.io/phase: Failed
       stateCheck:
         stateCheckOperator: ListCountEquals
-        count: 0
-  - name: assert-no-tests-have-errored
+        # These many Recipes should fail
+        count: 2
+  # Then assert the count of Recipes that should error
+  - name: assert-count-of-tests-that-errored
     assert: 
       state: 
         kind: Recipe
@@ -59,9 +88,10 @@ spec:
         metadata:
           namespace: d-testing
           labels:
-            d-testing.dope.metacontroller.io/enabled: "true"
+            d-testing.dope.metacontroller.io/inference: "true"
             recipe.dope.metacontroller.io/phase: Error
       stateCheck:
         stateCheckOperator: ListCountEquals
+        # These many Recipes should error out
         count: 0
 ---
