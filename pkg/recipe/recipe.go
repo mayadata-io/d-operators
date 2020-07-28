@@ -212,7 +212,7 @@ func (r *Runner) buildLockRunner() *LockRunner {
 }
 
 // evalAll evaluates all tasks
-func (r *Runner) evalAll() error {
+func (r *Runner) evalAllTasks() error {
 	for _, task := range r.Recipe.Spec.Tasks {
 		err := r.eval(task)
 		if err != nil {
@@ -257,7 +257,7 @@ func (r *Runner) addRecipeElapsedTimeInSeconds(elapsedtime float64) {
 }
 
 // runAll runs all the tasks
-func (r *Runner) runAll() (status *types.RecipeStatus, err error) {
+func (r *Runner) runAllTasks() (status *types.RecipeStatus, err error) {
 	defer func() {
 		r.fixture.TearDown()
 	}()
@@ -280,6 +280,9 @@ func (r *Runner) runAll() (status *types.RecipeStatus, err error) {
 		}
 		got, err := tr.Run()
 		if err != nil {
+			// We discontinue executing next tasks
+			// if current task execution resulted in
+			// error
 			return nil, errors.Wrapf(
 				err,
 				"Failed to run task [%d] %q",
@@ -289,6 +292,8 @@ func (r *Runner) runAll() (status *types.RecipeStatus, err error) {
 		}
 		r.RecipeStatus.TaskListStatus[task.Name] = got
 		if got.Phase == types.TaskStatusFailed {
+			// We run subsequent tasks even if current task
+			// failed
 			failedTasks++
 		}
 	}
@@ -360,7 +365,7 @@ func (r *Runner) Run() (status *types.RecipeStatus, err error) {
 	}()
 	r.RecipeStatus.TaskListStatus[r.Recipe.GetName()+"-lock"] = lockstatus
 
-	err = r.evalAll()
+	err = r.evalAllTasks()
 	if err != nil {
 		return nil, err
 	}
@@ -380,5 +385,5 @@ func (r *Runner) Run() (status *types.RecipeStatus, err error) {
 		}, nil
 	}
 
-	return r.runAll()
+	return r.runAllTasks()
 }

@@ -35,10 +35,10 @@ const (
 
 const (
 	// POST based http request
-	POST string = "post"
+	POST string = "POST"
 
 	// GET based http request
-	GET string = "get"
+	GET string = "GET"
 )
 
 // When is a typed definition to determine if HTTP custom resource
@@ -47,14 +47,14 @@ type When string
 
 const (
 	// Always flags the HTTP custom resource to be reconciled always
-	Always When = "always"
+	Always When = "Always"
 
 	// Never disables the HTTP custom resource from being reconciled
-	Never When = "never"
+	Never When = "Never"
 
 	// Once flags the HTTP custom resource to be reconciled only once
 	// This is useful to invoke http requests to create or delete entity
-	Once When = "once"
+	Once When = "Once"
 )
 
 // Enabled determines if HTTP custom resource is enabled to be

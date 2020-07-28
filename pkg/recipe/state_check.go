@@ -184,8 +184,13 @@ func (sc *StateChecking) assertEquals() {
 	sc.retryOnDiff = true
 	success, err := sc.isMergeEqualsObserved(message)
 	if err != nil {
-		sc.err = err
-		return
+		// verify if this was a timeout error
+		if _, ok := err.(*RetryTimeout); !ok {
+			sc.err = err
+			return
+		}
+		// set the timeout error against corresponding status field
+		sc.result.Timeout = err.Error()
 	}
 	// init phase as failed
 	sc.result.Phase = types.StateCheckResultFailed
@@ -209,8 +214,14 @@ func (sc *StateChecking) assertNotEquals() {
 	sc.retryOnEqual = true
 	success, err := sc.isMergeEqualsObserved(message)
 	if err != nil {
-		sc.err = err
-		return
+		// verify if this is a timeout error
+		if _, ok := err.(*RetryTimeout); !ok {
+			// this is a runtime error
+			sc.err = err
+			return
+		}
+		// set timeout error against corresponding status field
+		sc.result.Timeout = err.Error()
 	}
 	// init phase as failed
 	sc.result.Phase = types.StateCheckResultFailed
@@ -251,21 +262,22 @@ func (sc *StateChecking) assertNotFound() {
 				if apierrors.IsNotFound(err) {
 					// phase is set to Passed here
 					phase = types.StateCheckResultPassed
-					// Stop retrying
+					// Stop retrying since resource is not found in the cluster
 					return true, nil
 				}
-				// Keep retrying
+				// Keep retrying since get call errored out
 				return false, err
 			}
 			if len(got.GetFinalizers()) == 0 && got.GetDeletionTimestamp() != nil {
 				phase = types.StateCheckResultWarning
 				warning = fmt.Sprintf(
-					"Marking StateCheck %q to passed: Finalizer count %d: Deletion timestamp %s",
+					"Marking StateCheck %q to passed: Finalizer count %d: Deletion timestamp %q",
 					sc.TaskName,
 					len(got.GetFinalizers()),
 					got.GetDeletionTimestamp(),
 				)
-				// Stop retrying
+				// Stop retrying since Kubernetes has marked the resource
+				// to be deleted
 				return true, nil
 			}
 			// Keep retrying
@@ -274,10 +286,13 @@ func (sc *StateChecking) assertNotFound() {
 		message,
 	)
 	if err != nil {
+		// verify if this is a timeout error
 		if _, ok := err.(*RetryTimeout); !ok {
+			// this is a runtime error
 			sc.err = err
 			return
 		}
+		// set timeout error against corresponding status field
 		sc.result.Timeout = err.Error()
 	}
 	sc.result.Phase = phase
@@ -335,15 +350,18 @@ func (sc *StateChecking) assertListCountEquals() {
 		message,
 	)
 	if err != nil {
+		// verify if this is a timeout error
 		if _, ok := err.(*RetryTimeout); !ok {
+			// this is a runtime error
 			sc.err = err
 			return
 		}
+		// set timeout error against corresponding status field
 		sc.result.Timeout = err.Error()
 	}
 	sc.result.Phase = phase
 	sc.result.Message = message
-	sc.result.Warning = fmt.Sprintf(
+	sc.result.Verbose = fmt.Sprintf(
 		"Expected count %d got %d",
 		*sc.StateCheck.Count,
 		sc.actualListCount,
@@ -377,15 +395,18 @@ func (sc *StateChecking) assertListCountNotEquals() {
 		message,
 	)
 	if err != nil {
+		// verify if this this a timeout error
 		if _, ok := err.(*RetryTimeout); !ok {
+			// this is a runtime error
 			sc.err = err
 			return
 		}
+		// set timeout error against corresponding status field
 		sc.result.Timeout = err.Error()
 	}
 	sc.result.Phase = phase
 	sc.result.Message = message
-	sc.result.Warning = fmt.Sprintf(
+	sc.result.Verbose = fmt.Sprintf(
 		"Expected count %d got %d",
 		*sc.StateCheck.Count,
 		sc.actualListCount,

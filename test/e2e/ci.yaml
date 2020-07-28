@@ -1,8 +1,8 @@
 # This yaml file demonstrates the use of Kubernetes
 # and few custom resources to build a custom CI 
-# infrastructure. In this infrastructure, Kubernetes 
-# is the CI runner and custom resources are the test 
-# cases.
+# framework. In this framework, Kubernetes is the CI
+# runner and custom resources are the test case 
+# implementations.
 --- 
 # d-testing is the Kubernetes namespace that can
 # be used to deploy any test artifacts
@@ -34,6 +34,31 @@ spec:
     shortNames:
     - rcp
     singular: recipe
+  scope: Namespaced
+  subresources:
+    status: {}
+  version: v1
+  versions:
+  - name: v1
+    served: true
+    storage: true
+---
+# HTTP custom resource is used to invoke http request
+# in a declarative way
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+  name: https.dope.metacontroller.io
+spec:
+  group: dope.metacontroller.io
+  names:
+    kind: HTTP
+    listKind: HTTPList
+    plural: https
+    shortNames:
+    - http
+    singular: http
   scope: Namespaced
   subresources:
     status: {}
@@ -86,7 +111,7 @@ metadata:
   name: dope
   namespace: dope
 spec:
-  replicas: 1
+  replicas: 1 # higher value helps in executing experiments faster
   selector:
     matchLabels:
       app.mayadata.io/name: dope
@@ -99,7 +124,8 @@ spec:
       serviceAccountName: dope
       containers:
       - name: dope
-        # this may be replaced by a stable release tag
+        # image may be replaced by a stable release tag
+        # e.g. mayadataio/dope:latest
         #
         # Since dope itself is the target under test, this
         # ci.yaml uses the master build available in the local
@@ -109,6 +135,7 @@ spec:
         args:
         - --logtostderr
         - --run-as-local
-        - -v=1
+        - -v=1 # increasing level will make the ci logs verbose
+        - --workers-count=20 # higher value helps in executing experiments faster
         - --discovery-interval=30s
         - --cache-flush-interval=240s

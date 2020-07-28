@@ -84,9 +84,18 @@ func (phase StateCheckResultPhase) ToAssertResultPhase() AssertStatusPhase {
 
 // StateCheckResult holds the result of StateCheck operation
 type StateCheckResult struct {
-	Phase   StateCheckResultPhase `json:"phase"`
-	Message string                `json:"message,omitempty"`
-	Verbose string                `json:"verbose,omitempty"`
-	Warning string                `json:"warning,omitempty"`
-	Timeout string                `json:"timeout,omitempty"`
+	// status as a pre-defined key word
+	Phase StateCheckResultPhase `json:"phase"`
+
+	// short message
+	Message string `json:"message,omitempty"`
+
+	// detailed message
+	Verbose string `json:"verbose,omitempty"`
+
+	// warning details
+	Warning string `json:"warning,omitempty"`
+
+	// timeout details
+	Timeout string `json:"timeout,omitempty"`
 }

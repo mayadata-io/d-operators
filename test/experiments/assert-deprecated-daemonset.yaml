@@ -4,7 +4,7 @@ metadata:
   name: assert-absence-of-deprecated-daemonsets
   namespace: d-testing
   labels:
-    d-testing.dope.metacontroller.io/enabled: "true"
+    d-testing.dope.metacontroller.io/inference: "true"
 spec:
   tasks:
   - name: assert-daemonset-with-extensions-v1beta1

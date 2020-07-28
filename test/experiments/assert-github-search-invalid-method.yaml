@@ -1,0 +1,40 @@
+apiVersion: dope.metacontroller.io/v1
+kind: Recipe
+metadata:
+  name: assert-github-search-with-invalid-method
+  namespace: d-testing
+  labels:
+    d-testing.dope.metacontroller.io/inference: "true"
+spec:
+  tasks:
+  # Start by applying this HTTP custom resource
+  - name: apply-github-search-with-invalid-method
+    apply: 
+      state: 
+        apiVersion: dope.metacontroller.io/v1
+        kind: HTTP
+        metadata:
+          name: github-search-with-invalid-method
+          namespace: d-testing
+        spec:
+          url: https://github.com/search
+          # Method is set to an invalid value
+          method: GETT
+  # Then assert this HTTP resource
+  - name: assert-github-search-with-invalid-method
+    assert: 
+      state: 
+        apiVersion: dope.metacontroller.io/v1
+        kind: HTTP
+        metadata:
+          name: github-search-with-invalid-method
+          namespace: d-testing
+        status:
+          # This HTTP resource is expected to Error
+          # since its method is set to an invalid value
+          #
+          # NOTE:
+          #   The Recipe will complete successfully since
+          # this assertion is correct
+          phase: Error
+---

@@ -80,16 +80,20 @@ func (i *Invocable) buildStatus(response *resty.Response) types.HTTPResponse {
 // Invoke executes the http request
 func (i *Invocable) Invoke() (types.HTTPResponse, error) {
 	req := resty.New().R().
-		SetBasicAuth(i.Username, i.Password).
 		SetBody(i.Body).
 		SetHeaders(i.Headers).
 		SetQueryParams(i.QueryParams).
 		SetPathParams(i.PathParams)
 
+	// set credentials only if it was provided
+	if i.Username != "" || i.Password != "" {
+		req.SetBasicAuth(i.Username, i.Password)
+	}
+
 	var response *resty.Response
 	var err error
 
-	switch strings.ToLower(i.HTTPMethod) {
+	switch strings.ToUpper(i.HTTPMethod) {
 	case types.POST:
 		response, err = req.Post(i.URL)
 	case types.GET:

@@ -8,12 +8,6 @@ cleanup() {
   echo "++ Clean up started"
   echo "--------------------------"
 
-  echo -e "\n Display $ctrlbin-0 logs"
-  k3s kubectl logs -n $ctrlbin $ctrlbin-0
-
-  echo -e "\n Display status of experiment with name 'inference'"
-  k3s kubectl -n $ns get $group inference -ojson | jq .status || true
-
   echo -e "\n Uninstall K3s"
   /usr/local/bin/k3s-uninstall.sh > uninstall-k3s.txt 2>&1 || true
 
@@ -90,11 +84,11 @@ k3s kubectl get node
 echo -e "\n Apply d-operators based ci to K3s cluster"
 k3s kubectl apply -f ci.yaml
 
-echo -e "\n Apply ci inference to K3s cluster"
-k3s kubectl apply -f inference.yaml
-
 echo -e "\n Apply test experiments to K3s cluster"
 k3s kubectl apply -f ./../experiments/
+
+echo -e "\n Apply ci inference to K3s cluster"
+k3s kubectl apply -f inference.yaml
 
 echo -e "\n Retry 25 times until inference experiment gets executed"
 date
@@ -110,6 +104,12 @@ do
     fi
 done
 date
+
+echo -e "\n Display $ctrlbin-0 logs"
+k3s kubectl logs -n $ctrlbin $ctrlbin-0
+
+echo -e "\n Display status of experiment with name 'inference'"
+k3s kubectl -n $ns get $group inference -ojson | jq .status || true
 
 if [[ "$phase" != "Completed" ]]; then
     echo ""
