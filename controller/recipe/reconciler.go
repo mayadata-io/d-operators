@@ -80,7 +80,7 @@ func (r *Reconciler) setRecipeStatusAsError() {
 		"reason": r.Err.Error(),
 	}
 	r.HookResponse.Labels = map[string]*string{
-		"recipe.dope.metacontroller.io/phase": k8s.StringPtr("Error"),
+		"recipe.dope.mayadata.io/phase": k8s.StringPtr("Error"),
 	}
 }
 
@@ -94,7 +94,7 @@ func (r *Reconciler) setRecipeStatus() {
 		"taskListStatus":  r.RecipeStatus.TaskListStatus,
 	}
 	r.HookResponse.Labels = map[string]*string{
-		"recipe.dope.metacontroller.io/phase": pointer.StringPtr(string(r.RecipeStatus.Phase)),
+		"recipe.dope.mayadata.io/phase": pointer.StringPtr(string(r.RecipeStatus.Phase)),
 	}
 	if r.ObservedRecipe != nil &&
 		r.ObservedRecipe.Spec.Refresh.ResyncAfterSeconds != nil {

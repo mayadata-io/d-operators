@@ -6,7 +6,7 @@ metadata:
 spec:
   watch: 
     # kind: Recipe custom resource is watched
-    apiVersion: dope.metacontroller.io/v1
+    apiVersion: dope.mayadata.io/v1
     resource: recipes
   hooks:
     sync:
@@ -21,7 +21,7 @@ metadata:
 spec:
   watch: 
     # kind: HTTP custom resource is watched
-    apiVersion: dope.metacontroller.io/v1
+    apiVersion: dope.mayadata.io/v1
     resource: https
   hooks:
     sync:

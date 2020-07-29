@@ -24,9 +24,9 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-  name: recipes.dope.metacontroller.io
+  name: recipes.dope.mayadata.io
 spec:
-  group: dope.metacontroller.io
+  group: dope.mayadata.io
   names:
     kind: Recipe
     listKind: RecipeList
@@ -49,9 +49,9 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-  name: https.dope.metacontroller.io
+  name: https.dope.mayadata.io
 spec:
-  group: dope.metacontroller.io
+  group: dope.mayadata.io
   names:
     kind: HTTP
     listKind: HTTPList

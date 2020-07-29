@@ -1,10 +1,10 @@
-apiVersion: dope.metacontroller.io/v1
+apiVersion: dope.mayadata.io/v1
 kind: Recipe
 metadata:
   name: crud-ops-on-pod
   namespace: d-testing
   labels:
-    d-testing.dope.metacontroller.io/inference: "true"
+    d-testing.dope.mayadata.io/inference: "true"
 spec:
   tasks:
   - name: apply-a-namespace
