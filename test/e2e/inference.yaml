@@ -5,13 +5,13 @@
 # NOTE:
 #   This Recipe evaluates number of successful, failed &
 # errored Recipes
-apiVersion: dope.metacontroller.io/v1
+apiVersion: dope.mayadata.io/v1
 kind: Recipe
 metadata:
   name: inference
   namespace: d-testing
   labels:
-    d-testing.dope.metacontroller.io/internal: "true"
+    d-testing.dope.mayadata.io/internal: "true"
 spec:
   # This will delay the start of execution of this Recipe based
   # on the specified time
@@ -41,9 +41,9 @@ spec:
     checks:
     - labelSelector:
         matchLabels:
-          d-testing.dope.metacontroller.io/inference: "true"
+          d-testing.dope.mayadata.io/inference: "true"
         matchLabelExpressions:
-        - key: recipe.dope.metacontroller.io/phase
+        - key: recipe.dope.mayadata.io/phase
           operator: Exists
       when: ListCountEquals
       count: 10
@@ -54,12 +54,12 @@ spec:
     assert: 
       state: 
         kind: Recipe
-        apiVersion: dope.metacontroller.io/v1
+        apiVersion: dope.mayadata.io/v1
         metadata:
           namespace: d-testing
           labels:
-            d-testing.dope.metacontroller.io/inference: "true"
-            recipe.dope.metacontroller.io/phase: Completed
+            d-testing.dope.mayadata.io/inference: "true"
+            recipe.dope.mayadata.io/phase: Completed
       stateCheck:
         stateCheckOperator: ListCountEquals
         # These many Recipes should succeed
@@ -69,12 +69,12 @@ spec:
     assert: 
       state: 
         kind: Recipe
-        apiVersion: dope.metacontroller.io/v1
+        apiVersion: dope.mayadata.io/v1
         metadata:
           namespace: d-testing
           labels:
-            d-testing.dope.metacontroller.io/inference: "true"
-            recipe.dope.metacontroller.io/phase: Failed
+            d-testing.dope.mayadata.io/inference: "true"
+            recipe.dope.mayadata.io/phase: Failed
       stateCheck:
         stateCheckOperator: ListCountEquals
         # These many Recipes should fail
@@ -84,12 +84,12 @@ spec:
     assert: 
       state: 
         kind: Recipe
-        apiVersion: dope.metacontroller.io/v1
+        apiVersion: dope.mayadata.io/v1
         metadata:
           namespace: d-testing
           labels:
-            d-testing.dope.metacontroller.io/inference: "true"
-            recipe.dope.metacontroller.io/phase: Error
+            d-testing.dope.mayadata.io/inference: "true"
+            recipe.dope.mayadata.io/phase: Error
       stateCheck:
         stateCheckOperator: ListCountEquals
         # These many Recipes should error out

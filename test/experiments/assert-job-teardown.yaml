@@ -1,17 +1,17 @@
-apiVersion: dope.metacontroller.io/v1
+apiVersion: dope.mayadata.io/v1
 kind: Recipe
 metadata:
   name: assert-recipe-teardown
   namespace: d-testing
   labels:
-    d-testing.dope.metacontroller.io/inference: "true"
+    d-testing.dope.mayadata.io/inference: "true"
 spec:
   tasks:
   - name: create-a-recipe-with-teardown-enabled
     create: 
       state: 
         kind: Recipe
-        apiVersion: dope.metacontroller.io/v1
+        apiVersion: dope.mayadata.io/v1
         metadata:
           name: recipe-with-teardown-enabled
           namespace: d-testing
@@ -38,7 +38,7 @@ spec:
     assert:
       state:
         kind: Recipe
-        apiVersion: dope.metacontroller.io/v1
+        apiVersion: dope.mayadata.io/v1
         metadata:
           name: recipe-with-teardown-enabled
           namespace: d-testing

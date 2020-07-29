@@ -1,17 +1,17 @@
-apiVersion: dope.metacontroller.io/v1
+apiVersion: dope.mayadata.io/v1
 kind: Recipe
 metadata:
   name: assert-lock-persists-for-recipe-that-runs-once
   namespace: d-testing
   labels:
-    d-testing.dope.metacontroller.io/inference: "true"
+    d-testing.dope.mayadata.io/inference: "true"
 spec:
   tasks:
   - name: create-a-recipe-that-runs-only-once
     create: 
       state: 
         kind: Recipe
-        apiVersion: dope.metacontroller.io/v1
+        apiVersion: dope.mayadata.io/v1
         metadata:
           name: recipe-that-runs-only-once
           namespace: d-testing
@@ -28,7 +28,7 @@ spec:
     assert:
       state:
         kind: Recipe
-        apiVersion: dope.metacontroller.io/v1
+        apiVersion: dope.mayadata.io/v1
         metadata:
           name: recipe-that-runs-only-once
           namespace: d-testing

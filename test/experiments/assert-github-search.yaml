@@ -1,10 +1,10 @@
-apiVersion: dope.metacontroller.io/v1
+apiVersion: dope.mayadata.io/v1
 kind: Recipe
 metadata:
   name: assert-github-search
   namespace: d-testing
   labels:
-    d-testing.dope.metacontroller.io/inference: "true"
+    d-testing.dope.mayadata.io/inference: "true"
 spec:
   tasks:
   # Start by applying this HTTP custom resource
@@ -16,7 +16,7 @@ spec:
   - name: apply-github-search
     apply: 
       state: 
-        apiVersion: dope.metacontroller.io/v1
+        apiVersion: dope.mayadata.io/v1
         kind: HTTP
         metadata:
           name: github-search
@@ -29,7 +29,7 @@ spec:
   - name: assert-github-search
     assert: 
       state: 
-        apiVersion: dope.metacontroller.io/v1
+        apiVersion: dope.mayadata.io/v1
         kind: HTTP
         metadata:
           name: github-search

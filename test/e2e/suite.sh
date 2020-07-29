@@ -42,7 +42,7 @@ echo "--------------------------"
 ctrlbin="dope"
 
 # group that defines the Recipe custom resource
-group="recipes.dope.metacontroller.io"
+group="recipes.dope.mayadata.io"
 
 # Namespace used by inference Recipe custom resource
 ns="d-testing"
