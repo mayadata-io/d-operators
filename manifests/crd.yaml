@@ -21,6 +21,23 @@ spec:
   - name: v1
     served: true
     storage: true
+  additionalPrinterColumns:
+  - name: Age
+    type: date
+    description: Age of this Recipe
+    JSONPath: .metadata.creationTimestamp
+  - name: TimeTaken
+    type: number
+    description: Time taken to execute this Recipe
+    JSONPath: .status.executionTimeInSeconds
+  - name: Status
+    type: string
+    description: Current phase of this Recipe
+    JSONPath: .status.phase
+  - name: Reason
+    type: string
+    description: Description of this phase
+    JSONPath: .status.reason
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition

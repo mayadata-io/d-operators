@@ -215,7 +215,7 @@ func (e *Eligibility) isEligibleCheck() (result bool) {
 		klog.V(3).Infof("IsEligible=%t: %s", result, e.RecipeName)
 	}()
 	if len(e.grants) == 0 {
-		klog.V(1).Infof(
+		klog.V(2).Infof(
 			"Failed to evaluate: No grants found: %s",
 			e.RecipeName,
 		)
@@ -394,11 +394,7 @@ func (e *Eligibility) IsEligible() (ok bool, err error) {
 			islog = true
 			errmsg = err.Error()
 		}
-		if klog.V(3).Enabled() || !ok {
-			// log if log level >= 3 or eligibility has failed
-			islog = true
-		}
-		if !islog {
+		if !klog.V(3).Enabled() || islog {
 			return
 		}
 		logfn := func() string {

@@ -42,6 +42,23 @@ spec:
   - name: v1
     served: true
     storage: true
+  additionalPrinterColumns:
+  - name: Age
+    type: date
+    description: Age of this Recipe
+    JSONPath: .metadata.creationTimestamp
+  - name: TimeTaken
+    type: number
+    description: Time taken to execute this Recipe
+    JSONPath: .status.executionTimeInSeconds
+  - name: Status
+    type: string
+    description: Current phase of this Recipe
+    JSONPath: .status.phase
+  - name: Reason
+    type: string
+    description: Description of this phase
+    JSONPath: .status.reason
 ---
 # HTTP custom resource is used to invoke http request
 # in a declarative way
@@ -138,4 +155,4 @@ spec:
         - -v=1 # increasing level will make the ci logs verbose
         - --workers-count=20 # higher value helps in executing experiments faster
         - --discovery-interval=30s
-        - --cache-flush-interval=240s
+        - --cache-flush-interval=60s # reconciliation interval

@@ -13,21 +13,6 @@ metadata:
   labels:
     d-testing.dope.mayadata.io/internal: "true"
 spec:
-  # This will delay the start of execution of this Recipe based
-  # on the specified time
-  #
-  # NOTE:
-  #   This think time should be sufficient to let all 
-  # experiments (read Recipes used as test cases) get executed
-  #
-  # NOTE:
-  #   In other words, we want this Recipe to execute its tasks
-  # after waiting for the specified time
-  #
-  # NOTE:
-  #   This also implies that CI will definitely take this much 
-  # time to decide the result of the CI run
-  thinkTimeInSeconds: 20.0001
   # This Recipe is eligible to run only when the checks succeed
   #
   # NOTE:
@@ -42,11 +27,15 @@ spec:
     - labelSelector:
         matchLabels:
           d-testing.dope.mayadata.io/inference: "true"
-        matchLabelExpressions:
+        matchExpressions:
         - key: recipe.dope.mayadata.io/phase
           operator: Exists
+        - key: recipe.dope.mayadata.io/phase
+          operator: NotIn
+          values: 
+          - NotEligible
       when: ListCountEquals
-      count: 10
+      count: 11
   tasks:
   # Start with asserting the count of Recipes that should 
   # complete successfully
@@ -63,7 +52,7 @@ spec:
       stateCheck:
         stateCheckOperator: ListCountEquals
         # These many Recipes should succeed
-        count: 8
+        count: 9
   # Then assert the count of Recipes that should fail
   - name: assert-count-of-tests-that-failed
     assert: 

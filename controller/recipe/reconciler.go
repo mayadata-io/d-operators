@@ -17,7 +17,6 @@ limitations under the License.
 package recipe
 
 import (
-	"k8s.io/utils/pointer"
 	"openebs.io/metac/controller/generic"
 	k8s "openebs.io/metac/third_party/kubernetes"
 
@@ -52,73 +51,40 @@ func (r *Reconciler) invoke() {
 			Recipe: *r.ObservedRecipe,
 		},
 	)
-	r.RecipeStatus, r.Err = runner.Run()
+	r.Err = runner.Run()
 }
 
 func (r *Reconciler) setSyncResponse() {
 	// we skip the reconcile always since there are no attachments
 	// to reconcile
 	r.HookResponse.SkipReconcile = true
+	// default skip reason
 	r.SkipReason = "No attachments to reconcile"
-	// update the skip reason for locked recipes
-	if r.RecipeStatus.Phase == types.RecipeStatusLocked {
-		r.SkipReason = r.RecipeStatus.Reason
-	}
-	// set resync period for recipes with errors
-	if r.Err != nil {
-		// resync since this might be a temporary error
-		//
-		// TODO:
-		// 	Might be better to expose this from recipe.spec
-		r.HookResponse.ResyncAfterSeconds = 5.0
-	}
 }
 
 func (r *Reconciler) setRecipeStatusAsError() {
+	if r.ObservedRecipe != nil &&
+		r.ObservedRecipe.Spec.Refresh.OnErrorResyncAfterSeconds != nil {
+		// resync on error based on configuration
+		r.HookResponse.ResyncAfterSeconds =
+			*r.ObservedRecipe.Spec.Refresh.OnErrorResyncAfterSeconds
+	}
 	r.HookResponse.Status = map[string]interface{}{
 		"phase":  "Error",
 		"reason": r.Err.Error(),
 	}
 	r.HookResponse.Labels = map[string]*string{
-		"recipe.dope.mayadata.io/phase": k8s.StringPtr("Error"),
+		types.LblKeyRecipePhase: k8s.StringPtr("Error"),
 	}
 }
 
 func (r *Reconciler) setRecipeStatus() {
-	r.HookResponse.Status = map[string]interface{}{
-		"phase":           string(r.RecipeStatus.Phase),
-		"reason":          r.RecipeStatus.Reason,
-		"message":         r.RecipeStatus.Message,
-		"failedTaskCount": int64(r.RecipeStatus.FailedTaskCount),
-		"taskCount":       int64(r.RecipeStatus.TaskCount),
-		"taskListStatus":  r.RecipeStatus.TaskListStatus,
-	}
-	r.HookResponse.Labels = map[string]*string{
-		"recipe.dope.mayadata.io/phase": pointer.StringPtr(string(r.RecipeStatus.Phase)),
-	}
-	if r.ObservedRecipe != nil &&
-		r.ObservedRecipe.Spec.Refresh.ResyncAfterSeconds != nil {
-		r.HookResponse.ResyncAfterSeconds = *r.ObservedRecipe.Spec.Refresh.ResyncAfterSeconds
-	}
-}
-
-func (r *Reconciler) setWatchStatus() {
 	if r.Err != nil {
-		if r.ObservedRecipe != nil &&
-			r.ObservedRecipe.Spec.Refresh.OnErrorResyncAfterSeconds != nil {
-			// resync based on configuration
-			r.HookResponse.ResyncAfterSeconds =
-				*r.ObservedRecipe.Spec.Refresh.OnErrorResyncAfterSeconds
-		}
+		// reconciler is only concerned about the Recipes that
+		// result in error
 		r.setRecipeStatusAsError()
 		return
 	}
-	if r.RecipeStatus.Phase == types.RecipeStatusLocked {
-		// nothing needs to be done
-		// old status will persist
-		return
-	}
-	r.setRecipeStatus()
 }
 
 // Sync implements the idempotent logic to sync Recipe resource
@@ -133,7 +99,7 @@ func (r *Reconciler) setWatchStatus() {
 func Sync(request *generic.SyncHookRequest, response *generic.SyncHookResponse) error {
 	r := &Reconciler{
 		Reconciler: commonctrl.Reconciler{
-			Name:         "recipe-sync-reconciler",
+			Name:         "sync-recipe",
 			HookRequest:  request,
 			HookResponse: response,
 		},
@@ -146,7 +112,7 @@ func Sync(request *generic.SyncHookRequest, response *generic.SyncHookResponse) 
 	}
 	// add functions to achieve desired watch
 	r.DesiredWatchFns = []func(){
-		r.setWatchStatus,
+		r.setRecipeStatus,
 	}
 	// run reconcile
 	return r.Reconcile()

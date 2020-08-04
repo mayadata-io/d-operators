@@ -318,12 +318,16 @@ func TestRunnerRunAllTasks(t *testing.T) {
 				}),
 				Recipe: mock.recipe,
 				RecipeStatus: &types.RecipeStatus{
-					TaskListStatus: make(map[string]types.TaskStatus),
+					TaskResultList: make(map[string]types.TaskResult),
 				},
 				fixture: f,
+				updateRecipeWithRetriesFn: func() error {
+					// update recipe function is mocked
+					return nil
+				},
 			}
-			r.initEnabled()             // init to avoid nil pointers
-			got, err := r.runAllTasks() // method under test
+			r.initEnabled()        // init to avoid nil pointers
+			err := r.runAllTasks() // method under test
 			if mock.isErr && err == nil {
 				t.Fatal("Expected error got none")
 			}
@@ -333,11 +337,11 @@ func TestRunnerRunAllTasks(t *testing.T) {
 			if mock.isErr {
 				return
 			}
-			if got.Phase != mock.expectedStatusPhase {
+			if r.RecipeStatus.Phase != mock.expectedStatusPhase {
 				t.Fatalf(
 					"Expected status.phase %q got %q",
 					mock.expectedStatusPhase,
-					got.Phase,
+					r.RecipeStatus.Phase,
 				)
 			}
 		})

@@ -88,14 +88,27 @@ const (
 	TaskStatusWarning TaskStatusPhase = "Warning"
 )
 
-// TaskStatus holds task execution details
-type TaskStatus struct {
-	Step                 int             `json:"step"`
-	Phase                TaskStatusPhase `json:"phase"`
-	ElapsedTimeInSeconds *float64        `json:"elapsedTimeInSeconds,omitempty"`
-	Internal             *bool           `json:"internal,omitempty"`
-	Message              string          `json:"message,omitempty"`
-	Verbose              string          `json:"verbose,omitempty"`
-	Warning              string          `json:"warning,omitempty"`
-	Timeout              string          `json:"timeout,omitempty"`
+// TaskStatus holds task specific execution details
+type TaskResult struct {
+	Step               int             `json:"step"`
+	Phase              TaskStatusPhase `json:"phase"`
+	TimeTakenInSeconds *float64        `json:"timeTakenInSeconds,omitempty"`
+	Internal           *bool           `json:"internal,omitempty"`
+	Message            string          `json:"message,omitempty"`
+	Verbose            string          `json:"verbose,omitempty"`
+	Warning            string          `json:"warning,omitempty"`
+	Timeout            string          `json:"timeout,omitempty"`
+}
+
+// String implements the Stringer interface
+func (t TaskResult) String() string {
+	raw, err := json.MarshalIndent(
+		t,
+		" ",
+		".",
+	)
+	if err != nil {
+		panic(err)
+	}
+	return string(raw)
 }

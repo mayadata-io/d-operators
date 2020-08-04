@@ -306,6 +306,8 @@ func (sc *StateChecking) isListCountMatch() (bool, error) {
 		sc.State.GetKind(),
 	)
 	if err != nil {
+		// in-ability to get client implies a discovery
+		// related error
 		return false, &DiscoveryError{err.Error()}
 	}
 	list, err := client.

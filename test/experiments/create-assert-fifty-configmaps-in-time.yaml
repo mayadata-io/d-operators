@@ -41,17 +41,6 @@ metadata:
   labels:
     d-testing.dope.mayadata.io/inference: "true"
 spec:
-  # This will delay the start of execution of this Recipe based
-  # on the specified time
-  #
-  # NOTE:
-  #   This think time should be sufficient to let all 
-  # experiments (read Recipes used as test cases) get executed
-  #
-  # NOTE:
-  #   In other words, we want this Recipe to execute its tasks
-  # after waiting for the specified time
-  thinkTimeInSeconds: 10.0001
   # This Recipe is eligible to run only when the checks succeed
   #
   # NOTE:
@@ -67,9 +56,7 @@ spec:
         matchLabels:
           i-create-50-configs: "true"
           i-am-tested-if-creation-of-configs-happen-in-time: "true"
-        matchLabelExpressions:
-        - key: recipe.dope.mayadata.io/phase
-          operator: Exists
+          recipe.dope.mayadata.io/phase: Completed
       when: ListCountEquals
       count: 1
   tasks:
@@ -92,10 +79,10 @@ spec:
           name: create-fifty-configmaps-in-time
           namespace: d-testing
       pathCheck:
-        path: status.taskListStatus.recipe-elapsed-time.elapsedTimeInSeconds
+        path: status.executionTimeInSeconds
         pathCheckOperator: LTE
         # assert if the recipe to create 50 configmaps
-        # completes within 20 seconds
-        value: 20.0001
+        # completes within 30 seconds
+        value: 30.0001
         dataType: float64
 ---

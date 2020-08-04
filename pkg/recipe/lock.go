@@ -21,6 +21,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog/v2"
 	"mayadata.io/d-operators/common/pointer"
 	types "mayadata.io/d-operators/types/recipe"
 	"openebs.io/metac/dynamic/clientset"
@@ -29,12 +30,14 @@ import (
 // LockRunner executes a lock task
 type LockRunner struct {
 	BaseRunner
-	LockForever        bool
-	Task               types.Task
+	LockForever bool
+	Task        types.Task
+
+	// Number of tasks that are scoped in this lock
 	ProtectedTaskCount int
 }
 
-func (r *LockRunner) delete() (types.TaskStatus, error) {
+func (r *LockRunner) delete() (types.TaskResult, error) {
 	var message = fmt.Sprintf(
 		"Delete: Lock %s %s: GVK %s",
 		r.Task.Apply.State.GetNamespace(),
@@ -57,7 +60,7 @@ func (r *LockRunner) delete() (types.TaskStatus, error) {
 		message,
 	)
 	if err != nil {
-		return types.TaskStatus{}, err
+		return types.TaskResult{}, err
 	}
 	err = client.
 		Namespace(r.Task.Apply.State.GetNamespace()).
@@ -66,9 +69,14 @@ func (r *LockRunner) delete() (types.TaskStatus, error) {
 			&metav1.DeleteOptions{},
 		)
 	if err != nil {
-		return types.TaskStatus{}, err
+		return types.TaskResult{}, err
 	}
-	return types.TaskStatus{
+	klog.V(3).Infof(
+		"Lock deleted successfully: Name %q %q",
+		r.Task.Apply.State.GetNamespace(),
+		r.Task.Apply.State.GetName(),
+	)
+	return types.TaskResult{
 		// last step is always the unlock
 		Step:     r.ProtectedTaskCount + 1,
 		Internal: pointer.Bool(true),
@@ -77,7 +85,7 @@ func (r *LockRunner) delete() (types.TaskStatus, error) {
 	}, nil
 }
 
-func (r *LockRunner) create() (types.TaskStatus, error) {
+func (r *LockRunner) create() (types.TaskResult, error) {
 	var message = fmt.Sprintf(
 		"Create: Lock %s %s: GVK %s",
 		r.Task.Apply.State.GetNamespace(),
@@ -100,7 +108,7 @@ func (r *LockRunner) create() (types.TaskStatus, error) {
 		message,
 	)
 	if err != nil {
-		return types.TaskStatus{}, err
+		return types.TaskResult{}, err
 	}
 	_, err = client.
 		Namespace(r.Task.Apply.State.GetNamespace()).
@@ -109,9 +117,14 @@ func (r *LockRunner) create() (types.TaskStatus, error) {
 			metav1.CreateOptions{},
 		)
 	if err != nil {
-		return types.TaskStatus{}, err
+		return types.TaskResult{}, err
 	}
-	return types.TaskStatus{
+	klog.V(3).Infof(
+		"Lock created successfully: Name %q %q",
+		r.Task.Apply.State.GetNamespace(),
+		r.Task.Apply.State.GetName(),
+	)
+	return types.TaskResult{
 		Step:     0, // 0 is reserved for lock
 		Internal: pointer.Bool(true),
 		Phase:    types.TaskStatusPassed,
@@ -121,30 +134,30 @@ func (r *LockRunner) create() (types.TaskStatus, error) {
 
 // Lock acquires the lock and returns unlock
 func (r *LockRunner) Lock() (
-	types.TaskStatus,
-	func() (types.TaskStatus, error),
+	types.TaskResult,
+	func() (types.TaskResult, error),
 	error,
 ) {
 	lockstatus, err := r.create()
 	if err != nil {
-		return types.TaskStatus{}, nil, err
+		return types.TaskResult{}, nil, err
 	}
 	// build the unlock logic
-	var unlock func() (types.TaskStatus, error)
+	var unlock func() (types.TaskResult, error)
 	if r.LockForever {
-		unlock = func() (types.TaskStatus, error) {
+		unlock = func() (types.TaskResult, error) {
 			// this is a noop if this lock is meant
 			// to be present forever
-			return types.TaskStatus{
+			return types.TaskResult{
 				// last step is always the unlock
 				Step:     r.ProtectedTaskCount + 1,
 				Internal: pointer.Bool(true),
 				Phase:    types.TaskStatusPassed,
-				Message:  "Locked forever",
+				Message:  "Will not unlock: Locked forever",
 			}, nil
 		}
 	} else {
-		// this is a one time lock
+		// this is a one time lock that should be removed
 		unlock = r.delete
 	}
 	return lockstatus, unlock, nil
@@ -152,7 +165,7 @@ func (r *LockRunner) Lock() (
 
 // MustUnlock executes unlock logic without considering
 // at any criteria
-func (r *LockRunner) MustUnlock() (types.TaskStatus, error) {
+func (r *LockRunner) MustUnlock() (types.TaskResult, error) {
 	return r.delete()
 }
 
@@ -163,9 +176,9 @@ func (r *LockRunner) IsLocked() (bool, error) {
 		r.Task.Apply.State.GetKind(),
 	)
 	if err != nil {
-		return r.IsFailFastOnDiscoveryError(), err
+		return false, err
 	}
-	found, err := client.
+	got, err := client.
 		Namespace(r.Task.Apply.State.GetNamespace()).
 		Get(
 			r.Task.Apply.State.GetName(),
@@ -176,5 +189,11 @@ func (r *LockRunner) IsLocked() (bool, error) {
 			return false, nil
 		}
 	}
-	return found != nil, err
+	klog.V(3).Infof(
+		"Lock %q %q: Exists=%t",
+		r.Task.Apply.State.GetNamespace(),
+		r.Task.Apply.State.GetName(),
+		got != nil,
+	)
+	return got != nil, err
 }
