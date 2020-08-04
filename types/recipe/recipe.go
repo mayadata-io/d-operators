@@ -149,6 +149,15 @@ const (
 	// RecipeStatusDisabled implies a disabled Recipe
 	RecipeStatusDisabled RecipeStatusPhase = "Disabled"
 
+	// RecipeStatusNotEligible implies a Recipe that is not
+	// eligible for execution
+	//
+	// NOTE:
+	//	This might be a temporary phase. In other words,
+	// Recipe might be eligible to be executed in subsequent
+	// reconcile attempts.
+	RecipeStatusNotEligible RecipeStatusPhase = "NotEligible"
+
 	// RecipeStatusPassed implies a passed Recipe
 	RecipeStatusPassed RecipeStatusPhase = "Passed"
 
@@ -162,15 +171,33 @@ const (
 	RecipeStatusWarning RecipeStatusPhase = "Warning"
 )
 
+// TaskCount holds various counts related to execution of tasks
+// specified in the Recipe
+type TaskCount struct {
+	Failed  int `json:"failed"`  // Number of failed tasks
+	Skipped int `json:"skipped"` // Number of skipped tasks
+	Total   int `json:"total"`   // Total number of tasks in the Recipe
+}
+
 // RecipeStatus holds the results of all tasks specified
 // in a Recipe
 type RecipeStatus struct {
-	Phase           RecipeStatusPhase     `json:"phase"`
-	Reason          string                `json:"reason,omitempty"`
-	Message         string                `json:"message,omitempty"`
-	FailedTaskCount int                   `json:"failedTaskCount"`
-	TaskCount       int                   `json:"taskCount"`
-	TaskListStatus  map[string]TaskStatus `json:"taskListStatus"`
+	// A single word status
+	// Can be used to compare, assert, etc
+	Phase RecipeStatusPhase `json:"phase"`
+
+	// Short description of the Phase
+	Reason string `json:"reason,omitempty"`
+
+	// Long description of the Phase
+	// Can be used to provide remedial action if any
+	Message string `json:"message,omitempty"`
+
+	// Time taken to execute the Recipe
+	ExecutionTimeInSeconds *float64 `json:"executionTimeInSeconds,omitempty"`
+
+	TaskCount      TaskCount             `json:"taskCount"`
+	TaskResultList map[string]TaskResult `json:"taskResultList"`
 }
 
 // String implements the Stringer interface

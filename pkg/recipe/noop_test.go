@@ -27,33 +27,39 @@ import (
 
 // NoopFixture is a BaseFixture instance useful for unit testing
 var NoopFixture = &BaseFixture{
-
+	// get a dynamic resource client that does nothing
 	getClientForAPIVersionAndKindFn: func(
 		apiversion string,
 		kind string,
 	) (*clientset.ResourceClient, error) {
 		di := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
 		nri := di.Resource(schema.GroupVersionResource{})
+		// we don't care about namespace
 		ri := nri.Namespace("")
 		return &clientset.ResourceClient{
 			ResourceInterface: ri,
-			APIResource:       &dynamicdiscovery.APIResource{},
+			// this is a noop api resource
+			APIResource: &dynamicdiscovery.APIResource{},
 		}, nil
 	},
 
+	// get a dynamic resource client that does nothing
 	getClientForAPIVersionAndResourceFn: func(
 		apiversion string,
 		resource string,
 	) (*clientset.ResourceClient, error) {
 		di := &dynamicfake.FakeDynamicClient{}
 		nri := di.Resource(schema.GroupVersionResource{})
+		// we don't care about namespace
 		ri := nri.Namespace("")
 		return &clientset.ResourceClient{
 			ResourceInterface: ri,
-			APIResource:       &dynamicdiscovery.APIResource{},
+			// this is a noop api resource
+			APIResource: &dynamicdiscovery.APIResource{},
 		}, nil
 	},
 
+	// get a noop api resource
 	getAPIForAPIVersionAndResourceFn: func(
 		apiversion string,
 		resource string,
@@ -64,13 +70,16 @@ var NoopFixture = &BaseFixture{
 
 // NoopConfigMapFixture is a BaseFixture instance useful for unit testing
 var NoopConfigMapFixture = &BaseFixture{
-
+	// get a fake dynamic client that is loaded with
+	// a dummy config map
 	getClientForAPIVersionAndKindFn: func(
 		apiversion string,
 		kind string,
 	) (*clientset.ResourceClient, error) {
 		di := dynamicfake.NewSimpleDynamicClient(
 			runtime.NewScheme(),
+			// this fake dynamic client is loaded with this
+			// dummy configmap
 			&unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"kind":       "ConfigMap",
@@ -93,6 +102,8 @@ var NoopConfigMapFixture = &BaseFixture{
 		}, nil
 	},
 
+	// get a fake dynamic client that is loaded with a
+	// dummy config map
 	getClientForAPIVersionAndResourceFn: func(
 		apiversion string,
 		resource string,
@@ -121,6 +132,7 @@ var NoopConfigMapFixture = &BaseFixture{
 		}, nil
 	},
 
+	// get a noop api resourece
 	getAPIForAPIVersionAndResourceFn: func(
 		apiversion string,
 		resource string,

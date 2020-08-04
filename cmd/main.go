@@ -62,10 +62,11 @@ func main() {
 
 	// controller name & corresponding controller reconcile function
 	var controllers = map[string]generic.InlineInvokeFn{
-		"sync/recipe":    recipe.Sync,
-		"sync/http":      http.Sync,
-		"sync/doperator": doperator.Sync,
-		"sync/run":       run.Sync,
+		"sync/recipe":     recipe.Sync,
+		"finalize/recipe": recipe.Finalize,
+		"sync/http":       http.Sync,
+		"sync/doperator":  doperator.Sync,
+		"sync/run":        run.Sync,
 	}
 	for name, ctrl := range controllers {
 		generic.AddToInlineRegistry(name, ctrl)

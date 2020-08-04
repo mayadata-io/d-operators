@@ -56,7 +56,7 @@ func (r *TaskRunner) isDeleteFromApply() (bool, error) {
 	return false, nil
 }
 
-func (r *TaskRunner) delete() (*types.TaskStatus, error) {
+func (r *TaskRunner) delete() (*types.TaskResult, error) {
 	var message = fmt.Sprintf(
 		"Delete: Resource %s %s: GVK %s",
 		r.Task.Delete.State.GetNamespace(),
@@ -90,13 +90,13 @@ func (r *TaskRunner) delete() (*types.TaskStatus, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &types.TaskStatus{
+	return &types.TaskResult{
 		Phase:   types.TaskStatusPassed,
 		Message: message,
 	}, nil
 }
 
-func (r *TaskRunner) create() (*types.TaskStatus, error) {
+func (r *TaskRunner) create() (*types.TaskResult, error) {
 	c := NewCreator(CreatableConfig{
 		BaseRunner: r.BaseRunner,
 		Create:     r.Task.Create,
@@ -105,7 +105,7 @@ func (r *TaskRunner) create() (*types.TaskStatus, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &types.TaskStatus{
+	return &types.TaskResult{
 		Phase:   got.Phase.ToTaskStatusPhase(),
 		Message: got.Message,
 		Verbose: got.Verbose,
@@ -113,7 +113,7 @@ func (r *TaskRunner) create() (*types.TaskStatus, error) {
 	}, nil
 }
 
-func (r *TaskRunner) deleteFromApply() (*types.TaskStatus, error) {
+func (r *TaskRunner) deleteFromApply() (*types.TaskResult, error) {
 	var message = fmt.Sprintf(
 		"Apply based delete: Resource %s %s: GVK %s",
 		r.Task.Apply.State.GetNamespace(),
@@ -147,7 +147,7 @@ func (r *TaskRunner) deleteFromApply() (*types.TaskStatus, error) {
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// return pass since the observed state is not available
-			return &types.TaskStatus{
+			return &types.TaskResult{
 				Phase:   types.TaskStatusPassed,
 				Message: message,
 			}, nil
@@ -163,13 +163,13 @@ func (r *TaskRunner) deleteFromApply() (*types.TaskStatus, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &types.TaskStatus{
+	return &types.TaskResult{
 		Phase:   types.TaskStatusPassed,
 		Message: message,
 	}, nil
 }
 
-func (r *TaskRunner) assert() (*types.TaskStatus, error) {
+func (r *TaskRunner) assert() (*types.TaskResult, error) {
 	a := NewAsserter(AssertableConfig{
 		BaseRunner: r.BaseRunner,
 		Assert:     r.Task.Assert,
@@ -178,7 +178,7 @@ func (r *TaskRunner) assert() (*types.TaskStatus, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &types.TaskStatus{
+	return &types.TaskResult{
 		Phase:   got.Phase.ToTaskStatusPhase(),
 		Message: got.Message,
 		Verbose: got.Verbose,
@@ -187,7 +187,7 @@ func (r *TaskRunner) assert() (*types.TaskStatus, error) {
 	}, nil
 }
 
-func (r *TaskRunner) apply() (*types.TaskStatus, error) {
+func (r *TaskRunner) apply() (*types.TaskResult, error) {
 	a := NewApplier(
 		ApplyableConfig{
 			BaseRunner: r.BaseRunner,
@@ -198,14 +198,14 @@ func (r *TaskRunner) apply() (*types.TaskStatus, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &types.TaskStatus{
+	return &types.TaskResult{
 		Phase:   got.Phase.ToTaskStatusPhase(),
 		Message: got.Message,
 		Warning: got.Warning,
 	}, nil
 }
 
-func (r *TaskRunner) tryRunAssert() (*types.TaskStatus, bool, error) {
+func (r *TaskRunner) tryRunAssert() (*types.TaskResult, bool, error) {
 	if r.Task.Assert == nil {
 		return nil, false, nil
 	}
@@ -213,7 +213,7 @@ func (r *TaskRunner) tryRunAssert() (*types.TaskStatus, bool, error) {
 	return got, true, err
 }
 
-func (r *TaskRunner) tryRunDelete() (*types.TaskStatus, bool, error) {
+func (r *TaskRunner) tryRunDelete() (*types.TaskResult, bool, error) {
 	if r.Task.Delete == nil || r.Task.Delete.State == nil {
 		return nil, false, nil
 	}
@@ -223,7 +223,7 @@ func (r *TaskRunner) tryRunDelete() (*types.TaskStatus, bool, error) {
 
 }
 
-func (r *TaskRunner) tryRunApply() (*types.TaskStatus, bool, error) {
+func (r *TaskRunner) tryRunApply() (*types.TaskResult, bool, error) {
 	// check if this is delete from Apply action
 	isDel, err := r.isDeleteFromApply()
 	if err != nil {
@@ -240,7 +240,7 @@ func (r *TaskRunner) tryRunApply() (*types.TaskStatus, bool, error) {
 	return got, true, err
 }
 
-func (r *TaskRunner) tryRunCreate() (*types.TaskStatus, bool, error) {
+func (r *TaskRunner) tryRunCreate() (*types.TaskResult, bool, error) {
 	if r.Task.Create == nil || r.Task.Create.State == nil {
 		return nil, false, nil
 	}
@@ -249,9 +249,9 @@ func (r *TaskRunner) tryRunCreate() (*types.TaskStatus, bool, error) {
 }
 
 // Run executes the test step
-func (r *TaskRunner) Run() (types.TaskStatus, error) {
+func (r *TaskRunner) Run() (types.TaskResult, error) {
 	// only one of the probables will run
-	var probables = []func() (*types.TaskStatus, bool, error){
+	var probables = []func() (*types.TaskResult, bool, error){
 		r.tryRunCreate,
 		r.tryRunAssert,
 		r.tryRunDelete,
@@ -262,13 +262,13 @@ func (r *TaskRunner) Run() (types.TaskStatus, error) {
 		if err != nil {
 			if r.Task.IgnoreErrorRule == types.IgnoreErrorAsWarning {
 				// treat error as warning & continue
-				return types.TaskStatus{
+				return types.TaskResult{
 					Step:    r.TaskIndex,
 					Phase:   types.TaskStatusWarning,
 					Warning: err.Error(),
 				}, nil
 			}
-			return types.TaskStatus{}, err
+			return types.TaskResult{}, err
 		}
 		if !hasRun {
 			continue
@@ -276,7 +276,7 @@ func (r *TaskRunner) Run() (types.TaskStatus, error) {
 		got.Step = r.TaskIndex
 		return *got, nil
 	}
-	return types.TaskStatus{}, errors.Errorf(
+	return types.TaskResult{}, errors.Errorf(
 		"Invalid task: Can't determine action",
 	)
 }

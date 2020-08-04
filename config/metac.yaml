@@ -4,14 +4,38 @@ metadata:
   name: sync-recipe
   namespace: dope
 spec:
-  watch: 
-    # kind: Recipe custom resource is watched
+  watch:
     apiVersion: dope.mayadata.io/v1
     resource: recipes
   hooks:
     sync:
       inline:
         funcName: sync/recipe
+---
+apiVersion: dope/v1
+kind: GenericController
+metadata:
+  name: finalize-recipe
+  namespace: dope
+spec:
+  watch: 
+    apiVersion: dope.mayadata.io/v1
+    resource: recipes
+  attachments:
+  - apiVersion: v1
+    resource: configmaps
+    advancedSelector:
+      selectorTerms:
+      # select ConfigMap if its labels has following
+      - matchLabels:
+          recipe.dope.mayadata.io/lock: "true"
+        matchReferenceExpressions:
+        - key: metadata.labels.recipe\.dope\.mayadata\.io/name
+          operator: EqualsWatchName # match this lbl value against watch Name
+  hooks:
+    finalize:
+      inline:
+        funcName: finalize/recipe
 ---
 apiVersion: dope/v1
 kind: GenericController

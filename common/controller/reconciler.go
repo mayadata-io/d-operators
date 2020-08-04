@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/golang/glog"
+	"k8s.io/klog/v2"
 	"openebs.io/metac/controller/generic"
 
 	metacutil "mayadata.io/d-operators/common/metac"
@@ -57,8 +57,8 @@ func (r *Reconciler) validateHook() {
 
 // logSyncStart logs the start of sync
 func (r *Reconciler) logSyncStart() {
-	glog.V(4).Infof(
-		"Starting sync of %s: %s",
+	klog.V(3).Infof(
+		"Starting sync: Controller %q: %s",
 		r.Name,
 		metacutil.GetDetailsFromRequest(r.HookRequest),
 	)
@@ -66,8 +66,8 @@ func (r *Reconciler) logSyncStart() {
 
 // logSyncFinish logs the completion of sync
 func (r *Reconciler) logSyncFinish() {
-	glog.V(4).Infof(
-		"Completed sync of %s: %s: %s",
+	klog.V(3).Infof(
+		"Completed sync: Controller %q: Request %s: Response %s",
 		r.Name,
 		metacutil.GetDetailsFromRequest(r.HookRequest),
 		metacutil.GetDetailsFromResponse(r.HookResponse),
@@ -115,10 +115,9 @@ func (r *Reconciler) handleError() {
 		return
 	}
 	// log this error with context
-	glog.Errorf(
-		"Failed to sync %s: Watch of kind=%s name=%s/%s: %s",
+	klog.Errorf(
+		"Reconcile failed: Controller %q: Name %q %q: Error %s",
 		r.Name,
-		r.HookRequest.Watch.GetKind(),
 		r.HookRequest.Watch.GetNamespace(),
 		r.HookRequest.Watch.GetName(),
 		r.Err.Error(),
@@ -146,11 +145,11 @@ func (r *Reconciler) Reconcile() error {
 			r.updateWatchStatus,
 		}
 	}
-	var allFns = []func(){}
-	allFns = append(allFns, r.PreReconcileFns...)
-	allFns = append(allFns, r.ReconcileFns...)
-	allFns = append(allFns, r.PostReconcileFns...)
-	for _, fn := range allFns {
+	var reconFns = []func(){}
+	reconFns = append(reconFns, r.PreReconcileFns...)
+	reconFns = append(reconFns, r.ReconcileFns...)
+	reconFns = append(reconFns, r.PostReconcileFns...)
+	for _, fn := range reconFns {
 		fn()
 		// post operation checks
 		if r.Fatal != nil {
@@ -161,18 +160,20 @@ func (r *Reconciler) Reconcile() error {
 			// this logs the error thus avoiding panic in the
 			// controller
 			r.handleError()
+			// break out of the reconcile functions
 			break
 		}
 	}
+	// desired watch functions are run even if reconcile functions
+	// result in any error
 	for _, dWatchFn := range r.DesiredWatchFns {
 		dWatchFn()
 	}
 	// check if attachments / children need not be reconciled
 	if r.HookResponse.SkipReconcile {
-		glog.V(3).Infof(
-			"Skipping sync of %s: Watch of kind=%s name=%s/%s: Reason=%s",
+		klog.V(3).Infof(
+			"Will skip reconcile: Controller %q: Name %q %q: %s",
 			r.Name,
-			r.HookRequest.Watch.GetKind(),
 			r.HookRequest.Watch.GetNamespace(),
 			r.HookRequest.Watch.GetName(),
 			r.SkipReason,

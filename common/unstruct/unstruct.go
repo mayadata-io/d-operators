@@ -20,6 +20,7 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/json"
 )
 
 // ToTyped transforms the provided unstruct instance
@@ -39,4 +40,34 @@ func ToTyped(src *unstructured.Unstructured, target interface{}) error {
 		src.UnstructuredContent(),
 		target,
 	)
+}
+
+// MarshalThenUnmarshal marshals the provided src and unmarshals
+// it back into the dest
+func MarshalThenUnmarshal(src map[string]interface{}, dest interface{}) error {
+	data, err := json.Marshal(src)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, dest)
+}
+
+// SetLabels updates the given labels with the ones
+// found in the provided unstructured instance
+func SetLabels(obj *unstructured.Unstructured, lbls map[string]string) {
+	if len(lbls) == 0 {
+		return
+	}
+	if obj == nil || obj.Object == nil {
+		return
+	}
+	got := obj.GetLabels()
+	if got == nil {
+		got = make(map[string]string)
+	}
+	for k, v := range lbls {
+		// update given label against existing
+		got[k] = v
+	}
+	obj.SetLabels(got)
 }

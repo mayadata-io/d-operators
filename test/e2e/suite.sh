@@ -3,6 +3,15 @@
 cleanup() {
   set +e
 
+  echo -e "\n Display $ctrlbin-0 logs"
+  k3s kubectl logs -n $ctrlbin $ctrlbin-0 || true
+
+  echo -e "\n Display status of experiment with name 'inference'"
+  k3s kubectl -n $ns get $group inference -ojson | jq .status || true
+
+  echo -e "\n Display all experiments"
+  k3s kubectl -n $ns get $group || true
+
   echo ""
   echo "--------------------------"
   echo "++ Clean up started"
@@ -90,26 +99,23 @@ k3s kubectl apply -f ./../experiments/
 echo -e "\n Apply ci inference to K3s cluster"
 k3s kubectl apply -f inference.yaml
 
-echo -e "\n Retry 25 times until inference experiment gets executed"
+echo -e "\n List configmaps if any in namespace $ns"
+k3s kubectl get configmaps -n $ns
+
+echo -e "\n Retry 50 times until inference experiment gets executed"
 date
 phase=""
-for i in {1..25}
+for i in {1..50}
 do
     phase=$(k3s kubectl -n $ns get $group inference -o=jsonpath='{.status.phase}')
     echo -e "Attempt $i: Inference status: status.phase='$phase'"
-    if [[ "$phase" == "" ]]; then
+    if [[ "$phase" == "" ]] || [[ "$phase" == "NotEligible" ]]; then
         sleep 5 # Sleep & retry since experiment is in-progress
     else
         break # Abandon this loop since phase is set
     fi
 done
 date
-
-echo -e "\n Display $ctrlbin-0 logs"
-k3s kubectl logs -n $ctrlbin $ctrlbin-0
-
-echo -e "\n Display status of experiment with name 'inference'"
-k3s kubectl -n $ns get $group inference -ojson | jq .status || true
 
 if [[ "$phase" != "Completed" ]]; then
     echo ""
