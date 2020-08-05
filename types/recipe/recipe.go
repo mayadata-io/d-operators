@@ -103,14 +103,25 @@ type RecipeSpec struct {
 	ThinkTimeInSeconds *float64  `json:"thinkTimeInSeconds,omitempty"`
 	Enabled            *Enabled  `json:"enabled,omitempty"`
 	Eligible           *Eligible `json:"eligible,omitempty"`
-	Refresh            Refresh   `json:"refresh,omitempty"`
+	Resync             Resync    `json:"resync,omitempty"`
 	Tasks              []Task    `json:"tasks"`
 }
 
-// Refresh options to reconcile Recipe
-type Refresh struct {
-	ResyncAfterSeconds        *float64 `json:"resyncAfterSeconds,omitempty"`
-	OnErrorResyncAfterSeconds *float64 `json:"onErrorResyncAfterSeconds,omitempty"`
+// Resync options to continously reconcile the Recipe instance
+type Resync struct {
+	// IntervalInSeconds triggers the next reconciliation of this
+	// Recipe based on this interval
+	IntervalInSeconds *float64 `json:"intervalInSeconds,omitempty"`
+
+	// OnErrorResyncInSeconds triggers the next reconciliation of
+	// the Recipe based on this interval if Recipe's status.phase
+	// was set to Error
+	OnErrorResyncInSeconds *float64 `json:"onErrorResyncInSeconds,omitempty"`
+
+	// OnNotEligibleResyncInSeconds triggers the next reconciliation
+	// of the Recipe based on this interval if Recipe's status.phase
+	// was set to NotEligible
+	OnNotEligibleResyncInSeconds *float64 `json:"onNotEligibleResyncInSeconds,omitempty"`
 }
 
 // Enabled defines if the recipe is enabled to be executed
@@ -147,6 +158,10 @@ const (
 	RecipeStatusLocked RecipeStatusPhase = "Locked"
 
 	// RecipeStatusDisabled implies a disabled Recipe
+	//
+	// NOTE:
+	//	This might be a temporary phase. This may require
+	// some form of intervention to move out of this phase.
 	RecipeStatusDisabled RecipeStatusPhase = "Disabled"
 
 	// RecipeStatusNotEligible implies a Recipe that is not

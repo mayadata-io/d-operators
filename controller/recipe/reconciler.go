@@ -31,7 +31,9 @@ type Reconciler struct {
 	commonctrl.Reconciler
 
 	ObservedRecipe *types.Recipe
-	RecipeStatus   *types.RecipeStatus
+
+	// resulting status after executing the observed Recipe
+	recipeRunStatus types.RecipeStatus
 }
 
 func (r *Reconciler) eval() {
@@ -51,7 +53,7 @@ func (r *Reconciler) invoke() {
 			Recipe: *r.ObservedRecipe,
 		},
 	)
-	r.Err = runner.Run()
+	r.recipeRunStatus, r.Err = runner.Run()
 }
 
 func (r *Reconciler) setSyncResponse() {
@@ -62,12 +64,44 @@ func (r *Reconciler) setSyncResponse() {
 	r.SkipReason = "No attachments to reconcile"
 }
 
-func (r *Reconciler) setRecipeStatusAsError() {
-	if r.ObservedRecipe != nil &&
-		r.ObservedRecipe.Spec.Refresh.OnErrorResyncAfterSeconds != nil {
-		// resync on error based on configuration
+func (r *Reconciler) setRecipeStatusFromResult() {
+	if r.ObservedRecipe == nil {
+		// nothing needs to be done
+		return
+	}
+	if r.recipeRunStatus.Phase == types.RecipeStatusNotEligible &&
+		r.ObservedRecipe.Spec.Resync.OnNotEligibleResyncInSeconds != nil {
+		// set configured resync interval when Recipe's phase
+		// is set to NotEligible
 		r.HookResponse.ResyncAfterSeconds =
-			*r.ObservedRecipe.Spec.Refresh.OnErrorResyncAfterSeconds
+			*r.ObservedRecipe.Spec.Resync.OnNotEligibleResyncInSeconds
+
+		// Further logic should not be executed
+		//
+		// NOTE:
+		//	Setting resync interval when phase is set to NotEligible
+		// holds more priority
+		return
+	}
+	if r.ObservedRecipe.Spec.Resync.IntervalInSeconds != nil {
+		// set configured resync interval during normal conditions
+		//
+		// NOTE:
+		// 	This is set when Recipe's phase is NOT IN following phases:
+		// - NotEligible
+		// - Error
+		r.HookResponse.ResyncAfterSeconds =
+			*r.ObservedRecipe.Spec.Resync.IntervalInSeconds
+	}
+}
+
+func (r *Reconciler) setRecipeStatusFromError() {
+	if r.ObservedRecipe != nil &&
+		r.ObservedRecipe.Spec.Resync.OnErrorResyncInSeconds != nil {
+		// set configured resync interval when Recipe's phase
+		// is set to Error
+		r.HookResponse.ResyncAfterSeconds =
+			*r.ObservedRecipe.Spec.Resync.OnErrorResyncInSeconds
 	}
 	r.HookResponse.Status = map[string]interface{}{
 		"phase":  "Error",
@@ -82,9 +116,11 @@ func (r *Reconciler) setRecipeStatus() {
 	if r.Err != nil {
 		// reconciler is only concerned about the Recipes that
 		// result in error
-		r.setRecipeStatusAsError()
+		r.setRecipeStatusFromError()
 		return
 	}
+	// normal conditions i.e. when non error conditions
+	r.setRecipeStatusFromResult()
 }
 
 // Sync implements the idempotent logic to sync Recipe resource

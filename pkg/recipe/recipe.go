@@ -238,24 +238,6 @@ func (r *Runner) mayBePassedOrCompletedStatus() types.RecipeStatusPhase {
 	return types.RecipeStatusPassed
 }
 
-// func (r *Runner) getAPIDiscovery() *metacdiscovery.APIResourceDiscovery {
-// 	// if !r.hasCRDTask {
-// 	klog.V(3).Infof("Using metac api discovery instance")
-// 	return metac.KubeDetails.GetMetacAPIDiscovery()
-// 	// }
-
-// 	// TODO
-// 	//	If we need a api discovery with more frequent refreshes
-// 	// then we might use below. We need to stop the discovery
-// 	// once this Recipe instance is done.
-// 	//
-// 	// klog.V(3).Infof("Using new instance of api discovery")
-// 	// // return a discovery that refreshes more frequently
-// 	// apiDiscovery := metac.KubeDetails.NewAPIDiscovery()
-// 	// apiDiscovery.Start(5 * time.Second)
-// 	// return apiDiscovery
-// }
-
 // updateRecipeWithRetries updates the kubernetes cluster with
 // desired recipe
 func (r *Runner) updateRecipeWithRetries() error {
@@ -277,12 +259,10 @@ func (r *Runner) updateRecipeWithRetries() error {
 	}
 
 	status := map[string]interface{}{
-		"phase":     string(r.RecipeStatus.Phase),
-		"reason":    r.RecipeStatus.Reason,
-		"message":   r.RecipeStatus.Message,
-		"taskCount": r.RecipeStatus.TaskCount,
-		// "failedTaskCount":        int64(r.RecipeStatus.TaskCount.Failed),
-		// "totalTaskCount":         int64(r.RecipeStatus.TaskCount.Total),
+		"phase":                  string(r.RecipeStatus.Phase),
+		"reason":                 r.RecipeStatus.Reason,
+		"message":                r.RecipeStatus.Message,
+		"taskCount":              r.RecipeStatus.TaskCount,
 		"executionTimeInSeconds": r.RecipeStatus.ExecutionTimeInSeconds,
 		"taskListStatus":         r.RecipeStatus.TaskResultList,
 	}
@@ -298,6 +278,7 @@ func (r *Runner) updateRecipeWithRetries() error {
 	}
 
 	labels := map[string]string{
+		// this label key is set with same value as that of status.phase
 		types.LblKeyRecipePhase: string(r.RecipeStatus.Phase),
 	}
 
@@ -492,10 +473,10 @@ func (r *Runner) runAllTasks() (err error) {
 }
 
 // Run executes the tasks in a sequential order
-func (r *Runner) Run() (err error) {
+func (r *Runner) Run() (status types.RecipeStatus, err error) {
 	err = r.init()
 	if err != nil {
-		return err
+		return types.RecipeStatus{}, err
 	}
 	// proceed further by verifying the presence of LOCK
 	//
@@ -507,7 +488,7 @@ func (r *Runner) Run() (err error) {
 	lockrunner := r.buildLockRunner()
 	locked, err := lockrunner.IsLocked()
 	if err != nil {
-		return errors.Wrapf(
+		return types.RecipeStatus{}, errors.Wrapf(
 			err,
 			"Verify lock failed: Recipe %q %q: Status %q %q",
 			r.Recipe.GetNamespace(),
@@ -524,7 +505,9 @@ func (r *Runner) Run() (err error) {
 			r.Recipe.Status.Phase,
 			r.Recipe.Status.Reason,
 		)
-		return nil
+		return types.RecipeStatus{
+			Phase: types.RecipeStatusLocked,
+		}, nil
 	}
 
 	klog.V(2).Infof(
@@ -538,7 +521,7 @@ func (r *Runner) Run() (err error) {
 	// Start executing by taking a LOCK
 	_, unlock, err := lockrunner.Lock()
 	if err != nil {
-		return errors.Wrapf(
+		return types.RecipeStatus{}, errors.Wrapf(
 			err,
 			"Create lock failed: Recipe %q %q: Status %q %q",
 			r.Recipe.Namespace,
@@ -604,6 +587,7 @@ func (r *Runner) Run() (err error) {
 				r.Recipe.Status.Reason,
 				unlockerr.Error(),
 			)
+			// return the executed state
 			return
 		}
 		klog.V(3).Infof(
@@ -618,8 +602,8 @@ func (r *Runner) Run() (err error) {
 
 	err = r.evalAllTasks()
 	if err != nil {
-		return err
+		return types.RecipeStatus{}, err
 	}
 
-	return r.runAllTasks()
+	return *r.RecipeStatus, r.runAllTasks()
 }
