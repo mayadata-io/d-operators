@@ -84,10 +84,10 @@ sudo make e2e-test
 - [ ] kind: RecipeGroupReport
 - [ ] kind: RecipeDebug
 - [ ] kind: Blueprint
-- [-] kind: Validation
+- [ ] kind: Validation
 - [ ] kind: CodeCov
-- [-] kind: HTTP
+- [ ] kind: HTTP
 - [ ] kind: HTTPFlow
-- [-] kind: Command
+- [ ] kind: Command
 - [ ] kind: DaemonJob
 - [ ] kind: UberLoop
