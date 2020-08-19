@@ -48,9 +48,9 @@ spec:
     description: Age of this Recipe
     JSONPath: .metadata.creationTimestamp
   - name: TimeTaken
-    type: number
+    type: string
     description: Time taken to execute this Recipe
-    JSONPath: .status.executionTimeInSeconds
+    JSONPath: .status.executionTime.readableValue
   - name: Status
     type: string
     description: Current phase of this Recipe

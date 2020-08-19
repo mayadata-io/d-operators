@@ -47,15 +47,23 @@ type FieldPathValidation struct {
 
 	// Nested field paths that are supported by this
 	// unstructured object's schema
-	SupportedPaths []string
+	//
+	// NOTE:
+	//	Each field path set here should represent its absolute
+	// field path
+	SupportedAbsolutePaths []string
 
 	// The path prefixes that can be ignored if it fails
 	// validation
 	//
-	// For example: 'metadata.labels' & 'metadata.annotations'
+	// For Example:
+	//	'metadata.labels' & 'metadata.annotations'
 	// can have any nested field name(s). In other words,
 	// metadata.labels.app is valid & so is metadata.labels.xyz
 	// since app as well as xyz are not managed by the schema.
+	//
+	// NOTE:
+	//	Each prefix set here must end with a dot i.e. `.`
 	UserAllowedPathPrefixes []string
 
 	// map of field to supported nested paths
@@ -68,19 +76,32 @@ type FieldPathValidation struct {
 	verbose []string
 }
 
-func (v *FieldPathValidation) Error() string {
-	if len(v.failures) == 0 {
+// FieldPathValidationStatus conveys the status of field path
+// based validation
+type FieldPathValidationStatus string
+
+const (
+	// FieldPathValidationStatusValid conveys a successful validation
+	FieldPathValidationStatusValid FieldPathValidationStatus = "Valid"
+
+	// FieldPathValidationStatusInvalid conveys a failed validation
+	FieldPathValidationStatusInvalid FieldPathValidationStatus = "Invalid"
+)
+
+// FieldPathValidationResult is used to convey the results of
+// validation
+type FieldPathValidationResult struct {
+	Status   FieldPathValidationStatus `json:"status"`
+	Failures []ErrorMessage            `json:"failures,omitempty"`
+	Verbose  []string                  `json:"verbose,omitempty"`
+}
+
+func (v *FieldPathValidationResult) Error() string {
+	if len(v.Failures) == 0 {
 		return ""
 	}
-	var msg = struct {
-		Fails   []ErrorMessage `json:"failures"`
-		Verbose []string       `json:"verbose,omitempty"`
-	}{
-		Fails:   v.failures,
-		Verbose: v.verbose,
-	}
 	raw, err := json.MarshalIndent(
-		msg,
+		*v,
 		" ",
 		".",
 	)
@@ -104,32 +125,44 @@ func (v *FieldPathValidation) isSupportedPath(fieldPath string) bool {
 	// - spec.employees.[1].name with spec.employees.[*].name
 	// - spec.employees.[10].name with spec.employees.[*].name
 	re := regexp.MustCompile(`\[([0-9]+)\]`)
-	regexFieldPath := re.ReplaceAllString(fieldPath, "[*]")
+	targetFieldPath := re.ReplaceAllString(fieldPath, "[*]")
 
 	ok := func() bool {
 		for _, allowedPathPrefix := range v.UserAllowedPathPrefixes {
-			if strings.HasPrefix(regexFieldPath, allowedPathPrefix) {
-				// return true if fieldpath starts with user allowed
-				// field paths
+			if strings.HasPrefix(targetFieldPath, allowedPathPrefix) {
+				// return true if any allowed fieldpath prefix is a prefix
+				// of target fieldpath
 				return true
 			}
 		}
-		for _, supportedPath := range v.SupportedPaths {
-			if strings.HasPrefix(supportedPath, regexFieldPath) {
-				// return true if fieldpath is a prefix of any supported
-				// paths
+		for _, absolutePath := range v.SupportedAbsolutePaths {
+			// An EXACT match implies logic is evaluating the given
+			// fieldpath as the leaf field (i.e. field that does not
+			// nest further)
+			//
+			// _OR_
+			//
+			// a PREFIX based match, i.e. the given fieldpath is part
+			// of the absolute path
+			if absolutePath == targetFieldPath ||
+				strings.HasPrefix(
+					absolutePath,
+					fmt.Sprintf("%s.", targetFieldPath), // ends with a dot
+				) {
+				// return true if target fieldpath matches the prefix of any
+				// supported fieldpaths
 				return true
 			}
 		}
 		return false
 	}()
-	if !ok && fieldPath != regexFieldPath {
+	if !ok && fieldPath != targetFieldPath {
 		v.verbose = append(
 			v.verbose,
 			fmt.Sprintf(
 				"FieldPath %q was regex-ed as %q",
 				fieldPath,
-				regexFieldPath,
+				targetFieldPath,
 			),
 		)
 	}
@@ -144,7 +177,7 @@ func (v *FieldPathValidation) getSupportedPathsForField(fieldName string) []stri
 	if v.fieldToSupportedPaths == nil {
 		// one time initialization
 		v.fieldToSupportedPaths = make(map[string][]string)
-		for _, supportedPath := range v.SupportedPaths {
+		for _, supportedPath := range v.SupportedAbsolutePaths {
 			if strings.Contains(supportedPath, fieldName) {
 				v.fieldToSupportedPaths[fieldName] = append(
 					v.fieldToSupportedPaths[fieldName],
@@ -272,9 +305,28 @@ func (v *FieldPathValidation) validateFieldPathsOfArray(fieldPath string, given 
 // validate runs field path validations for specific data types
 //
 // NOTE:
-// It supports data types understood by k8s.io's unstructured
-// instance.
+// It supports following data types:
+// - map[string]interface{}
+// - []interface{}
+// - any scalar i.e. golang primitive type
 func (v *FieldPathValidation) validate(fieldPath string, given interface{}) {
+	for _, allowedPathPrefix := range v.UserAllowedPathPrefixes {
+		// allowed path prefixes should end with dot i.e. '.'
+		if !strings.HasSuffix(allowedPathPrefix, ".") {
+			v.failures = append(
+				v.failures,
+				ErrorMessage{
+					Error: fmt.Sprintf(
+						"Invalid path prefix %q", allowedPathPrefix,
+					),
+					Remedy: "Path prefix should end with a dot i.e. '.'",
+				},
+			)
+		}
+	}
+	if len(v.failures) != 0 {
+		return
+	}
 	switch givenVal := given.(type) {
 	case map[string]interface{}:
 		v.validateFieldPathsOfMap(fieldPath, givenVal)
@@ -291,10 +343,17 @@ func (v *FieldPathValidation) validate(fieldPath string, given interface{}) {
 }
 
 // Validate validates the provided object against its supported paths
-func (v *FieldPathValidation) Validate() error {
+func (v *FieldPathValidation) Validate() *FieldPathValidationResult {
 	v.validate("", v.Target)
 	if len(v.failures) == 0 {
-		return nil
+		// no validation errors; hence valid schema
+		return &FieldPathValidationResult{
+			Status: FieldPathValidationStatusValid,
+		}
 	}
-	return v
+	return &FieldPathValidationResult{
+		Status:   FieldPathValidationStatusInvalid,
+		Failures: v.failures,
+		Verbose:  v.verbose,
+	}
 }

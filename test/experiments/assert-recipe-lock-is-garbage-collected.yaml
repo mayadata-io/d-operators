@@ -1,10 +1,10 @@
 apiVersion: dope.mayadata.io/v1
 kind: Recipe
 metadata:
-  name: create-recipe-to-verify-its-lock-garbage-collection
+  name: create-recipe-to-verify-its-lock-is-garbage-collected
   namespace: d-testing
   labels:
-    create-recipe-to-verify-its-lock-garbage-collection: "true"
+    create-recipe-to-verify-its-lock-is-garbage-collected: "true"
 spec:
   tasks:
   - name: create-a-recipe
@@ -42,10 +42,12 @@ spec:
     checks:
     - labelSelector:
         matchLabels:
-          create-recipe-to-verify-its-lock-garbage-collection: "true"
+          create-recipe-to-verify-its-lock-is-garbage-collected: "true"
           recipe.dope.mayadata.io/phase: Completed
       when: ListCountEquals
       count: 1
+  resync:
+    onNotEligibleResyncInSeconds: 5
   tasks:
   - name: assert-presence-of-recipe-lock
     assert:
@@ -92,6 +94,8 @@ spec:
           recipe.dope.mayadata.io/name: my-lock-is-garbage-collected
       when: ListCountEquals
       count: 0
+  resync:
+    onNotEligibleResyncInSeconds: 5
   tasks:
   - name: re-assert-recipe-lock-was-deleted
     assert:
