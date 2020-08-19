@@ -88,16 +88,25 @@ const (
 	TaskStatusWarning TaskStatusPhase = "Warning"
 )
 
-// TaskStatus holds task specific execution details
+// TaskCount holds various counts related to execution of tasks
+// specified in the Recipe
+type TaskCount struct {
+	Failed  int `json:"failed"`  // Number of failed tasks
+	Skipped int `json:"skipped"` // Number of skipped tasks
+	Warning int `json:"warning"` // Number of tasks with warnings
+	Total   int `json:"total"`   // Total number of tasks in the Recipe
+}
+
+// TaskResult holds task specific execution details
 type TaskResult struct {
-	Step               int             `json:"step"`
-	Phase              TaskStatusPhase `json:"phase"`
-	TimeTakenInSeconds *float64        `json:"timeTakenInSeconds,omitempty"`
-	Internal           *bool           `json:"internal,omitempty"`
-	Message            string          `json:"message,omitempty"`
-	Verbose            string          `json:"verbose,omitempty"`
-	Warning            string          `json:"warning,omitempty"`
-	Timeout            string          `json:"timeout,omitempty"`
+	Step          int             `json:"step"`
+	Phase         TaskStatusPhase `json:"phase"`
+	ExecutionTime *ExecutionTime  `json:"executionTime,omitempty"`
+	Internal      *bool           `json:"internal,omitempty"`
+	Message       string          `json:"message,omitempty"`
+	Verbose       string          `json:"verbose,omitempty"`
+	Warning       string          `json:"warning,omitempty"`
+	Timeout       string          `json:"timeout,omitempty"`
 }
 
 // String implements the Stringer interface

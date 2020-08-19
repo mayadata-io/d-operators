@@ -78,9 +78,9 @@ func TestValidationError(t *testing.T) {
 		name := name
 		mock := mock
 		t.Run(name, func(t *testing.T) {
-			v := &FieldPathValidation{
-				failures: mock.Fails,
-				verbose:  mock.Verbose,
+			v := &FieldPathValidationResult{
+				Failures: mock.Fails,
+				Verbose:  mock.Verbose,
 			}
 			got := v.Error()
 			if mock.ExpectNonEmptyMsg && got == "" {
@@ -95,54 +95,55 @@ func TestValidationError(t *testing.T) {
 
 func TestValidationIsSupportedPath(t *testing.T) {
 	var tests = map[string]struct {
-		FieldPath      string
-		SupportedPaths []string
-		IsSupported    bool
+		FieldPath               string
+		SupportedAbsolutePaths  []string
+		UserAllowedPathPrefixes []string
+		IsSupported             bool
 	}{
 		"No field path & No Supported path": {},
 		"No field path": {
-			SupportedPaths: []string{
+			SupportedAbsolutePaths: []string{
 				"spec.metadata.labels",
 			},
 		},
 		"starts with metadata as field path": {
 			FieldPath: "metadata",
-			SupportedPaths: []string{
+			SupportedAbsolutePaths: []string{
 				"metadata.labels",
 			},
 			IsSupported: true,
 		},
 		"with metadata as field path": {
 			FieldPath: "metadata",
-			SupportedPaths: []string{
+			SupportedAbsolutePaths: []string{
 				"metadata",
 			},
 			IsSupported: true,
 		},
 		"with spec.employees1.name as field path": {
 			FieldPath: "spec.employees1.name",
-			SupportedPaths: []string{
+			SupportedAbsolutePaths: []string{
 				"spec.employees1.name",
 			},
 			IsSupported: true,
 		},
 		"starts with spec.employees12.emp as field path": {
 			FieldPath: "spec.employees12.emp",
-			SupportedPaths: []string{
+			SupportedAbsolutePaths: []string{
 				"spec.employees12.emp.name",
 			},
 			IsSupported: true,
 		},
 		"with spec.employees.[1] as field path - negative": {
 			FieldPath: "spec.employees.[1]",
-			SupportedPaths: []string{
+			SupportedAbsolutePaths: []string{
 				"spec.employees",
 				"spec.employees.name",
 			},
 		},
 		"with spec.employees.[1] as field path": {
 			FieldPath: "spec.employees.[1]",
-			SupportedPaths: []string{
+			SupportedAbsolutePaths: []string{
 				"spec.employees.[*]",
 				"spec.employees.[*].name",
 			},
@@ -150,7 +151,7 @@ func TestValidationIsSupportedPath(t *testing.T) {
 		},
 		"with spec.employees.[1].name as field path - negative": {
 			FieldPath: "spec.employees.[1].name",
-			SupportedPaths: []string{
+			SupportedAbsolutePaths: []string{
 				"spec.employees.[*]",
 				"spec.employees.[*].id",
 				"spec.employees.[*].age",
@@ -158,45 +159,90 @@ func TestValidationIsSupportedPath(t *testing.T) {
 		},
 		"with spec.employees.[11].name as field path": {
 			FieldPath: "spec.employees.[11].name",
-			SupportedPaths: []string{
+			SupportedAbsolutePaths: []string{
 				"spec.employees.[*].name",
 			},
 			IsSupported: true,
 		},
 		"starts with spec.employees.[11].emp as field path": {
 			FieldPath: "spec.employees.[11].emp",
-			SupportedPaths: []string{
+			SupportedAbsolutePaths: []string{
 				"spec.employees.[*].emp.age",
 			},
 			IsSupported: true,
 		},
 		"with spec.employees.[111].emp as field path": {
 			FieldPath: "spec.employees.[111].emp",
-			SupportedPaths: []string{
+			SupportedAbsolutePaths: []string{
 				"spec.employees.[*].emp",
 			},
 			IsSupported: true,
 		},
 		"starts with spec.employees.[111].emp as field path": {
 			FieldPath: "spec.employees.[111].emp",
-			SupportedPaths: []string{
+			SupportedAbsolutePaths: []string{
 				"spec.employees.[*].emp.name",
 			},
 			IsSupported: true,
 		},
+		"starts with spec.employee as field path - partial match - negative": {
+			FieldPath: "spec.emp",
+			SupportedAbsolutePaths: []string{
+				"spec.employee",
+			},
+		},
+		"starts with spec.employees.[111].emp as field path - partial match - negative": {
+			FieldPath: "spec.employees.[111].emp",
+			SupportedAbsolutePaths: []string{
+				"spec.employees.[*].employee.name",
+			},
+		},
 		"with spec.lob.[111].employees.[1] as field path": {
 			FieldPath: "spec.lob.[111].employees.[1]",
-			SupportedPaths: []string{
+			SupportedAbsolutePaths: []string{
 				"spec.lob.[*].employees.[*]",
 			},
 			IsSupported: true,
 		},
 		"starts with spec.lob.[111].employees.[1] as field path": {
 			FieldPath: "spec.lob.[111].employees.[1]",
-			SupportedPaths: []string{
+			SupportedAbsolutePaths: []string{
 				"spec.lob.[*].employees.[*].id",
 			},
 			IsSupported: true,
+		},
+		"any path starting with status is supported": {
+			FieldPath:               "status.schema.failures.[11].msg.[1]",
+			UserAllowedPathPrefixes: []string{"status."},
+			IsSupported:             true,
+		},
+		"any path starting with metadata is supported": {
+			FieldPath:               "metadata.name",
+			UserAllowedPathPrefixes: []string{"metadata."},
+			IsSupported:             true,
+		},
+		"any finalizer is supported": {
+			FieldPath:               "metadata.finalizers",
+			UserAllowedPathPrefixes: []string{"metadata."},
+			IsSupported:             true,
+		},
+		"any path starting with status.schema is supported": {
+			FieldPath:               "status.schema.failures.[11].msg.[1]",
+			UserAllowedPathPrefixes: []string{"status.schema."},
+			IsSupported:             true,
+		},
+		"any path starting with status.schema is supported - negative": {
+			FieldPath:               "status.tasks.failures.[11].msg.[1]",
+			UserAllowedPathPrefixes: []string{"status.schema."},
+		},
+		"any path starting with status.schema.failures is supported": {
+			FieldPath:               "status.schema.failures.[11].msg.[1]",
+			UserAllowedPathPrefixes: []string{"status.schema.failures."},
+			IsSupported:             true,
+		},
+		"any path starting with status.schema.failures is supported - negative": {
+			FieldPath:               "status.schema.verbose.[11].msg.[1]",
+			UserAllowedPathPrefixes: []string{"status.schema.failures."},
 		},
 	}
 	for name, mock := range tests {
@@ -204,7 +250,8 @@ func TestValidationIsSupportedPath(t *testing.T) {
 		mock := mock
 		t.Run(name, func(t *testing.T) {
 			v := &FieldPathValidation{
-				SupportedPaths: mock.SupportedPaths,
+				SupportedAbsolutePaths:  mock.SupportedAbsolutePaths,
+				UserAllowedPathPrefixes: mock.UserAllowedPathPrefixes,
 			}
 			got := v.isSupportedPath(mock.FieldPath)
 			if mock.IsSupported != got {
@@ -219,7 +266,7 @@ func TestValidationIsSupportedPath(t *testing.T) {
 }
 
 func TestValidationGetSupportedPathsForField(t *testing.T) {
-	var supportedPaths = []string{
+	var supportedAbsolutePaths = []string{
 		"metadata.labels",
 		"metadata.annotations",
 		"spec.replicas",
@@ -271,7 +318,7 @@ func TestValidationGetSupportedPathsForField(t *testing.T) {
 		mock := mock
 		t.Run(name, func(t *testing.T) {
 			v := &FieldPathValidation{
-				SupportedPaths: supportedPaths,
+				SupportedAbsolutePaths: supportedAbsolutePaths,
 			}
 			got := v.getSupportedPathsForField(mock.FieldName)
 			eq := stringutil.NewEquality(got, mock.ExpectedSupportedPaths)
@@ -286,7 +333,7 @@ func TestValidationGetSupportedPathsForField(t *testing.T) {
 }
 
 func TestValidationGetRemedyMsgForField(t *testing.T) {
-	var supportedPaths = []string{
+	var supportedAbsolutePaths = []string{
 		"metadata.labels",
 		"metadata.annotations",
 		"spec.replicas",
@@ -322,7 +369,7 @@ func TestValidationGetRemedyMsgForField(t *testing.T) {
 		mock := mock
 		t.Run(name, func(t *testing.T) {
 			v := &FieldPathValidation{
-				SupportedPaths: supportedPaths,
+				SupportedAbsolutePaths: supportedAbsolutePaths,
 			}
 			got := v.getRemedyMsgForField("", mock.FieldName)
 			if mock.IsEmptyMsg && got != "" {
@@ -336,7 +383,7 @@ func TestValidationGetRemedyMsgForField(t *testing.T) {
 }
 
 func TestValidationValidateFieldPath(t *testing.T) {
-	var supportedPaths = []string{
+	var supportedAbsolutePaths = []string{
 		"metadata.labels",
 		"metadata.annotations",
 		"spec.replicas",
@@ -389,7 +436,7 @@ func TestValidationValidateFieldPath(t *testing.T) {
 		mock := mock
 		t.Run(name, func(t *testing.T) {
 			v := &FieldPathValidation{
-				SupportedPaths: supportedPaths,
+				SupportedAbsolutePaths: supportedAbsolutePaths,
 			}
 			v.validateFieldPaths(mock.FieldPath)
 			if mock.ExpectFailures && len(v.failures) == 0 {
@@ -543,7 +590,9 @@ func TestValidationMakeMapFromList(t *testing.T) {
 }
 
 func TestValidationValidateFieldPathsOfMap(t *testing.T) {
-	var supportedPaths = []string{
+	var supportedAbsolutePaths = []string{
+		"metadata.labels",
+		"metadata.annotations",
 		"spec.replicas",
 		"spec.containers",
 		"status.phase",
@@ -663,15 +712,19 @@ func TestValidationValidateFieldPathsOfMap(t *testing.T) {
 		mock := mock
 		t.Run(name, func(t *testing.T) {
 			v := &FieldPathValidation{
-				SupportedPaths: supportedPaths,
+				SupportedAbsolutePaths: supportedAbsolutePaths,
 				UserAllowedPathPrefixes: []string{
-					"metadata.labels",
-					"metadata.annotations",
+					"metadata.labels.",
+					"metadata.annotations.",
 				},
 			}
 			v.validateFieldPathsOfMap(mock.BasePath, mock.Given)
+			result := &FieldPathValidationResult{
+				Failures: v.failures,
+				Verbose:  v.verbose,
+			}
 			if mock.IsValid && len(v.failures) != 0 {
-				t.Fatalf("Expected valid map got: \n%s", v.Error())
+				t.Fatalf("Expected valid map got: \n%s", result)
 			}
 			if !mock.IsValid && len(v.failures) == 0 {
 				t.Fatalf("Expected invalid map got none")
@@ -681,7 +734,7 @@ func TestValidationValidateFieldPathsOfMap(t *testing.T) {
 }
 
 func TestValidationValidateFieldPathsOfListViaMap(t *testing.T) {
-	var supportedPaths = []string{
+	var supportedAbsolutePaths = []string{
 		"spec.replicas",
 		"spec.containers",
 		"status.phase",
@@ -760,15 +813,19 @@ func TestValidationValidateFieldPathsOfListViaMap(t *testing.T) {
 		mock := mock
 		t.Run(name, func(t *testing.T) {
 			v := &FieldPathValidation{
-				SupportedPaths: supportedPaths,
+				SupportedAbsolutePaths: supportedAbsolutePaths,
 				UserAllowedPathPrefixes: []string{
-					"metadata.labels",
-					"metadata.annotations",
+					"metadata.labels.",
+					"metadata.annotations.",
 				},
 			}
 			v.validateFieldPathsOfListViaMap(mock.BasePath, mock.Given)
+			result := &FieldPathValidationResult{
+				Failures: v.failures,
+				Verbose:  v.verbose,
+			}
 			if mock.IsValid && len(v.failures) != 0 {
-				t.Fatalf("Expected valid list got: \n%s", v.Error())
+				t.Fatalf("Expected valid list got: \n%s", result)
 			}
 			if !mock.IsValid && len(v.failures) == 0 {
 				t.Fatalf("Expected invalid list got none")
@@ -778,7 +835,7 @@ func TestValidationValidateFieldPathsOfListViaMap(t *testing.T) {
 }
 
 func TestValidationValidateFieldPathsOfArray(t *testing.T) {
-	var supportedPaths = []string{
+	var supportedAbsolutePaths = []string{
 		"spec.tags", // scalar list
 		"spec.replicas",
 		"spec.containers.[*].name",  // list of maps
@@ -901,15 +958,19 @@ func TestValidationValidateFieldPathsOfArray(t *testing.T) {
 		mock := mock
 		t.Run(name, func(t *testing.T) {
 			v := &FieldPathValidation{
-				SupportedPaths: supportedPaths,
+				SupportedAbsolutePaths: supportedAbsolutePaths,
 				UserAllowedPathPrefixes: []string{
-					"metadata.labels",
-					"metadata.annotations",
+					"metadata.labels.",
+					"metadata.annotations.",
 				},
 			}
 			v.validateFieldPathsOfArray(mock.BasePath, mock.Given)
+			result := &FieldPathValidationResult{
+				Failures: v.failures,
+				Verbose:  v.verbose,
+			}
 			if mock.IsValid && len(v.failures) != 0 {
-				t.Fatalf("Expected valid array got: \n%s", v.Error())
+				t.Fatalf("Expected valid array got: \n%s", result)
 			}
 			if !mock.IsValid && len(v.failures) == 0 {
 				t.Fatalf("Expected invalid array got none")
@@ -919,7 +980,7 @@ func TestValidationValidateFieldPathsOfArray(t *testing.T) {
 }
 
 func TestValidationValidatePrivate(t *testing.T) {
-	var supportedPaths = []string{
+	var supportedAbsolutePaths = []string{
 		"spec.tags", // scalar list
 		"spec.replicas",
 		"spec.containers.[*].name",  // list of maps
@@ -1063,15 +1124,19 @@ func TestValidationValidatePrivate(t *testing.T) {
 		mock := mock
 		t.Run(name, func(t *testing.T) {
 			v := &FieldPathValidation{
-				SupportedPaths: supportedPaths,
+				SupportedAbsolutePaths: supportedAbsolutePaths,
 				UserAllowedPathPrefixes: []string{
-					"metadata.labels",
-					"metadata.annotations",
+					"metadata.labels.",
+					"metadata.annotations.",
 				},
 			}
 			v.validate(mock.BasePath, mock.Given)
+			result := &FieldPathValidationResult{
+				Failures: v.failures,
+				Verbose:  v.verbose,
+			}
 			if mock.IsValid && len(v.failures) != 0 {
-				t.Fatalf("Expected valid schema got: \n%s", v.Error())
+				t.Fatalf("Expected valid schema got: \n%s", result)
 			}
 			if !mock.IsValid && len(v.failures) == 0 {
 				t.Fatalf("Expected invalid schema got none")
@@ -1081,7 +1146,7 @@ func TestValidationValidatePrivate(t *testing.T) {
 }
 
 func TestValidationValidate(t *testing.T) {
-	var supportedPaths = []string{
+	var supportedAbsolutePaths = []string{
 		"spec.tags", // scalar list
 		"spec.replicas",
 		"spec.containers.[*].name",  // list of maps
@@ -1228,19 +1293,213 @@ func TestValidationValidate(t *testing.T) {
 		mock := mock
 		t.Run(name, func(t *testing.T) {
 			v := &FieldPathValidation{
-				Target:         mock.Given,
-				SupportedPaths: supportedPaths,
+				Target:                 mock.Given,
+				SupportedAbsolutePaths: supportedAbsolutePaths,
 				UserAllowedPathPrefixes: []string{
-					"metadata.labels",
-					"metadata.annotations",
+					"metadata.labels.",
+					"metadata.annotations.",
 				},
 			}
 			got := v.Validate()
-			if mock.IsValid && got != nil {
-				t.Fatalf("Expected valid schema got: \n%s", got.Error())
+			if mock.IsValid && got.Status != FieldPathValidationStatusValid {
+				t.Fatalf("Expected valid schema got: \n%s", got)
 			}
-			if !mock.IsValid && got == nil {
-				t.Fatalf("Expected invalid schema got none")
+			if !mock.IsValid && got.Status == FieldPathValidationStatusValid {
+				t.Fatalf("Expected invalid schema got \n%s", got)
+			}
+		})
+	}
+}
+
+func TestValidationValidateUserAllowedPathPrefixes(t *testing.T) {
+	var supportedAbsolutePaths = []string{
+		"spec.tags", // scalar list
+		"spec.replicas",
+		"spec.containers.[*].name",  // list of maps
+		"spec.containers.[*].image", // list of maps
+		"status.phase",
+		"status.replicas.[*].running", // list of maps
+	}
+	var tests = map[string]struct {
+		Given                   map[string]interface{}
+		UserAllowedPathPrefixes []string
+		IsValid                 bool
+	}{
+		// ---------------------------------------
+		// spec.tags
+		// ---------------------------------------
+		"valid scalar list spec.tags": {
+			Given: map[string]interface{}{
+				"spec": map[string]interface{}{
+					"tags": []interface{}{
+						"hi",
+						"there",
+						"how-do-you-do",
+					},
+				},
+			},
+			IsValid: true,
+		},
+		// ---------------------------------------
+		// spec.replicas
+		// ---------------------------------------
+		"valid spec.replicas": {
+			Given: map[string]interface{}{
+				"spec": map[string]interface{}{
+					"replicas": 1,
+				},
+			},
+			IsValid: true,
+		},
+		// ---------------------------------------
+		// status.replicas.[*].running
+		// ---------------------------------------
+		"invalid list based path status.replicas.running": {
+			Given: map[string]interface{}{
+				"status": map[string]interface{}{
+					"replicas": map[string]interface{}{
+						"running": 1,
+					},
+				},
+			},
+		},
+		"valid list based path status.replicas.[*].running": {
+			Given: map[string]interface{}{
+				"status": map[string]interface{}{
+					"replicas": []interface{}{
+						map[string]interface{}{
+							"running": true,
+						},
+						map[string]interface{}{
+							"running": false,
+						},
+					},
+				},
+			},
+			IsValid: true,
+		},
+		// -------------------------------------
+		// spec.containers.[*].image
+		// spec.containers.[*].name
+		// -------------------------------------
+		"invalid list based path spec.containers.[*].desc": {
+			Given: map[string]interface{}{
+				"spec": map[string]interface{}{
+					"containers": []interface{}{
+						map[string]interface{}{
+							"name":  "my-nginx-con",
+							"image": "nginx",
+							"desc":  "nginx",
+						},
+						map[string]interface{}{
+							"image": "dope",
+						},
+					},
+				},
+			},
+		},
+		"valid list based path spec.containers.[*].image": {
+			Given: map[string]interface{}{
+				"spec": map[string]interface{}{
+					"containers": []interface{}{
+						map[string]interface{}{
+							"name":  "my-nginx-con",
+							"image": "nginx",
+						},
+						map[string]interface{}{
+							"image": "dope",
+						},
+					},
+				},
+			},
+			IsValid: true,
+		},
+		// ---------------------------------------
+		// metadata.labels
+		// ---------------------------------------
+		"valid metadata.labels": {
+			Given: map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"labels": map[string]interface{}{
+						"app": "dope",
+					},
+				},
+			},
+			UserAllowedPathPrefixes: []string{
+				"metadata.labels.",
+			},
+			IsValid: true,
+		},
+		"invalid metadata.labels user allowed path prefixx": {
+			Given: map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"labels": map[string]interface{}{
+						"app": "dope",
+					},
+				},
+			},
+			UserAllowedPathPrefixes: []string{
+				"metadata.labels", // missing dot as suffix
+			},
+		},
+		"invalid labels": {
+			Given: map[string]interface{}{
+				"labels": map[string]interface{}{
+					"app": "dope",
+				},
+			},
+		},
+		// ---------------------------------------
+		// metadata.annotations
+		// ---------------------------------------
+		"valid metadata.annotations": {
+			Given: map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"annotations": map[string]interface{}{
+						"app": "dope",
+					},
+				},
+			},
+			UserAllowedPathPrefixes: []string{
+				"metadata.annotations.",
+			},
+			IsValid: true,
+		},
+		"invalid metadata.annotations user allowed path prefixx": {
+			Given: map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"annotations": map[string]interface{}{
+						"app": "dope",
+					},
+				},
+			},
+			UserAllowedPathPrefixes: []string{
+				"metadata.annotations", // missing dot as suffix
+			},
+		},
+		"invalid annotations": {
+			Given: map[string]interface{}{
+				"annotations": map[string]interface{}{
+					"app": "dope",
+				},
+			},
+		},
+	}
+	for name, mock := range tests {
+		name := name
+		mock := mock
+		t.Run(name, func(t *testing.T) {
+			v := &FieldPathValidation{
+				Target:                  mock.Given,
+				SupportedAbsolutePaths:  supportedAbsolutePaths,
+				UserAllowedPathPrefixes: mock.UserAllowedPathPrefixes,
+			}
+			got := v.Validate()
+			if mock.IsValid && got.Status != FieldPathValidationStatusValid {
+				t.Fatalf("Expected valid schema got: \n%s", got)
+			}
+			if !mock.IsValid && got.Status == FieldPathValidationStatusValid {
+				t.Fatalf("Expected invalid schema got \n%s", got)
 			}
 		})
 	}

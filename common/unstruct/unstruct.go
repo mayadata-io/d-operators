@@ -44,7 +44,7 @@ func ToTyped(src *unstructured.Unstructured, target interface{}) error {
 
 // MarshalThenUnmarshal marshals the provided src and unmarshals
 // it back into the dest
-func MarshalThenUnmarshal(src map[string]interface{}, dest interface{}) error {
+func MarshalThenUnmarshal(src interface{}, dest interface{}) error {
 	data, err := json.Marshal(src)
 	if err != nil {
 		return err

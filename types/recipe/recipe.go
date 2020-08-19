@@ -100,7 +100,7 @@ type Recipe struct {
 // executing this Recipe
 type RecipeSpec struct {
 	Teardown           *bool     `json:"teardown,omitempty"`
-	ThinkTimeInSeconds *float64  `json:"thinkTimeInSeconds,omitempty"`
+	ThinkTimeInSeconds *int64    `json:"thinkTimeInSeconds,omitempty"`
 	Enabled            *Enabled  `json:"enabled,omitempty"`
 	Eligible           *Eligible `json:"eligible,omitempty"`
 	Resync             Resync    `json:"resync,omitempty"`
@@ -111,17 +111,17 @@ type RecipeSpec struct {
 type Resync struct {
 	// IntervalInSeconds triggers the next reconciliation of this
 	// Recipe based on this interval
-	IntervalInSeconds *float64 `json:"intervalInSeconds,omitempty"`
+	IntervalInSeconds *int64 `json:"intervalInSeconds,omitempty"`
 
 	// OnErrorResyncInSeconds triggers the next reconciliation of
 	// the Recipe based on this interval if Recipe's status.phase
 	// was set to Error
-	OnErrorResyncInSeconds *float64 `json:"onErrorResyncInSeconds,omitempty"`
+	OnErrorResyncInSeconds *int64 `json:"onErrorResyncInSeconds,omitempty"`
 
 	// OnNotEligibleResyncInSeconds triggers the next reconciliation
 	// of the Recipe based on this interval if Recipe's status.phase
 	// was set to NotEligible
-	OnNotEligibleResyncInSeconds *float64 `json:"onNotEligibleResyncInSeconds,omitempty"`
+	OnNotEligibleResyncInSeconds *int64 `json:"onNotEligibleResyncInSeconds,omitempty"`
 }
 
 // Enabled defines if the recipe is enabled to be executed
@@ -164,6 +164,9 @@ const (
 	// some form of intervention to move out of this phase.
 	RecipeStatusDisabled RecipeStatusPhase = "Disabled"
 
+	// RecipeStatusInvalidSchema implies an invalid Recipe schema
+	RecipeStatusInvalidSchema RecipeStatusPhase = "InvalidSchema"
+
 	// RecipeStatusNotEligible implies a Recipe that is not
 	// eligible for execution
 	//
@@ -186,12 +189,11 @@ const (
 	RecipeStatusWarning RecipeStatusPhase = "Warning"
 )
 
-// TaskCount holds various counts related to execution of tasks
-// specified in the Recipe
-type TaskCount struct {
-	Failed  int `json:"failed"`  // Number of failed tasks
-	Skipped int `json:"skipped"` // Number of skipped tasks
-	Total   int `json:"total"`   // Total number of tasks in the Recipe
+// ExecutionTime represents the time taken to execute
+// a Recipe, Task, etc
+type ExecutionTime struct {
+	ValueInSeconds float64 `json:"valueInSeconds"`
+	ReadableValue  string  `json:"readableValue"`
 }
 
 // RecipeStatus holds the results of all tasks specified
@@ -208,11 +210,18 @@ type RecipeStatus struct {
 	// Can be used to provide remedial action if any
 	Message string `json:"message,omitempty"`
 
-	// Time taken to execute the Recipe
-	ExecutionTimeInSeconds *float64 `json:"executionTimeInSeconds,omitempty"`
+	// Schema contains the result of validations run
+	// against this Recipe's schema
+	Schema *SchemaResult `json:"schema,omitempty"`
 
-	TaskCount      TaskCount             `json:"taskCount"`
-	TaskResultList map[string]TaskResult `json:"taskResultList"`
+	// Time taken to execute the Recipe
+	ExecutionTime *ExecutionTime `json:"executionTime,omitempty"`
+
+	// Counts related to tasks with various phases
+	TaskCount *TaskCount `json:"taskCount,omitempty"`
+
+	// Detailed results of individual tasks
+	TaskResults map[string]TaskResult `json:"tasks,omitempty"`
 }
 
 // String implements the Stringer interface

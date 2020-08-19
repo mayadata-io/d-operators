@@ -25,23 +25,25 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/pointer"
 	"mayadata.io/d-operators/common/unstruct"
+	"mayadata.io/d-operators/pkg/schema"
 	types "mayadata.io/d-operators/types/recipe"
 	metac "openebs.io/metac/start"
 )
 
 // RunnerConfig helps constructing new Runner instances
 type RunnerConfig struct {
-	Recipe types.Recipe
-	Retry  *Retryable
+	Recipe                    types.Recipe
+	FieldPathValidationResult schema.FieldPathValidationResult
+	Retry                     *Retryable
 }
 
 // Runner helps executing a Recipe
 type Runner struct {
-	Recipe       types.Recipe
-	RecipeStatus *types.RecipeStatus
-	Retry        *Retryable
+	Recipe                    types.Recipe
+	FieldPathValidationResult schema.FieldPathValidationResult
+	RecipeStatus              *types.RecipeStatus
+	Retry                     *Retryable
 
 	fixture    *Fixture
 	isTearDown bool
@@ -67,10 +69,11 @@ func NewRunner(config RunnerConfig) *Runner {
 		retry = config.Retry
 	}
 	return &Runner{
-		isTearDown: isTearDown,
-		Recipe:     config.Recipe,
+		isTearDown:                isTearDown,
+		Recipe:                    config.Recipe,
+		FieldPathValidationResult: config.FieldPathValidationResult,
 		RecipeStatus: &types.RecipeStatus{
-			TaskResultList: map[string]types.TaskResult{},
+			TaskResults: map[string]types.TaskResult{},
 		},
 		Retry: retry,
 	}
@@ -220,6 +223,30 @@ func (r *Runner) buildLockRunner() *LockRunner {
 	}
 }
 
+func (r *Runner) validateSchema() {
+	getValidationFailures := func() []types.SchemaFailure {
+		var out []types.SchemaFailure
+		for _, failure := range r.FieldPathValidationResult.Failures {
+			out = append(out, types.SchemaFailure{
+				Error:  failure.Error,
+				Remedy: failure.Remedy,
+			})
+		}
+		return out
+	}
+	// validation of schema is already done by the caller code
+	// this logic sets up the status fields for validation failures
+	// only
+	if r.FieldPathValidationResult.Status == schema.FieldPathValidationStatusInvalid {
+		r.RecipeStatus.Phase = types.RecipeStatusInvalidSchema
+		r.RecipeStatus.Schema = &types.SchemaResult{
+			Phase:    types.SchemaStatusInvalid,
+			Failures: getValidationFailures(),
+			Verbose:  r.FieldPathValidationResult.Verbose,
+		}
+	}
+}
+
 // evalAll evaluates all tasks
 func (r *Runner) evalAllTasks() error {
 	for _, task := range r.Recipe.Spec.Tasks {
@@ -258,16 +285,8 @@ func (r *Runner) updateRecipeWithRetries() error {
 		)
 	}
 
-	status := map[string]interface{}{
-		"phase":                  string(r.RecipeStatus.Phase),
-		"reason":                 r.RecipeStatus.Reason,
-		"message":                r.RecipeStatus.Message,
-		"taskCount":              r.RecipeStatus.TaskCount,
-		"executionTimeInSeconds": r.RecipeStatus.ExecutionTimeInSeconds,
-		"taskListStatus":         r.RecipeStatus.TaskResultList,
-	}
 	var statusNew interface{}
-	err = unstruct.MarshalThenUnmarshal(status, &statusNew)
+	err = unstruct.MarshalThenUnmarshal(r.RecipeStatus, &statusNew)
 	if err != nil {
 		return errors.Wrapf(
 			err,
@@ -315,7 +334,11 @@ func (r *Runner) updateRecipeWithRetries() error {
 				r.Recipe.Namespace,
 				r.Recipe.Name,
 			)
-			// return nil to avoid retry
+			// Return nil to avoid retry
+			//
+			// NOTE:
+			//	Setting unstructured instance should not be
+			// retried since every retry will result in error
 			return nil
 		}
 
@@ -327,7 +350,11 @@ func (r *Runner) updateRecipeWithRetries() error {
 			Update(result, metav1.UpdateOptions{})
 
 		if err != nil {
-			// since this is an update error, this logic will be retried
+			// An update error is returned as an error so that it
+			// can be retried
+			//
+			// NOTE:
+			//	An update error might be temporary
 			return errors.Wrapf(
 				err,
 				"Update failed: Recipe %q %q",
@@ -337,6 +364,7 @@ func (r *Runner) updateRecipeWithRetries() error {
 		}
 
 		if !client.HasSubresource("status") {
+			// Nothing else to update
 			return nil
 		}
 
@@ -347,6 +375,8 @@ func (r *Runner) updateRecipeWithRetries() error {
 			Namespace(r.Recipe.Namespace).
 			UpdateStatus(result, metav1.UpdateOptions{})
 
+		// If update status resulted in an error it will be
+		// returned so that update can be retried
 		return errors.Wrapf(
 			err,
 			"Update failed: Recipe %q %q",
@@ -384,9 +414,27 @@ func (r *Runner) runAllTasks() (err error) {
 		}
 	}()
 
+	r.validateSchema()
+	if r.RecipeStatus.Phase == types.RecipeStatusInvalidSchema {
+		// Log the error & return
+		//
+		// NOTE:
+		//	This does not need to be bubbled up as error. Setting
+		// phase will handle this invalid schema.
+		klog.Errorf(
+			"Will skip execution: Invalid schema: Recipe %q %q: %s",
+			r.Recipe.GetNamespace(),
+			r.Recipe.GetName(),
+			r.FieldPathValidationResult.Error(),
+		)
+		return nil
+	}
+
 	// initialise the fields that can be set irrespective of Recipe
 	// being run or not
-	r.RecipeStatus.TaskCount.Total = len(r.Recipe.Spec.Tasks)
+	r.RecipeStatus.TaskCount = &types.TaskCount{
+		Total: len(r.Recipe.Spec.Tasks),
+	}
 
 	// first thing to do even before running the Recipe is to
 	// verify if this Recipe is eligible to run
@@ -402,23 +450,26 @@ func (r *Runner) runAllTasks() (err error) {
 		)
 	}
 	if !eligible {
+		// Recipe may not be eligible during initial reconciliation
+		// attempts. So logging this at verbose level is fine.
 		klog.V(2).Infof(
 			"Will skip execution: Not eligibile: Recipe %q %q",
 			r.Recipe.GetNamespace(),
 			r.Recipe.GetName(),
 		)
+		// Setting exact phase helps in subsequent execution, e.g. unlocking
+		// this recipe
 		r.RecipeStatus.Phase = types.RecipeStatusNotEligible
-		// short description
+		// Short description
 		r.RecipeStatus.Reason = "Did not meet eligibility criteria"
-		// long description along with remedy
+		// Long description has the remedy
 		r.RecipeStatus.Message =
-			"Remedy: Wait for next reconciliation(s) or modify spec.eligible details"
-		// all tasks are skipped since Recipe is not eligible for execution
+			"Remedy: Wait for next reconciliation(s) or modify spec.eligible criteria"
+		// All tasks are skipped
 		r.RecipeStatus.TaskCount.Skipped = len(r.Recipe.Spec.Tasks)
 		return nil
 	}
 
-	var failedTasks int
 	var start = time.Now()
 	for idx, task := range r.Recipe.Spec.Tasks {
 		var failFastRule types.FailFastRule
@@ -449,22 +500,28 @@ func (r *Runner) runAllTasks() (err error) {
 				r.Recipe.Name,
 			)
 		}
-		r.RecipeStatus.TaskResultList[task.Name] = got
+		r.RecipeStatus.TaskResults[task.Name] = got
 		if got.Phase == types.TaskStatusFailed {
-			// We run subsequent tasks even if current task failed
-			failedTasks++
+			// Run subsequent tasks even if current task failed
+			r.RecipeStatus.TaskCount.Failed++
+		}
+		if got.Phase == types.TaskStatusWarning {
+			// Run subsequent tasks even if current task has warnings
+			r.RecipeStatus.TaskCount.Warning++
 		}
 	}
 
 	// time taken for this recipe to run all its tasks
-	elapsedSeconds := time.Since(start).Seconds()
-	r.RecipeStatus.ExecutionTimeInSeconds = pointer.Float64Ptr(elapsedSeconds)
+	duration := time.Since(start)
+	r.RecipeStatus.ExecutionTime = &types.ExecutionTime{
+		ValueInSeconds: duration.Seconds(),
+		ReadableValue:  duration.Round(time.Millisecond).String(),
+	}
 
 	// set other fields of the status
-	if failedTasks > 0 {
+	if r.RecipeStatus.TaskCount.Failed > 0 {
 		// recipe is set to failed if any of its tasks resulted in failure
 		r.RecipeStatus.Phase = types.RecipeStatusFailed
-		r.RecipeStatus.TaskCount.Failed = failedTasks
 	} else {
 		r.RecipeStatus.Phase = r.mayBePassedOrCompletedStatus()
 	}
@@ -532,14 +589,16 @@ func (r *Runner) Run() (status types.RecipeStatus, err error) {
 	}
 	// make use of defer to UNLOCK
 	defer func() {
+		// FORCE UNLOCK in case of one of following:
+		// - Executing recipe resulted in error _OR_
+		// - Recipe is currently not eligible to be executed _OR_
+		// - Recipe schema is invalid
+		//
+		// NOTE:
+		//	Lock is removed to enable subsequent reconcile attempts
 		if err != nil ||
-			r.RecipeStatus.Phase == types.RecipeStatusNotEligible {
-			// FORCE UNLOCK in case of following:
-			// - Executing recipe resulted in error _OR_
-			// - Recipe is not eligible to be executed _(in this attempt)_
-			//
-			// NOTE:
-			//	Lock is removed to enable subsequent reconcile attempts
+			r.RecipeStatus.Phase == types.RecipeStatusNotEligible ||
+			r.RecipeStatus.Phase == types.RecipeStatusInvalidSchema {
 			_, unlockerr := lockrunner.MustUnlock()
 			if unlockerr != nil {
 				// swallow unlock error by logging
@@ -561,7 +620,7 @@ func (r *Runner) Run() (status types.RecipeStatus, err error) {
 				r.Recipe.Status.Phase,
 				r.Recipe.Status.Reason,
 			)
-			// bubble up the original error
+			// bubble up the original error if any
 			return
 		}
 		// GRACEFUL UNLOCK

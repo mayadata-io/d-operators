@@ -1,0 +1,60 @@
+apiVersion: dope.mayadata.io/v1
+kind: Recipe
+metadata:
+  name: create-an-invalid-recipe
+  namespace: d-testing
+spec:
+  tasks:
+  - name: create-an-invalid-recipe
+    create: 
+      state: 
+        kind: Recipe
+        apiVersion: dope.mayadata.io/v1
+        metadata:
+          name: i-am-an-invalid-recipe
+          namespace: d-testing
+          labels:
+            recipe/name: i-am-an-invalid-recipe
+        spec:
+          iDontExist: none # invalid field
+          tasks:
+          - name: assert-a-namespace
+            assert:
+              state:
+                kind: Namespace
+                apiVersion: v1
+                metadata:
+                  name: d-testing
+---
+apiVersion: dope.mayadata.io/v1
+kind: Recipe
+metadata:
+  name: assert-the-invalid-recipe
+  namespace: d-testing
+  labels:
+    d-testing.dope.mayadata.io/inference: "true"
+spec:
+  eligible:
+    checks:
+    - labelSelector:
+        matchLabels:
+          recipe/name: i-am-an-invalid-recipe
+        matchExpressions:
+        - key: recipe.dope.mayadata.io/phase
+          operator: Exists
+      when: ListCountEquals
+      count: 1
+  resync:
+    onNotEligibleResyncInSeconds: 5
+  tasks:
+  - name: assert-recipe-is-invalid
+    assert:
+      state:
+        kind: Recipe
+        apiVersion: dope.mayadata.io/v1
+        metadata:
+          name: i-am-an-invalid-recipe
+          namespace: d-testing
+        status:
+          phase: InvalidSchema
+---

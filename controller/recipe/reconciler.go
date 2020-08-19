@@ -17,40 +17,56 @@ limitations under the License.
 package recipe
 
 import (
+	"github.com/pkg/errors"
 	"openebs.io/metac/controller/generic"
 	k8s "openebs.io/metac/third_party/kubernetes"
 
-	commonctrl "mayadata.io/d-operators/common/controller"
+	ctrl "mayadata.io/d-operators/common/controller"
 	"mayadata.io/d-operators/common/unstruct"
 	"mayadata.io/d-operators/pkg/recipe"
+	"mayadata.io/d-operators/pkg/schema"
 	types "mayadata.io/d-operators/types/recipe"
 )
 
 // Reconciler manages reconciliation of Recipe custom resource
 type Reconciler struct {
-	commonctrl.Reconciler
+	ctrl.Reconciler
 
-	ObservedRecipe *types.Recipe
+	ObservedRecipe            *types.Recipe
+	FieldPathValidationResult *schema.FieldPathValidationResult
 
 	// resulting status after executing the observed Recipe
 	recipeRunStatus types.RecipeStatus
 }
 
 func (r *Reconciler) eval() {
+	// validate the received structured instance
+	v := &schema.FieldPathValidation{
+		Target:                  r.HookRequest.Watch.Object,
+		SupportedAbsolutePaths:  types.SupportedAbsolutePaths,
+		UserAllowedPathPrefixes: types.UserAllowedPathPrefixes,
+	}
+	valResult := v.Validate()
+
 	var j types.Recipe
 	// convert from unstructured instance to typed instance
 	err := unstruct.ToTyped(r.HookRequest.Watch, &j)
 	if err != nil {
-		r.Err = err
+		r.Err = errors.Wrapf(
+			err,
+			"Failed to convert from unstructured type to recipe type",
+		)
 		return
 	}
 	r.ObservedRecipe = &j
+	r.FieldPathValidationResult = valResult
 }
 
 func (r *Reconciler) invoke() {
 	runner := recipe.NewRunner(
 		recipe.RunnerConfig{
-			Recipe: *r.ObservedRecipe,
+			Recipe:                    *r.ObservedRecipe,
+			FieldPathValidationResult: *r.FieldPathValidationResult,
 		},
 	)
 	r.recipeRunStatus, r.Err = runner.Run()
@@ -74,7 +90,7 @@ func (r *Reconciler) setRecipeStatusFromResult() {
 		// set configured resync interval when Recipe's phase
 		// is set to NotEligible
 		r.HookResponse.ResyncAfterSeconds =
-			*r.ObservedRecipe.Spec.Resync.OnNotEligibleResyncInSeconds
+			float64(*r.ObservedRecipe.Spec.Resync.OnNotEligibleResyncInSeconds)
 
 		// Further logic should not be executed
 		//
@@ -91,7 +107,7 @@ func (r *Reconciler) setRecipeStatusFromResult() {
 		// - NotEligible
 		// - Error
 		r.HookResponse.ResyncAfterSeconds =
-			*r.ObservedRecipe.Spec.Resync.IntervalInSeconds
+			float64(*r.ObservedRecipe.Spec.Resync.IntervalInSeconds)
 	}
 }
 
@@ -101,7 +117,7 @@ func (r *Reconciler) setRecipeStatusFromError() {
 		// set configured resync interval when Recipe's phase
 		// is set to Error
 		r.HookResponse.ResyncAfterSeconds =
-			*r.ObservedRecipe.Spec.Resync.OnErrorResyncInSeconds
+			float64(*r.ObservedRecipe.Spec.Resync.OnErrorResyncInSeconds)
 	}
 	r.HookResponse.Status = map[string]interface{}{
 		"phase":  "Error",
@@ -134,7 +150,7 @@ func (r *Reconciler) setRecipeStatus() {
 //	This controller watches Recipe custom resource
 func Sync(request *generic.SyncHookRequest, response *generic.SyncHookResponse) error {
 	r := &Reconciler{
-		Reconciler: commonctrl.Reconciler{
+		Reconciler: ctrl.Reconciler{
 			Name:         "sync-recipe",
 			HookRequest:  request,
 			HookResponse: response,

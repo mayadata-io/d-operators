@@ -318,7 +318,7 @@ func TestRunnerRunAllTasks(t *testing.T) {
 				}),
 				Recipe: mock.recipe,
 				RecipeStatus: &types.RecipeStatus{
-					TaskResultList: make(map[string]types.TaskResult),
+					TaskResults: make(map[string]types.TaskResult),
 				},
 				fixture: f,
 				updateRecipeWithRetriesFn: func() error {

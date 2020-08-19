@@ -31,7 +31,23 @@ spec:
         metadata:
           name: create-cm-in-time
           namespace: d-testing
+          labels:
+            "fifty-configs": "true"
+            "i-should-not-take-much-time": "true"
       replicas: 50
+  - name: assert-fifty-configmaps-were-created
+    assert: 
+      state: 
+        kind: ConfigMap
+        apiVersion: v1
+        metadata:
+          namespace: d-testing
+          labels:
+            "fifty-configs": "true"
+            "i-should-not-take-much-time": "true"
+      stateCheck:
+        stateCheckOperator: ListCountEquals
+        count: 50
 ---
 apiVersion: dope.mayadata.io/v1
 kind: Recipe
@@ -59,17 +75,9 @@ spec:
           recipe.dope.mayadata.io/phase: Completed
       when: ListCountEquals
       count: 1
+  resync:
+    onNotEligibleResyncInSeconds: 5
   tasks:
-  - name: assert-completion-of-fifty-configmaps-recipe
-    assert: 
-      state: 
-        kind: Recipe
-        apiVersion: dope.mayadata.io/v1
-        metadata:
-          name: create-fifty-configmaps-in-time
-          namespace: d-testing
-        status:
-          phase: Completed
   - name: assert-creation-of-fifty-configmaps-in-time
     assert: 
       state: 
@@ -79,7 +87,7 @@ spec:
           name: create-fifty-configmaps-in-time
           namespace: d-testing
       pathCheck:
-        path: status.executionTimeInSeconds
+        path: status.executionTime.valueInSeconds
         pathCheckOperator: LTE
         # assert if the recipe to create 50 configmaps
         # completes within 30 seconds
