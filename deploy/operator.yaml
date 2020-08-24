@@ -21,7 +21,7 @@ spec:
       serviceAccountName: dope
       containers:
       - name: dope
-        image: mayadataio/dope:v1.3.0
+        image: mayadataio/dope:v1.9.0
         command: ["/usr/bin/dope"]
         args:
         - --logtostderr

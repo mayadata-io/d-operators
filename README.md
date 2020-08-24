@@ -78,6 +78,11 @@ Navigate to test/experiments to learn more on these YAMLs.
 sudo make e2e-test
 ```
 
+### Deploying experiments using D-operators
+To deploy experiments using d-operators apply the below commands:
+- kubectl apply -f deploy/
+- kubectl apply -f test/experiments/<experiment-yaml>
+
 ### Available Kubernetes controllers
 - [x] kind: Recipe
 - [ ] kind: RecipeClass
