@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dope
+---
+# d-testing is the Kubernetes namespace that can
+# be used to deploy any test artifacts
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: d-testing
