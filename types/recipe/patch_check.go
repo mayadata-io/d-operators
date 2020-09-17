@@ -84,6 +84,10 @@ const (
 	// PathValueDataTypeFloat64 expects path's value with float64
 	// as its data type
 	PathValueDataTypeFloat64 PathValueDataType = "float64"
+
+	// PathValueDataTypeString expects path's value with string
+	// as its data type
+	PathValueDataTypeString PathValueDataType = "string"
 )
 
 // PathCheck verifies expected field value against
