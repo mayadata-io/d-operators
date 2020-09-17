@@ -203,12 +203,58 @@ func (pc *PathChecking) assertValueFloat64(obj *unstructured.Unstructured) (bool
 	return true, nil
 }
 
-func (pc *PathChecking) assertValue(obj *unstructured.Unstructured) (bool, error) {
-	if pc.PathCheck.DataType == types.PathValueDataTypeInt64 {
-		return pc.assertValueInt64(obj)
+func (pc *PathChecking) assertValueString(obj *unstructured.Unstructured) (bool, error) {
+	got, found, err := unstructured.NestedString(
+		obj.UnstructuredContent(),
+		strings.Split(pc.PathCheck.Path, ".")...,
+	)
+	if err != nil {
+		return false, err
 	}
-	// currently float & int64 are supported data types
-	return pc.assertValueFloat64(obj)
+	if !found {
+		return false, errors.Errorf(
+			"PathCheck failed: Path %q not found: TaskName %s",
+			pc.PathCheck.Path,
+			pc.TaskName,
+		)
+	}
+	val := pc.PathCheck.Value
+	expected, ok := val.(string)
+	if !ok {
+		return false, errors.Errorf(
+			"PathCheck failed: Value %v is of type %T, expected string: TaskName %s",
+			val,
+			val,
+			pc.TaskName,
+		)
+	}
+	pc.result.Verbose = fmt.Sprintf(
+		"Expected value %s got %s",
+		expected,
+		got,
+	)
+	if pc.retryIfValueEquals && got == expected {
+		return false, nil
+	}
+	if pc.retryIfValueNotEquals && got != expected {
+		return false, nil
+	}
+	// returning true will no longer retry
+	return true, nil
+}
+
+func (pc *PathChecking) assertValue(obj *unstructured.Unstructured) (bool, error) {
+
+	switch pc.PathCheck.DataType {
+	case types.PathValueDataTypeInt64:
+		return pc.assertValueInt64(obj)
+
+	case types.PathValueDataTypeFloat64:
+		return pc.assertValueFloat64(obj)
+
+	default:
+		return pc.assertValueString(obj)
+	}
 }
 
 func (pc *PathChecking) assertPath(obj *unstructured.Unstructured) (bool, error) {
