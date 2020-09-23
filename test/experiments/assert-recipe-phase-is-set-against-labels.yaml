@@ -1,0 +1,107 @@
+apiVersion: dope.mayadata.io/v1
+kind: Recipe
+metadata:
+  name: assert-absence-of-deprecated-deployments
+  namespace: d-testing
+  labels:
+    assert-phase-is-set-in-label-in-helper-1: true
+spec:
+  tasks:
+  - name: assert-deployments-with-extensions-v1beta1
+    failFast: 
+      when: OnDiscoveryError
+    ignoreError: AsWarning
+    assert: 
+      state: 
+        kind: Deployment
+        apiVersion: extensions/v1beta1
+      stateCheck:
+        stateCheckOperator: ListCountEquals
+        count: 0
+---
+apiVersion: dope.mayadata.io/v1
+kind: Recipe
+metadata:
+  name: apply-HTTP-using-GETT-method
+  labels:
+    assert-phase-is-set-in-label-in-helper-2: true
+spec:
+  tasks:
+  - name: apply-github-search-with-invalid-method
+    apply:
+      state:
+        apiVersion: dope.mayadata.io/v1
+        kind: HTTP
+        metadata:
+          name: HTTP-request-with-GETT
+          namespace: d-testing
+        spec:
+          url: https://github.com/search
+          # This is an invalid value
+          method: GETT 
+---
+apiVersion: dope.mayadata.io/v1
+kind: Recipe
+metadata:
+  name: assert-labels-set-as-Completed-after-reconciliation
+  namespace: d-testing
+  labels:
+    d-testing.dope.mayadata.io/inference: "true"
+spec:
+  eligible:
+    checks:
+    - labelSelector:
+        matchExpressions:
+        - key: recipe.dope.mayadata.io/phase
+          operator: Exists
+        - key: assert-phase-is-set-in-label-in-helper-1
+          operator: In
+          value: true
+      when: ListCountEquals
+      count: 1
+  resync:
+    onNotEligibleResyncInSeconds: 5
+  tasks:
+  - name: assert-label-is-set-as-Completed
+    assert:
+      state:
+        kind: Recipe
+        apiVersion: dope.mayadata.io/v1
+        metadata:
+          name: assert-absence-of-deprecated-deployments
+          namespace: d-testing
+        status:
+          phase: Completed
+---
+apiVersion: dope.mayadata.io/v1
+kind: Recipe
+metadata:
+  name: assert-labels-set-as-Error-after-reconciliation
+  namespace: d-testing
+  labels:
+    d-testing.dope.mayadata.io/inference: "true"
+spec:
+  eligible:
+    checks:
+    - labelSelector:
+        matchExpressions:
+        - key: recipe.dope.mayadata.io/phase
+          operator: Exists
+        - key: assert-phase-is-set-in-label-in-helper-2
+          operator: In
+          value: true
+      when: ListCountEquals
+      count: 1
+  resync:
+    onNotEligibleResyncInSeconds: 5
+  tasks:
+  - name: assert-label-is-set-as-Error
+    assert:
+      state:
+        kind: Recipe
+        apiVersion: dope.mayadata.io/v1
+        metadata:
+          name: apply-HTTP-using-GETT-method
+          namespace: d-testing
+        status:
+          phase: Error
