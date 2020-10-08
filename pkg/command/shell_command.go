@@ -27,102 +27,109 @@ import (
 	types "mayadata.io/d-operators/types/command"
 )
 
-// RunCmd represents the shell command that gets executed
+// RunnableShell represents the shell command that gets executed
 //
 // This has borrowed concepts from cluster api project
 // ref - https://github.com/kubernetes-sigs/cluster-api/blob/master/test/infrastructure/docker/cloudinit/runcmd.go
-type RunCmd struct {
+type RunnableShell struct {
 	Name             string
-	Cmd              string
+	CMD              string
 	Args             []string
 	Stdin            string
-	TimeoutInSeconds *float64
+	TimeoutInSeconds *int64
 }
 
-// NewRunCmdFromCommand returns a new RunCmd from the
-// given command info
-func NewRunCmdFromCommand(cmdInfo types.CommandInfo) (RunCmd, error) {
+// NewShellRunner returns a new instance of RunnableShell
+func NewShellRunner(cmdInfo types.CommandInfo) (RunnableShell, error) {
 	if cmdInfo.Name == "" {
-		return RunCmd{}, errors.New("Invalid command: Missing name")
+		return RunnableShell{},
+			errors.New("Invalid command: Missing name")
 	}
-	if len(cmdInfo.Cmd) != 0 && cmdInfo.Sh != "" {
-		return RunCmd{},
+	if len(cmdInfo.CMD) != 0 && cmdInfo.Script != "" {
+		return RunnableShell{},
 			errors.Errorf(
-				"Invalid command %q: Both Cmd & Sh are not allowed",
+				"Invalid command %q: Both cmd & script are not allowed",
 				cmdInfo.Name,
 			)
 	}
-	if len(cmdInfo.Cmd) == 0 && cmdInfo.Sh == "" {
-		return RunCmd{},
+	if len(cmdInfo.CMD) == 0 && cmdInfo.Script == "" {
+		return RunnableShell{},
 			errors.Errorf(
-				"Invalid command %q: Either Cmd or Sh must be set",
+				"Invalid command %q: Either cmd or script must be set",
 				cmdInfo.Name,
 			)
 	}
-	rc := &RunCmd{
-		Name: string(cmdInfo.Name),
+	rs := &RunnableShell{
+		Name: cmdInfo.Name,
 	}
-	if len(cmdInfo.Cmd) > 0 {
-		rc.Cmd = cmdInfo.Cmd[0]
-		if len(cmdInfo.Cmd) > 1 {
-			rc.Args = cmdInfo.Cmd[1:]
+	if len(cmdInfo.CMD) > 0 {
+		rs.CMD = cmdInfo.CMD[0]
+		if len(cmdInfo.CMD) > 1 {
+			rs.Args = cmdInfo.CMD[1:]
 		}
 	} else {
-		rc.Cmd = "/bin/sh"
-		rc.Args = []string{"-c", cmdInfo.Sh}
+		rs.CMD = "/bin/sh"
+		rs.Args = []string{"-c", cmdInfo.Script}
 	}
-	return *rc, nil
+	return *rs, nil
 }
 
-// RunCmdList defines the list of shell commands that gets executed
-// in the given order
-type RunCmdList struct {
-	Items            []RunCmd          // commands executed in order
-	Env              map[string]string // env for all
-	TimeoutInSeconds float64           // default timeout for all
-	ContinueOnError  bool
+// RunnableShellList defines the list of shell commands that
+// gets executed in the given order
+type RunnableShellList struct {
+	// list of commands executed in order
+	Items []RunnableShell
+
+	// set of env variables that can be used by all commands
+	Env map[string]string
+
+	// default timeout for all
+	TimeoutInSeconds int64
+
+	ContinueOnError bool
 }
 
-// NewRunCmdListFromSpec returns a new RunCmdList from the provided
+// NewShellListRunner returns a new RunnableShellList from the provided
 // command specifications
-func NewRunCmdListFromSpec(spec types.CommandSpec) (RunCmdList, error) {
-	var timeoutInSecs float64 = 300 // defaults to 5 minutes
-	var continueOnErr bool          // defaults to false
+func NewShellListRunner(spec types.CommandSpec) (RunnableShellList, error) {
+	var timeoutInSecs int64 = 300 // defaults to 5 minutes
+	var continueOnErr bool        // defaults to false
 
 	if spec.TimeoutInSeconds != nil && *spec.TimeoutInSeconds > 0 {
 		timeoutInSecs = *spec.TimeoutInSeconds
 	}
-	if spec.ContinueOnError != nil {
-		continueOnErr = *spec.ContinueOnError
+	if spec.MustRunAllCommands != nil {
+		continueOnErr = *spec.MustRunAllCommands
 	}
-	cmdlist := &RunCmdList{
+	cmdlist := &RunnableShellList{
 		Env:              spec.Env,
 		TimeoutInSeconds: timeoutInSecs,
 		ContinueOnError:  continueOnErr,
 	}
 
 	for _, cmd := range spec.Commands {
-		rc, err := NewRunCmdFromCommand(cmd)
+		rc, err := NewShellRunner(cmd)
 		if err != nil {
-			return RunCmdList{}, err
+			return RunnableShellList{}, err
 		}
 		cmdlist.Items = append(cmdlist.Items, rc)
 	}
 	return *cmdlist, nil
 }
 
-func (l RunCmdList) toCmdEnv() (out []string) {
+func (l RunnableShellList) getCMDEnv() (out []string) {
 	for k, v := range l.Env {
 		out = append(out, fmt.Sprintf("%s=%s", k, v))
 	}
 	return
 }
 
-// Run executes all the commands in order
-func (l RunCmdList) Run() map[types.CommandName]types.CommandOutput {
-	output := make(map[types.CommandName]types.CommandOutput, len(l.Items))
-	cmdEnv := l.toCmdEnv()
-	var timeoutInSecs float64
+// Run executes all the shell commands in order
+func (l RunnableShellList) Run() map[string]types.CommandOutput {
+	var timeoutInSecs int64
+	// initialise the run output
+	output := make(map[string]types.CommandOutput, len(l.Items))
+	cmdEnv := l.getCMDEnv()
 
 	// commands are executed serially one by one
 	for _, rc := range l.Items {
@@ -131,7 +138,8 @@ func (l RunCmdList) Run() map[types.CommandName]types.CommandOutput {
 		var warn string
 		var isTimeout bool
 
-		timeoutInSecs = l.TimeoutInSeconds // defaults to global setting
+		// default to global setting
+		timeoutInSecs = l.TimeoutInSeconds
 		if rc.TimeoutInSeconds != nil && *rc.TimeoutInSeconds > 0 {
 			timeoutInSecs = *rc.TimeoutInSeconds
 		}
@@ -141,12 +149,14 @@ func (l RunCmdList) Run() map[types.CommandName]types.CommandOutput {
 			Buffered:  false,
 			Streaming: true,
 		}
-		execCmd := cmd.NewCmdOptions(options, rc.Cmd, rc.Args...)
+		execCmd := cmd.NewCmdOptions(options, rc.CMD, rc.Args...)
+		// set environment variables
 		execCmd.Env = cmdEnv
 
 		doneChan := make(chan struct{})
 
-		// Capture STDOUT and STDERR lines streaming from Cmd
+		// Capture STDOUT and STDERR lines streaming due to execution
+		// of command
 		go func() {
 			defer close(doneChan)
 
@@ -160,18 +170,20 @@ func (l RunCmdList) Run() map[types.CommandName]types.CommandOutput {
 						execCmd.Stdout = nil
 						continue
 					}
+					// build the output
 					stdout.WriteString(line)
 				case line, open := <-execCmd.Stderr:
 					if !open {
 						execCmd.Stderr = nil
 						continue
 					}
+					// build the error
 					stderr.WriteString(line)
 				case <-timeoutChan:
 					klog.V(1).Infof(
-						"Command timed out: Name %q: Timeout %d",
+						"Command timed out: Name %q: Timeout %s",
 						rc.Name,
-						timeout,
+						timeout.Round(time.Millisecond).String(),
 					)
 					isTimeout = true
 					execCmd.Stdout = nil
@@ -187,23 +199,31 @@ func (l RunCmdList) Run() map[types.CommandName]types.CommandOutput {
 		<-doneChan
 
 		if stoperr != nil {
-			// stop err is treated as a warning
+			// Any error while stopping the command is considered
+			// as a warning
 			warn = stoperr.Error()
 		}
 
-		output[types.CommandName(rc.Name)] = types.CommandOutput{
-			Cmd:                statusChan.Cmd,
-			Completed:          statusChan.Complete,
-			Timedout:           isTimeout,
-			Error:              statusChan.Error,
-			Exit:               statusChan.Exit,
-			PID:                statusChan.PID,
-			Stderr:             stderr.String(),
-			Stdout:             stdout.String(),
-			TimetakenInSeconds: statusChan.Runtime,
-			Warning:            warn,
+		timeTaken := time.Duration(statusChan.Runtime) * time.Second
+		timeTakenFmt := timeTaken.Round(time.Millisecond).String()
+		output[rc.Name] = types.CommandOutput{
+			CMD:       statusChan.Cmd,
+			Completed: statusChan.Complete,
+			Timedout:  isTimeout,
+			Error:     statusChan.Error,
+			Exit:      statusChan.Exit,
+			PID:       statusChan.PID,
+			Stderr:    stderr.String(),
+			Stdout:    stdout.String(),
+			ExecutionTime: types.ExecutionTime{
+				ValueInSeconds: timeTaken.Seconds(),
+				ReadableValue:  timeTakenFmt,
+			},
+			Warning: warn,
 		}
+		// check for errors
 		if isTimeout || stderr.Len() != 0 {
+			// verify if logic should continue or break out
 			if !l.ContinueOnError {
 				break
 			}
