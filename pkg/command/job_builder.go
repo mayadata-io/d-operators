@@ -17,47 +17,50 @@ limitations under the License.
 package command
 
 import (
+	"fmt"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	types "mayadata.io/d-operators/types/command"
 	dynamicapply "openebs.io/metac/dynamic/apply"
 )
 
-// JobBuilderConfig helps create new instances of JobBuilder
-type JobBuilderConfig struct {
+// JobBuildingConfig helps create new instances of JobBuilding
+type JobBuildingConfig struct {
 	Command types.Command
 }
 
-// JobBuilder builds Kubernetes Job that runs commands
-type JobBuilder struct {
+// JobBuilding builds Kubernetes Job resource
+type JobBuilding struct {
 	Command types.Command
 }
 
-// NewJobBuilder returns a new instance of JobBuilder
-func NewJobBuilder(config JobBuilderConfig) *JobBuilder {
-	return &JobBuilder{
+// NewJobBuilder returns a new instance of JobBuilding
+func NewJobBuilder(config JobBuildingConfig) *JobBuilding {
+	return &JobBuilding{
 		Command: config.Command,
 	}
 }
 
-func (b *JobBuilder) getDefaultJob() *unstructured.Unstructured {
+func (b *JobBuilding) getDefaultJob() *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
-			"kind":       "Job",
-			"apiVersion": "batch/v1",
+			"kind":       types.KindJob,
+			"apiVersion": types.JobAPIVersion,
 			"metadata": map[string]interface{}{
 				"name":      b.Command.GetName(),
 				"namespace": b.Command.GetNamespace(),
 				"labels": map[string]interface{}{
-					"command.dope.metacontroller.io/controller":     "true",
-					"command.dope.metacontroller.io/controller-uid": string(b.Command.GetUID()),
+					types.LblKeyCommandIsController: "true",
+					types.LblKeyCommandName:         b.Command.GetName(),
+					types.LblKeyCommandUID:          string(b.Command.GetUID()),
 				},
 			},
 			"spec": map[string]interface{}{
-				"ttlSecondsAfterFinished": 0,
+				"ttlSecondsAfterFinished": int64(0),
 				"template": map[string]interface{}{
 					"spec": map[string]interface{}{
 						"restartPolicy": "Never",
-						"backoffLimit":  0,
+						"backoffLimit":  int64(0),
 						"containers": []interface{}{
 							map[string]interface{}{
 								"name":  "commander",
@@ -67,8 +70,9 @@ func (b *JobBuilder) getDefaultJob() *unstructured.Unstructured {
 								},
 								"args": []interface{}{
 									"--logtostderr",
-									"--run-as-local",
 									"-v=1",
+									fmt.Sprintf("--command-name=%s", b.Command.GetName()),
+									fmt.Sprintf("--command-ns=%s", b.Command.GetNamespace()),
 								},
 							},
 						},
@@ -79,24 +83,37 @@ func (b *JobBuilder) getDefaultJob() *unstructured.Unstructured {
 	}
 }
 
-// Build returns the final job specifications that in turn will run
-// the commands
-func (b *JobBuilder) Build() (*unstructured.Unstructured, error) {
-	var final = b.getDefaultJob()
-	if b.Command.Spec.Template != nil && b.Command.Spec.Template.Job != nil {
+// Build returns the final job specifications
+//
+// NOTE:
+//	This Job uses image capable of running commands
+// specified in the Command resource specs.
+func (b *JobBuilding) Build() (*unstructured.Unstructured, error) {
+	var defaultJob = b.getDefaultJob()
+	// Start off by initialising final Job to default
+	final := defaultJob
+	if b.Command.Spec.Template.Job != nil {
+		// Job specs found in Command is the desired
 		desired := b.Command.Spec.Template.Job
-		// desired spec must use the command name & namespace
+		// NOTE:
+		// - desired Job spec must use Job kind & api version
+		desired.SetKind(types.KindJob)
+		desired.SetAPIVersion(types.JobAPIVersion)
+		// NOTE:
+		// - desired Job spec must use Command name & namespace
 		desired.SetName(b.Command.GetName())
 		desired.SetNamespace(b.Command.GetNamespace())
-		// 3-way merge
+		// All other fields will be a 3-way merge between
+		// default specifications & desired specifications
 		finalObj, err := dynamicapply.Merge(
-			final.UnstructuredContent(),   // observed
-			desired.UnstructuredContent(), // last applied
-			desired.UnstructuredContent(), // desired
+			defaultJob.UnstructuredContent(), // observed = default
+			desired.UnstructuredContent(),    // last applied = desired
+			desired.UnstructuredContent(),    // desired
 		)
 		if err != nil {
 			return nil, err
 		}
+		// Reset the final specifications
 		final.Object = finalObj
 	}
 	return final, nil

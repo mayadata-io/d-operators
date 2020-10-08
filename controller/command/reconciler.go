@@ -17,10 +17,10 @@ limitations under the License.
 package command
 
 import (
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"openebs.io/metac/controller/generic"
 
-	commonctrl "mayadata.io/d-operators/common/controller"
+	ctrl "mayadata.io/d-operators/common/controller"
+	"mayadata.io/d-operators/common/pointer"
 	"mayadata.io/d-operators/common/unstruct"
 	"mayadata.io/d-operators/pkg/command"
 	types "mayadata.io/d-operators/types/command"
@@ -28,44 +28,90 @@ import (
 
 // Reconciler manages reconciliation of Command custom resource
 type Reconciler struct {
-	commonctrl.Reconciler
+	// Common reconciler fields & functions are exposed
+	// from this embedded structure
+	ctrl.Reconciler
 
-	ObservedCommand *types.Command
-	Attachment      *unstructured.Unstructured
+	observedCommand types.Command
+	status          types.CommandStatus
 }
 
 func (r *Reconciler) eval() {
 	var c types.Command
-	// convert from unstructured instance to typed instance
+	// convert unstructured instance to typed instance
 	err := unstruct.ToTyped(r.HookRequest.Watch, &c)
 	if err != nil {
 		r.Err = err
 		return
 	}
-	r.ObservedCommand = &c
+	r.observedCommand = c
 }
 
-func (r *Reconciler) invoke() {
-	if r.ObservedCommand.Status.Phase != "" && !r.HookRequest.Attachments.IsEmpty() {
-		return
-	}
-	builder := command.NewJobBuilder(
-		command.JobBuilderConfig{
-			Command: *r.ObservedCommand,
+func (r *Reconciler) sync() {
+	// creating / deleting a Kubernetes Job is part of Command reconciliation
+	jobBuilder := command.NewJobBuilder(
+		command.JobBuildingConfig{
+			Command: r.observedCommand,
 		},
 	)
-	r.Attachment, r.Err = builder.Build()
+	// This gets the desired job specifications
+	job, err := jobBuilder.Build()
+	if err != nil {
+		r.Err = err
+		return
+	}
+	cmdReconciler, err := command.NewReconciler(command.ReconciliationConfig{
+		Command: r.observedCommand,
+		Child:   job,
+	})
+	if err != nil {
+		r.Err = err
+		return
+	}
+	r.status, r.Err = cmdReconciler.Reconcile()
 }
 
-func (r *Reconciler) setSyncResponse() {
-	if len(r.HookResponse.Attachments) == 0 {
-		r.HookResponse.SkipReconcile = true
+func (r *Reconciler) setResyncInterval() {
+	// reset metac's resync interval time if set
+	if r.observedCommand.Spec.Resync.IntervalInSeconds != nil {
+		r.HookResponse.ResyncAfterSeconds =
+			float64(*r.observedCommand.Spec.Resync.IntervalInSeconds)
 	}
+	// error based resync interval overrides normal resync interval
+	if r.Err != nil &&
+		r.observedCommand.Spec.Resync.OnErrorResyncInSeconds != nil {
+		r.HookResponse.ResyncAfterSeconds =
+			float64(*r.observedCommand.Spec.Resync.OnErrorResyncInSeconds)
+	}
+}
 
-	if r.ObservedCommand != nil &&
-		r.ObservedCommand.Spec.Refresh.ResyncAfterSeconds != nil {
-		r.HookResponse.ResyncAfterSeconds = *r.ObservedCommand.Spec.Refresh.ResyncAfterSeconds
+func (r *Reconciler) setWatchAttributes() {
+	if r.status.Phase == types.CommandPhaseSkipped {
+		r.HookResponse.Status = map[string]interface{}{
+			"phase":  r.status.Phase,
+			"reason": r.status.Reason,
+		}
+		r.HookResponse.Labels = map[string]*string{
+			types.LblKeyCommandPhase: pointer.String(string(types.CommandPhaseSkipped)),
+		}
 	}
+	if r.Err != nil {
+		r.HookResponse.Status = map[string]interface{}{
+			"phase":  types.CommandPhaseError,
+			"reason": r.Err.Error(),
+		}
+		r.HookResponse.Labels = map[string]*string{
+			types.LblKeyCommandPhase: pointer.String(string(types.CommandPhaseError)),
+		}
+	}
+}
+
+func (r *Reconciler) setResponse() {
+	// Reconciling atachments are skipped since attachments
+	// are not reconciled as part of reconciling Command resource
+	r.HookResponse.SkipReconcile = true
+	r.setResyncInterval()
+	r.setWatchAttributes()
 }
 
 // Sync implements the idempotent logic to sync Command resource
@@ -79,8 +125,8 @@ func (r *Reconciler) setSyncResponse() {
 //	This controller watches Command custom resource
 func Sync(request *generic.SyncHookRequest, response *generic.SyncHookResponse) error {
 	r := &Reconciler{
-		Reconciler: commonctrl.Reconciler{
-			Name:         "command-sync-reconciler",
+		Reconciler: ctrl.Reconciler{
+			Name:         "command-sync",
 			HookRequest:  request,
 			HookResponse: response,
 		},
@@ -88,9 +134,13 @@ func Sync(request *generic.SyncHookRequest, response *generic.SyncHookResponse) 
 	// add functions to achieve desired state
 	r.ReconcileFns = []func(){
 		r.eval,
-		r.invoke,
-		r.setSyncResponse,
+		r.sync,
 	}
+
+	r.DesiredWatchFns = []func(){
+		r.setResponse,
+	}
+
 	// run reconcile
 	return r.Reconcile()
 }
