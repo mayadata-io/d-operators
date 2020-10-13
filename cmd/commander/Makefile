@@ -40,8 +40,8 @@ e2e-test:
 
 .PHONY: image
 image:
-	docker build -t $(IMG_REPO):$(PACKAGE_VERSION) .
+	docker build -t $(IMG_REPO):$(PACKAGE_VERSION) -t $(IMG_REPO):latest .
 
 .PHONY: push
 push: image
-	docker push $(IMG_REPO):$(PACKAGE_VERSION)
+	docker push $(IMG_REPO)
