@@ -77,7 +77,7 @@ metadata:
   name: assert-recipe-to-verify-its-lock-garbage-collection
   namespace: d-testing
   labels:
-    d-testing.dope.mayadata.io/inference: "true"
+    #d-testing.dope.mayadata.io/inference: "true"
 spec:
   # This Recipe is eligible to run only when the checks succeed
   #
