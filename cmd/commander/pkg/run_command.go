@@ -100,9 +100,8 @@ func (r *Runnable) setStatus(out map[string]CommandOutput) {
 	totalTimeTakenSecs := time.Duration(totalTimetaken) * time.Second
 	totalTimeTakenSecsFmt := totalTimeTakenSecs.Round(time.Millisecond).String()
 	r.Status.ExecutionTime = ExecutionTime{
-		// ValueInSeconds: float64(totalTimeTakenSecs.Seconds()),
-		//ValueInSeconds: totalTimeTakenSecs.Seconds(),
-		ReadableValue: totalTimeTakenSecsFmt,
+		ValueInSeconds: totalTimeTakenSecs.Seconds() + 0.0001,
+		ReadableValue:  totalTimeTakenSecsFmt,
 	}
 	r.Status.Outputs = out
 }

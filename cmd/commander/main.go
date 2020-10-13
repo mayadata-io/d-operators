@@ -110,18 +110,6 @@ func main() {
 	flag.Set("logtostderr", "true")
 	flag.Set("alsologtostderr", "true")
 	flag.Parse()
-
-	// klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
-	// klog.InitFlags(klogFlags)
-
-	// Sync the glog and klog flags.
-	// flag.CommandLine.VisitAll(func(f1 *flag.Flag) {
-	// 	f2 := klogFlags.Lookup(f1.Name)
-	// 	if f2 != nil {
-	// 		value := f1.Value.String()
-	// 		f2.Value.Set(value)
-	// 	}
-	// })
 	defer klog.Flush()
 
 	if *commandName == "" {
@@ -138,7 +126,7 @@ func main() {
 	klog.V(1).Infof("Command custom resource: namespace %q", *commandNamespace)
 	klog.V(1).Infof("Command custom resource: name %q", *commandName)
 
-	r, err := NewK8sRunner()
+	r, err := NewRunner()
 	if err != nil {
 		// This should lead to crashloopback if this
 		// is running from within a Kubernetes pod
@@ -153,18 +141,19 @@ func main() {
 	os.Exit(0)
 }
 
-// Runnable helps in executing the Kubernetes command resource.
-// It does so by executing the commands or scripts specified in
-// the resource and updating this resource post execution.
-type K8sRunnable struct {
+// Runnable helps in executing the Kubernetes command
+// resource. It does so by executing the commands or scripts
+// specified in the resource and updating this resource post
+// execution.
+type Runnable struct {
 	Client dynamic.Interface
 	GVR    schema.GroupVersionResource
 
 	commandStatus *pkg.CommandStatus
 }
 
-// NewRunner returns a new instance of K8sRunnable
-func NewK8sRunner() (*K8sRunnable, error) {
+// NewRunner returns a new instance of Runnable
+func NewRunner() (*Runnable, error) {
 	var config *rest.Config
 	var err error
 
@@ -198,13 +187,13 @@ func NewK8sRunner() (*K8sRunnable, error) {
 		Resource: *commandResource,
 	}
 
-	return &K8sRunnable{
+	return &Runnable{
 		Client: client,
 		GVR:    gvr,
 	}, nil
 }
 
-func (a *K8sRunnable) updateWithRetries() error {
+func (a *Runnable) updateWithRetries() error {
 	var statusNew interface{}
 	err := pkg.MarshalThenUnmarshal(a.commandStatus, &statusNew)
 	if err != nil {
@@ -216,10 +205,12 @@ func (a *K8sRunnable) updateWithRetries() error {
 		)
 	}
 	klog.V(1).Infof(
-		"Command status: %s \n%s",
-		pkg.NewJSON(a.commandStatus).MustMarshal(),
+		"Command %q / %q: Status %s",
+		*commandNamespace,
+		*commandName,
 		pkg.NewJSON(statusNew).MustMarshal(),
 	)
+
 	// Command is updated with latest labels
 	labels := map[string]string{
 		// this label key is set with same value as that of status.phase
@@ -300,13 +291,12 @@ func (a *K8sRunnable) updateWithRetries() error {
 				UpdateStatus(cmd, v1.UpdateOptions{})
 
 			if err == nil {
+				// This is an extra check to detect type conversion issues
+				// if any during later stages
 				var c pkg.Command
 				tErr := pkg.ToTyped(cmdUpdatedStatus, &c)
 				klog.V(1).Infof(
-					"IsError=%t: %v: \n%s",
-					tErr != nil,
-					tErr,
-					pkg.NewJSON(c).MustMarshal(),
+					"UnstructToTyped: IsError=%t: %v", tErr != nil, tErr,
 				)
 			}
 			// If update status resulted in an error it will be
@@ -331,7 +321,7 @@ func (a *K8sRunnable) updateWithRetries() error {
 }
 
 // Run executes the command resource
-func (a *K8sRunnable) Run() error {
+func (a *Runnable) Run() error {
 	got, err := a.Client.
 		Resource(a.GVR).
 		Namespace(*commandNamespace).

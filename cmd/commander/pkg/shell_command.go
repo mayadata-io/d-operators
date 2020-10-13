@@ -219,9 +219,8 @@ func (l RunnableShellList) Run() map[string]CommandOutput {
 			Stderr:    stderr.String(),
 			Stdout:    stdout.String(),
 			ExecutionTime: ExecutionTime{
-				// ValueInSeconds: float64(timeTaken.Seconds()),
-				//ValueInSeconds: timeTaken.Seconds(),
-				ReadableValue: timeTakenFmt,
+				ValueInSeconds: timeTaken.Seconds() + 0.0001,
+				ReadableValue:  timeTakenFmt,
 			},
 			Warning: warn,
 		}
