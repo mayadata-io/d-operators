@@ -66,7 +66,7 @@ func (b *JobBuilding) getDefaultJob() *unstructured.Unstructured {
 						"serviceAccountName": os.Getenv("DOPE_SERVICE_ACCOUNT"),
 						"containers": []interface{}{
 							map[string]interface{}{
-								"name":            "commander",
+								"name":            "dcmd",
 								"image":           "mayadataio/dcmd",
 								"imagePullPolicy": "Always",
 								"command": []interface{}{
@@ -77,6 +77,11 @@ func (b *JobBuilding) getDefaultJob() *unstructured.Unstructured {
 									fmt.Sprintf("--command-name=%s", b.Command.GetName()),
 									fmt.Sprintf("--command-ns=%s", b.Command.GetNamespace()),
 								},
+							},
+						},
+						"imagePullSecrets": []interface{}{
+							map[string]interface{}{
+								"name": "mayadataio-cred",
 							},
 						},
 					},
