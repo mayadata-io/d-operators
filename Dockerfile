@@ -1,39 +1,4 @@
 # --------------------------
-# Test d-operators binary
-# --------------------------
-FROM golang:1.13.5 as tester
-
-WORKDIR /mayadata.io/d-operators/
-
-# copy go modules manifests
-COPY go.mod go.mod
-COPY go.sum go.sum
-
-# ensure vendoring is up-to-date by running make vendor 
-# in your local setup
-#
-# we cache the vendored dependencies before building and
-# copying source so that we don't need to re-download when
-# source changes don't invalidate our downloaded layer
-RUN go mod download
-RUN go mod tidy
-RUN go mod vendor
-
-# copy build manifests
-COPY Makefile Makefile
-
-# copy source files
-COPY cmd/ cmd/
-COPY common/ common/
-COPY config/ config/
-COPY controller/ controller/
-COPY pkg/ pkg/
-COPY types/ types/
-
-# test d-operators
-RUN make test
-
-# --------------------------
 # Build d-operators binary
 # --------------------------
 FROM golang:1.13.5 as builder
@@ -52,6 +17,7 @@ COPY go.sum go.sum
 # source changes don't invalidate our downloaded layer
 RUN go mod download
 RUN go mod tidy
+RUN go mod vendor
 
 # copy build manifests
 COPY Makefile Makefile
