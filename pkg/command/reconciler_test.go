@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/rest"
 	"openebs.io/metac/dynamic/discovery"
 	"openebs.io/metac/server"
@@ -29,98 +28,98 @@ import (
 	types "mayadata.io/d-operators/types/command"
 )
 
-func TestReconcilerInitChildJobDetails(t *testing.T) {
-	var tests = map[string]struct {
-		ChildJob                *unstructured.Unstructured
-		ExpectChildJob          bool
-		ExpectCompletedChildJob bool
-		IsError                 bool
-	}{
-		"no child job": {},
-		"empty child job": {
-			ChildJob: &unstructured.Unstructured{},
-		},
-		"invalid child job": {
-			ChildJob: &unstructured.Unstructured{
-				Object: map[string]interface{}{},
-			},
-			IsError: true,
-		},
-		"invalid child kind": {
-			ChildJob: &unstructured.Unstructured{
-				Object: map[string]interface{}{
-					"kind":       "MyJob",
-					"apiVersion": types.JobAPIVersion,
-				},
-			},
-			IsError: true,
-		},
-		"invalid child api version": {
-			ChildJob: &unstructured.Unstructured{
-				Object: map[string]interface{}{
-					"kind":       types.KindJob,
-					"apiVersion": "v12",
-				},
-			},
-			IsError: true,
-		},
-		"valid child kind & apiversion": {
-			ChildJob: &unstructured.Unstructured{
-				Object: map[string]interface{}{
-					"kind":       types.KindJob,
-					"apiVersion": types.JobAPIVersion,
-				},
-			},
-			ExpectChildJob: true,
-		},
-		"valid and completed child job": {
-			ChildJob: &unstructured.Unstructured{
-				Object: map[string]interface{}{
-					"kind":       types.KindJob,
-					"apiVersion": types.JobAPIVersion,
-					"status": map[string]interface{}{
-						"phase": types.JobPhaseCompleted,
-					},
-				},
-			},
-			ExpectChildJob:          true,
-			ExpectCompletedChildJob: true,
-		},
-	}
-	for name, mock := range tests {
-		name := name
-		mock := mock
-		t.Run(name, func(t *testing.T) {
-			r := &Reconciliation{
-				childJob: mock.ChildJob,
-			}
-			r.initChildJobDetails()
-			if mock.IsError && r.err == nil {
-				t.Fatalf("Expected error got none")
-			}
-			if !mock.IsError && r.err != nil {
-				t.Fatalf("Expected no error got %s", r.err.Error())
-			}
-			if mock.IsError {
-				return
-			}
-			if mock.ExpectChildJob != r.isChildJobFound {
-				t.Fatalf(
-					"Expected child job %t got %t",
-					mock.ExpectChildJob,
-					r.isChildJobFound,
-				)
-			}
-			if mock.ExpectCompletedChildJob != r.isChildJobCompleted {
-				t.Fatalf(
-					"Expected child job as completed %t got %t",
-					mock.ExpectCompletedChildJob,
-					r.isChildJobCompleted,
-				)
-			}
-		})
-	}
-}
+// func TestReconcilerInitChildJobDetails(t *testing.T) {
+// 	var tests = map[string]struct {
+// 		ChildJob                *unstructured.Unstructured
+// 		ExpectChildJob          bool
+// 		ExpectCompletedChildJob bool
+// 		IsError                 bool
+// 	}{
+// 		"no child job": {},
+// 		"empty child job": {
+// 			ChildJob: &unstructured.Unstructured{},
+// 		},
+// 		"invalid child job": {
+// 			ChildJob: &unstructured.Unstructured{
+// 				Object: map[string]interface{}{},
+// 			},
+// 			IsError: true,
+// 		},
+// 		"invalid child kind": {
+// 			ChildJob: &unstructured.Unstructured{
+// 				Object: map[string]interface{}{
+// 					"kind":       "MyJob",
+// 					"apiVersion": types.JobAPIVersion,
+// 				},
+// 			},
+// 			IsError: true,
+// 		},
+// 		"invalid child api version": {
+// 			ChildJob: &unstructured.Unstructured{
+// 				Object: map[string]interface{}{
+// 					"kind":       types.KindJob,
+// 					"apiVersion": "v12",
+// 				},
+// 			},
+// 			IsError: true,
+// 		},
+// 		"valid child kind & apiversion": {
+// 			ChildJob: &unstructured.Unstructured{
+// 				Object: map[string]interface{}{
+// 					"kind":       types.KindJob,
+// 					"apiVersion": types.JobAPIVersion,
+// 				},
+// 			},
+// 			ExpectChildJob: true,
+// 		},
+// 		"valid and completed child job": {
+// 			ChildJob: &unstructured.Unstructured{
+// 				Object: map[string]interface{}{
+// 					"kind":       types.KindJob,
+// 					"apiVersion": types.JobAPIVersion,
+// 					"status": map[string]interface{}{
+// 						"phase": types.JobPhaseCompleted,
+// 					},
+// 				},
+// 			},
+// 			ExpectChildJob:          true,
+// 			ExpectCompletedChildJob: true,
+// 		},
+// 	}
+// 	for name, mock := range tests {
+// 		name := name
+// 		mock := mock
+// 		t.Run(name, func(t *testing.T) {
+// 			r := &Reconciliation{
+// 				childJob: mock.ChildJob,
+// 			}
+// 			r.initChildJobDetails()
+// 			if mock.IsError && r.err == nil {
+// 				t.Fatalf("Expected error got none")
+// 			}
+// 			if !mock.IsError && r.err != nil {
+// 				t.Fatalf("Expected no error got %s", r.err.Error())
+// 			}
+// 			if mock.IsError {
+// 				return
+// 			}
+// 			if mock.ExpectChildJob != r.isChildJobFound {
+// 				t.Fatalf(
+// 					"Expected child job %t got %t",
+// 					mock.ExpectChildJob,
+// 					r.isChildJobFound,
+// 				)
+// 			}
+// 			if mock.ExpectCompletedChildJob != r.isChildJobCompleted {
+// 				t.Fatalf(
+// 					"Expected child job as completed %t got %t",
+// 					mock.ExpectCompletedChildJob,
+// 					r.isChildJobCompleted,
+// 				)
+// 			}
+// 		})
+// 	}
+// }
 
 func TestReconcilerInitCommandDetails(t *testing.T) {
 	var tests = map[string]struct {

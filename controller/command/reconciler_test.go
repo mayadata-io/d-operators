@@ -32,16 +32,21 @@ func TestReconcilerEval(t *testing.T) {
 		Watch   *unstructured.Unstructured
 		IsError bool
 	}{
-		"Nil watch": {
-			IsError: true,
-		},
-		"Nil watch object": {
-			Watch:   &unstructured.Unstructured{},
-			IsError: true,
-		},
+		// "Nil watch": {
+		// 	IsError: true,
+		// },
+		// "Nil watch object": {
+		// 	Watch:   &unstructured.Unstructured{},
+		// 	IsError: true,
+		// },
 		"Empty watch": {
 			Watch: &unstructured.Unstructured{
-				Object: map[string]interface{}{},
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"name":      "test",
+						"namespace": "test",
+					},
+				},
 			},
 		},
 	}

@@ -17,9 +17,12 @@ limitations under the License.
 package command
 
 import (
+	"github.com/pkg/errors"
+	"k8s.io/klog/v2"
 	"openebs.io/metac/controller/generic"
 
 	ctrl "mayadata.io/d-operators/common/controller"
+	jsonutil "mayadata.io/d-operators/common/json"
 	"mayadata.io/d-operators/common/pointer"
 	"mayadata.io/d-operators/common/unstruct"
 	"mayadata.io/d-operators/pkg/command"
@@ -41,7 +44,17 @@ func (r *Reconciler) eval() {
 	// convert unstructured instance to typed instance
 	err := unstruct.ToTyped(r.HookRequest.Watch, &c)
 	if err != nil {
-		r.Err = err
+		r.Err = errors.Wrapf(
+			err,
+			"Failed to convert unstruct command to typed instance: Name %q / %q",
+			r.HookRequest.Watch.GetNamespace(),
+			r.HookRequest.Watch.GetName(),
+		)
+		klog.Errorf(
+			"Resource %s \nError %s",
+			jsonutil.New(r.HookRequest.Watch).MustMarshal(),
+			err.Error(),
+		)
 		return
 	}
 	r.observedCommand = c

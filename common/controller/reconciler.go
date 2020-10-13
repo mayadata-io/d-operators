@@ -116,11 +116,11 @@ func (r *Reconciler) handleError() {
 	}
 	// log this error with context
 	klog.Errorf(
-		"Reconcile failed: Controller %q: Name %q %q: Error %s",
+		"Reconcile failed: Controller %q: Name %q / %q: Error %+v",
 		r.Name,
 		r.HookRequest.Watch.GetNamespace(),
 		r.HookRequest.Watch.GetName(),
-		r.Err.Error(),
+		r.Err,
 	)
 	// stop further reconciliation at metac since there was an error
 	r.HookResponse.SkipReconcile = true
