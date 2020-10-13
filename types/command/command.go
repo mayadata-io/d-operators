@@ -247,7 +247,7 @@ type CommandOutput struct {
 	Completed     bool          `json:"completed"`       // false if stopped or signaled
 	Timedout      bool          `json:"timedout"`        // true if command timed out
 	Exit          int           `json:"exit"`            // exit code of process
-	Error         error         `json:"error,omitempty"` // error during execution if any
+	Error         string        `json:"error,omitempty"` // error during execution if any
 	ExecutionTime ExecutionTime `json:"executionTime"`
 	Stdout        string        `json:"stdout"`            // streamed STDOUT
 	Stderr        string        `json:"stderr"`            // streamed STDERR

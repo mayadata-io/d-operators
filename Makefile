@@ -8,7 +8,7 @@ IMG_REPO ?= mayadataio/dope
 
 all: bins
 
-bins: vendor $(IMG_NAME)
+bins: vendor test $(IMG_NAME)
 
 $(IMG_NAME): $(ALL_SRC)
 	@echo "+ Generating $(IMG_NAME) binary"

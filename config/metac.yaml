@@ -52,3 +52,16 @@ spec:
       inline:
         funcName: sync/http
 ---
+apiVersion: dope/v1
+kind: GenericController
+metadata:
+  name: sync-command
+  namespace: dope
+spec:
+  watch:
+    apiVersion: dope.mayadata.io/v1
+    resource: commands
+  hooks:
+    sync:
+      inline:
+        funcName: sync/command

@@ -18,7 +18,9 @@ package command
 
 import (
 	"fmt"
+	"os"
 
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	types "mayadata.io/d-operators/types/command"
 	dynamicapply "openebs.io/metac/dynamic/apply"
@@ -59,17 +61,18 @@ func (b *JobBuilding) getDefaultJob() *unstructured.Unstructured {
 				"ttlSecondsAfterFinished": int64(0),
 				"template": map[string]interface{}{
 					"spec": map[string]interface{}{
-						"restartPolicy": "Never",
-						"backoffLimit":  int64(0),
+						"restartPolicy":      "Never",
+						"backoffLimit":       int64(0),
+						"serviceAccountName": os.Getenv("DOPE_SERVICE_ACCOUNT"),
 						"containers": []interface{}{
 							map[string]interface{}{
-								"name":  "commander",
-								"image": "mayadataio/dope-commander",
+								"name":            "commander",
+								"image":           "mayadataio/dcmd",
+								"imagePullPolicy": "Always",
 								"command": []interface{}{
-									"/usr/bin/dope-commander",
+									"/usr/bin/dcmd",
 								},
 								"args": []interface{}{
-									"--logtostderr",
 									"-v=1",
 									fmt.Sprintf("--command-name=%s", b.Command.GetName()),
 									fmt.Sprintf("--command-ns=%s", b.Command.GetNamespace()),
@@ -111,7 +114,10 @@ func (b *JobBuilding) Build() (*unstructured.Unstructured, error) {
 			desired.UnstructuredContent(),    // desired
 		)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(
+				err,
+				"Failed to build job spec: 3-way merge failed",
+			)
 		}
 		// Reset the final specifications
 		final.Object = finalObj

@@ -39,6 +39,7 @@ func TestBuilderBuild(t *testing.T) {
 		ExpectedTTLSecondsAfterFinished int64
 		ExpectedLabelCount              int
 		IsError                         bool
+		ExpectedServiceAccount          string
 	}{
 		"no job in command spec": {
 			Command: types.Command{
@@ -55,9 +56,10 @@ func TestBuilderBuild(t *testing.T) {
 			ExpectedLabelCount:              3,
 			ExpectedRestartPolicy:           "Never",
 			ExpectedTTLSecondsAfterFinished: 0,
-			ExpectedImage:                   "mayadataio/dope-commander",
+			ExpectedImage:                   "mayadataio/dcmd",
 			ExpectedImageName:               "commander",
-			ExpectedImageArgCount:           4,
+			ExpectedImageArgCount:           3,
+			ExpectedServiceAccount:          "",
 		},
 		"job in command spec": {
 			Command: types.Command{
@@ -89,9 +91,10 @@ func TestBuilderBuild(t *testing.T) {
 			ExpectedLabelCount:              4, // extra label
 			ExpectedRestartPolicy:           "Never",
 			ExpectedTTLSecondsAfterFinished: 0,
-			ExpectedImage:                   "mayadataio/dope-commander",
+			ExpectedImage:                   "mayadataio/dcmd",
 			ExpectedImageName:               "commander",
-			ExpectedImageArgCount:           4,
+			ExpectedImageArgCount:           3,
+			ExpectedServiceAccount:          "",
 		},
 		"job with sidecar in command spec": {
 			Command: types.Command{
@@ -211,6 +214,19 @@ func TestBuilderBuild(t *testing.T) {
 					"Expected restart policy %s got %s",
 					mock.ExpectedRestartPolicy,
 					gotRestartPolicy,
+				)
+			}
+			if gotSvcAccName, found, _ := unstructured.NestedString(
+				got.Object,
+				"spec",
+				"template",
+				"spec",
+				"serviceAccountName",
+			); found && gotSvcAccName != mock.ExpectedServiceAccount {
+				t.Fatalf(
+					"Expected restart policy %s got %s",
+					mock.ExpectedServiceAccount,
+					gotSvcAccName,
 				)
 			}
 			containers, found, _ := unstructured.NestedSlice(

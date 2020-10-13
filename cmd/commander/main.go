@@ -19,7 +19,6 @@ package main
 import (
 	"flag"
 	"os"
-	"path/filepath"
 
 	"github.com/pkg/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,13 +27,9 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/homedir"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
-
-	"mayadata.io/d-operators/common/unstruct"
-	"mayadata.io/d-operators/pkg/command"
-	types "mayadata.io/d-operators/types/command"
+	"mayadata.io/d-commander/pkg"
 )
 
 var (
@@ -52,7 +47,7 @@ var (
 
 	commandGroup = flag.String(
 		"command-group",
-		"dope.metacontroller.io", // default
+		"dope.mayadata.io", // default
 		"Kubernetes custom resource group",
 	)
 
@@ -81,7 +76,11 @@ var (
 		If not specified, uses in-cluster config`,
 	)
 
-	kubeconfig *string
+	kubeconfig = flag.String(
+		"kubeconfig",
+		"",
+		"absolute path to the kubeconfig file",
+	)
 
 	clientGoQPS = flag.Float64(
 		"client-go-qps",
@@ -107,34 +106,22 @@ var (
 // NOTE:
 //	A kubernetes **Job** can make use of this binary
 func main() {
-	if home := homedir.HomeDir(); home != "" {
-		kubeconfig = flag.String(
-			"kubeconfig",
-			filepath.Join(home, ".kube", "config"),
-			"(optional) absolute path to the kubeconfig file",
-		)
-	} else {
-		kubeconfig = flag.String(
-			"kubeconfig",
-			"",
-			"absolute path to the kubeconfig file",
-		)
-	}
-
+	klog.InitFlags(nil)
+	flag.Set("logtostderr", "true")
 	flag.Set("alsologtostderr", "true")
 	flag.Parse()
 
-	klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
-	klog.InitFlags(klogFlags)
+	// klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
+	// klog.InitFlags(klogFlags)
 
 	// Sync the glog and klog flags.
-	flag.CommandLine.VisitAll(func(f1 *flag.Flag) {
-		f2 := klogFlags.Lookup(f1.Name)
-		if f2 != nil {
-			value := f1.Value.String()
-			f2.Value.Set(value)
-		}
-	})
+	// flag.CommandLine.VisitAll(func(f1 *flag.Flag) {
+	// 	f2 := klogFlags.Lookup(f1.Name)
+	// 	if f2 != nil {
+	// 		value := f1.Value.String()
+	// 		f2.Value.Set(value)
+	// 	}
+	// })
 	defer klog.Flush()
 
 	if *commandName == "" {
@@ -151,7 +138,7 @@ func main() {
 	klog.V(1).Infof("Command custom resource: namespace %q", *commandNamespace)
 	klog.V(1).Infof("Command custom resource: name %q", *commandName)
 
-	r, err := NewRunner()
+	r, err := NewK8sRunner()
 	if err != nil {
 		// This should lead to crashloopback if this
 		// is running from within a Kubernetes pod
@@ -169,15 +156,15 @@ func main() {
 // Runnable helps in executing the Kubernetes command resource.
 // It does so by executing the commands or scripts specified in
 // the resource and updating this resource post execution.
-type Runnable struct {
+type K8sRunnable struct {
 	Client dynamic.Interface
 	GVR    schema.GroupVersionResource
 
-	commandStatus *types.CommandStatus
+	commandStatus *pkg.CommandStatus
 }
 
-// NewRunner returns a new instance of Runnable
-func NewRunner() (*Runnable, error) {
+// NewRunner returns a new instance of K8sRunnable
+func NewK8sRunner() (*K8sRunnable, error) {
 	var config *rest.Config
 	var err error
 
@@ -211,28 +198,32 @@ func NewRunner() (*Runnable, error) {
 		Resource: *commandResource,
 	}
 
-	return &Runnable{
+	return &K8sRunnable{
 		Client: client,
 		GVR:    gvr,
 	}, nil
 }
 
-func (a *Runnable) updateWithRetries() error {
+func (a *K8sRunnable) updateWithRetries() error {
 	var statusNew interface{}
-	err := unstruct.MarshalThenUnmarshal(a.commandStatus, &statusNew)
+	err := pkg.MarshalThenUnmarshal(a.commandStatus, &statusNew)
 	if err != nil {
 		return errors.Wrapf(
 			err,
-			"Marshal unmarshal failed: Command %q %q",
+			"Marshal unmarshal failed: Command %q / %q",
 			*commandNamespace,
 			*commandName,
 		)
 	}
-
+	klog.V(1).Infof(
+		"Command status: %s \n%s",
+		pkg.NewJSON(a.commandStatus).MustMarshal(),
+		pkg.NewJSON(statusNew).MustMarshal(),
+	)
 	// Command is updated with latest labels
 	labels := map[string]string{
 		// this label key is set with same value as that of status.phase
-		types.LblKeyCommandPhase: string(a.commandStatus.Phase),
+		pkg.LblKeyCommandPhase: string(a.commandStatus.Phase),
 	}
 
 	var runtimeErr error
@@ -251,7 +242,7 @@ func (a *Runnable) updateWithRetries() error {
 				// Retry this error since this might be a temporary
 				return errors.Wrapf(
 					err,
-					"Failed to get command: %q %q",
+					"Failed to get command: %q / %q",
 					*commandNamespace,
 					*commandName,
 				)
@@ -266,7 +257,7 @@ func (a *Runnable) updateWithRetries() error {
 			if err != nil {
 				runtimeErr = errors.Wrapf(
 					err,
-					"Set unstruct failed: Command %q %q",
+					"Set unstruct failed: Path 'status': Command %q / %q",
 					*commandNamespace,
 					*commandName,
 				)
@@ -280,7 +271,7 @@ func (a *Runnable) updateWithRetries() error {
 			}
 
 			// Merge existing labels with desired pair(s)
-			unstruct.SetLabels(cmd, labels)
+			pkg.SetLabels(cmd, labels)
 
 			updated, err := a.Client.
 				Resource(a.GVR).
@@ -303,11 +294,21 @@ func (a *Runnable) updateWithRetries() error {
 			// update would have modified resource version.
 			cmd.SetResourceVersion(updated.GetResourceVersion())
 			// Update command status as a **sub resource** update
-			_, err = a.Client.
+			cmdUpdatedStatus, err := a.Client.
 				Resource(a.GVR).
 				Namespace(*commandNamespace).
 				UpdateStatus(cmd, v1.UpdateOptions{})
 
+			if err == nil {
+				var c pkg.Command
+				tErr := pkg.ToTyped(cmdUpdatedStatus, &c)
+				klog.V(1).Infof(
+					"IsError=%t: %v: \n%s",
+					tErr != nil,
+					tErr,
+					pkg.NewJSON(c).MustMarshal(),
+				)
+			}
 			// If update status resulted in an error it will be
 			// returned so that update can be retried
 			return errors.Wrapf(
@@ -330,7 +331,7 @@ func (a *Runnable) updateWithRetries() error {
 }
 
 // Run executes the command resource
-func (a *Runnable) Run() error {
+func (a *K8sRunnable) Run() error {
 	got, err := a.Client.
 		Resource(a.GVR).
 		Namespace(*commandNamespace).
@@ -347,20 +348,20 @@ func (a *Runnable) Run() error {
 		)
 	}
 
-	var c types.Command
+	var c pkg.Command
 	// convert from unstructured instance to typed instance
-	err = unstruct.ToTyped(got, &c)
+	err = pkg.ToTyped(got, &c)
 	if err != nil {
 		return errors.Wrapf(
 			err,
-			"Failed to convert unstructured to typed instance: %q %q",
+			"Failed to convert unstructured command to typed instance: %q / %q",
 			*commandNamespace,
 			*commandName,
 		)
 	}
 
-	cmdRunner, err := command.NewRunner(
-		command.RunnableConfig{
+	cmdRunner, err := pkg.NewRunner(
+		pkg.RunnableConfig{
 			Command: c,
 		},
 	)

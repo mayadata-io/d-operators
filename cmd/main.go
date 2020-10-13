@@ -20,13 +20,13 @@ import (
 	"flag"
 
 	"k8s.io/klog/v2"
-	"openebs.io/metac/controller/generic"
-	"openebs.io/metac/start"
-
+	"mayadata.io/d-operators/controller/command"
 	"mayadata.io/d-operators/controller/doperator"
 	"mayadata.io/d-operators/controller/http"
 	"mayadata.io/d-operators/controller/recipe"
 	"mayadata.io/d-operators/controller/run"
+	"openebs.io/metac/controller/generic"
+	"openebs.io/metac/start"
 )
 
 // main function is the entry point of this binary.
@@ -67,6 +67,7 @@ func main() {
 		"sync/http":       http.Sync,
 		"sync/doperator":  doperator.Sync,
 		"sync/run":        run.Sync,
+		"sync/command":    command.Sync,
 	}
 	for name, ctrl := range controllers {
 		generic.AddToInlineRegistry(name, ctrl)

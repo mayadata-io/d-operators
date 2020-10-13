@@ -23,9 +23,15 @@ spec:
       - name: dope
         image: mayadataio/dope:v1.9.0
         command: ["/usr/bin/dope"]
+        imagePullPolicy: Always
         args:
         - --logtostderr
         - --run-as-local
-        - -v=1
+        - -v=3
         - --discovery-interval=30s
         - --cache-flush-interval=240s
+        env:
+          - name: DOPE_SERVICE_ACCOUNT
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.serviceAccountName

@@ -113,16 +113,31 @@ func (r *Reconciliation) initChildJobDetails() {
 		)
 		return
 	}
+	got, found, err := r.isChildJobAvailable()
+	if err != nil {
+		r.err = err
+		return
+	}
+
+	if !found {
+		return
+	}
 	// At this point Job is present in Kubernetes cluster
 	r.isChildJobFound = true
 	// Extract status.phase of this Job
 	phase, found, err := unstructured.NestedString(
-		r.childJob.Object,
+		got.Object,
 		"status",
 		"phase",
 	)
 	if err != nil {
-		r.err = err
+		r.err = errors.Wrapf(
+			err,
+			"Failed to get status.phase: Kind %q: Name %q / %q",
+			r.childJob.GetKind(),
+			r.childJob.GetNamespace(),
+			r.childJob.GetName(),
+		)
 		return
 	}
 	if !found {
@@ -211,11 +226,11 @@ func (r *Reconciliation) init() error {
 	// this ORDER of functions should be maintained
 	// ---------------------------------
 	var fns = []func(){
+		r.initKubernetes,
+		r.initJobClient,
 		r.initChildJobDetails,
 		r.initCommandDetails,
-		r.initKubernetes,
 		r.initLocking,
-		r.initJobClient,
 	}
 	for _, fn := range fns {
 		fn()
@@ -250,7 +265,12 @@ func (r *Reconciliation) createChildJob() (types.CommandStatus, error) {
 			v1.CreateOptions{},
 		)
 	if err != nil {
-		return types.CommandStatus{}, err
+		return types.CommandStatus{}, errors.Wrapf(
+			err,
+			"Failed to create job: Name %q / %q",
+			r.childJob.GetNamespace(),
+			r.childJob.GetName(),
+		)
 	}
 	return types.CommandStatus{
 		Phase: types.CommandPhaseJobCreated,
@@ -261,6 +281,28 @@ func (r *Reconciliation) createChildJob() (types.CommandStatus, error) {
 			got.GetUID(),
 		),
 	}, nil
+}
+
+func (r *Reconciliation) isChildJobAvailable() (*unstructured.Unstructured, bool, error) {
+	got, err := r.jobClient.
+		Namespace(r.childJob.GetNamespace()).
+		Get(
+			r.childJob.GetName(),
+			v1.GetOptions{},
+		)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, false, nil
+		}
+		return nil, false, errors.Wrapf(
+			err,
+			"Failed to get job: Name %q / %q",
+			r.childJob.GetNamespace(),
+			r.childJob.GetName(),
+		)
+	}
+	return got, got != nil, nil
+
 }
 
 func (r *Reconciliation) deleteChildJob() (types.CommandStatus, error) {
@@ -288,6 +330,9 @@ func (r *Reconciliation) deleteChildJob() (types.CommandStatus, error) {
 }
 
 func (r *Reconciliation) reconcileRunOnceCommand() (types.CommandStatus, error) {
+	klog.V(1).Infof(
+		"Reconcile run once command started",
+	)
 	var isDeleteChildJob = func() bool {
 		if !r.isChildJobFound || !r.isChildJobCompleted {
 			return false
@@ -307,9 +352,15 @@ func (r *Reconciliation) reconcileRunOnceCommand() (types.CommandStatus, error) 
 		return false
 	}
 	if isCreateChildJob() {
+		klog.V(1).Infof(
+			"Will create job",
+		)
 		return r.createChildJob()
 	}
 	if isDeleteChildJob() {
+		klog.V(1).Infof(
+			"Will delete job",
+		)
 		return r.deleteChildJob()
 	}
 	return types.CommandStatus{
@@ -319,10 +370,20 @@ func (r *Reconciliation) reconcileRunOnceCommand() (types.CommandStatus, error) 
 }
 
 func (r *Reconciliation) reconcileRunAlwaysCommand() (types.CommandStatus, error) {
+	klog.V(1).Infof(
+		"Run always: %q",
+		r.childJob.GetName(),
+	)
 	if !r.isChildJobFound {
+		klog.V(1).Infof(
+			"Will create job",
+		)
 		return r.createChildJob()
 	}
 	if r.isStatusSet && r.isChildJobCompleted {
+		klog.V(1).Infof(
+			"Will delete job",
+		)
 		return r.deleteChildJob()
 	}
 	return types.CommandStatus{
@@ -340,6 +401,9 @@ func (r *Reconciliation) deleteChildJobOnDisabledCommand() (types.CommandStatus,
 		// nothing to do
 		return output, nil
 	}
+	klog.V(1).Infof(
+		"Will delete job",
+	)
 	// Delete without any checks
 	_, err := r.deleteChildJob()
 	if err != nil {
@@ -351,6 +415,10 @@ func (r *Reconciliation) deleteChildJobOnDisabledCommand() (types.CommandStatus,
 // Reconcile either creates or deletes a Kubernetes job or does nothing
 // as part of reconciling a Command resource.
 func (r *Reconciliation) Reconcile() (status types.CommandStatus, err error) {
+	// klog.V(1).Infof(
+	// 	"Reconcilation struct: %#v",
+	// 	r,
+	// )
 	if r.isRunNever {
 		return r.deleteChildJobOnDisabledCommand()
 	}
@@ -373,6 +441,9 @@ func (r *Reconciliation) Reconcile() (status types.CommandStatus, err error) {
 		}
 		return types.CommandStatus{}, err
 	}
+	klog.V(1).Infof(
+		"Reconcile started",
+	)
 	// make use of defer to UNLOCK
 	defer func() {
 		// FORCE UNLOCK in case of the following:
