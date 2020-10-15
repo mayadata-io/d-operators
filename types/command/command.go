@@ -14,6 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// NOTE:
+// Ensure this file is synced with the projects using this
+// structures
+//
+// NOTE:
+//	cmd/commander/pkg/command.go uses this
+
 package types
 
 import (
@@ -23,7 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-// When defines if the command is enabled to run & how often
+// EnabledWhen defines if the command is enabled to run & how often
 // it is eligible to run
 type EnabledWhen string
 

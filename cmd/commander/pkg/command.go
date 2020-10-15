@@ -14,6 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// NOTE:
+//	This file is synced from d-operators/types/command/command.go
+//
+// NOTE:
+//	This file has its own package name
+
 package pkg
 
 import (
@@ -23,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-// When defines if the command is enabled to run & how often
+// EnabledWhen defines if the command is enabled to run & how often
 // it is eligible to run
 type EnabledWhen string
 

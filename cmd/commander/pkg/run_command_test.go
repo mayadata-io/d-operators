@@ -14,57 +14,54 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package command
+package pkg
 
 import (
 	"testing"
-
-	"github.com/pkg/errors"
-	types "mayadata.io/d-operators/types/command"
 )
 
 func TestRunnableInit(t *testing.T) {
 	var tests = map[string]struct {
-		Command         types.Command
-		ExpectedEnabled types.EnabledWhen
+		Command         Command
+		ExpectedEnabled EnabledWhen
 		IsError         bool
 	}{
 		"no command": {
-			ExpectedEnabled: types.EnabledOnce,
+			ExpectedEnabled: EnabledOnce,
 		},
 		"with command": {
-			Command:         types.Command{},
-			ExpectedEnabled: types.EnabledOnce,
+			Command:         Command{},
+			ExpectedEnabled: EnabledOnce,
 		},
 		"with command + enabled once": {
-			Command: types.Command{
-				Spec: types.CommandSpec{
-					Enabled: types.Enabled{
-						When: types.EnabledOnce,
+			Command: Command{
+				Spec: CommandSpec{
+					Enabled: Enabled{
+						When: EnabledOnce,
 					},
 				},
 			},
-			ExpectedEnabled: types.EnabledOnce,
+			ExpectedEnabled: EnabledOnce,
 		},
 		"with command + enabled never": {
-			Command: types.Command{
-				Spec: types.CommandSpec{
-					Enabled: types.Enabled{
-						When: types.EnabledNever,
+			Command: Command{
+				Spec: CommandSpec{
+					Enabled: Enabled{
+						When: EnabledNever,
 					},
 				},
 			},
-			ExpectedEnabled: types.EnabledNever,
+			ExpectedEnabled: EnabledNever,
 		},
 		"with command + enabled always": {
-			Command: types.Command{
-				Spec: types.CommandSpec{
-					Enabled: types.Enabled{
-						When: types.EnabledAlways,
+			Command: Command{
+				Spec: CommandSpec{
+					Enabled: Enabled{
+						When: EnabledAlways,
 					},
 				},
 			},
-			ExpectedEnabled: types.EnabledAlways,
+			ExpectedEnabled: EnabledAlways,
 		},
 	}
 	for name, mock := range tests {
@@ -97,37 +94,37 @@ func TestRunnableInit(t *testing.T) {
 
 func TestRunnableSetStatus(t *testing.T) {
 	var tests = map[string]struct {
-		Output               map[string]types.CommandOutput
-		Enabled              types.EnabledWhen
+		Output               map[string]CommandOutput
+		Enabled              EnabledWhen
 		ExpectedWarnCount    int
 		ExpectedErrorCount   int
 		ExpectedTimeoutCount int
 		ExpectedOutputCount  int
-		ExpectedPhase        types.CommandPhase
+		ExpectedPhase        CommandPhase
 	}{
 		"no output": {
-			ExpectedPhase: types.CommandPhaseRunning,
+			ExpectedPhase: CommandPhaseRunning,
 		},
 		"run once command output": {
-			Enabled:       types.EnabledOnce,
-			ExpectedPhase: types.CommandPhaseCompleted,
+			Enabled:       EnabledOnce,
+			ExpectedPhase: CommandPhaseCompleted,
 		},
 		"one error output": {
-			Output: map[string]types.CommandOutput{
+			Output: map[string]CommandOutput{
 				"cmd-1": {
 					CMD:   "cmd-1",
-					Error: errors.Errorf("err"),
+					Error: "err",
 				},
 			},
 			ExpectedErrorCount:  1,
-			ExpectedPhase:       types.CommandPhaseError,
+			ExpectedPhase:       CommandPhaseError,
 			ExpectedOutputCount: 1,
 		},
 		"one error & one warning output": {
-			Output: map[string]types.CommandOutput{
+			Output: map[string]CommandOutput{
 				"cmd-1": {
 					CMD:   "cmd-1",
-					Error: errors.Errorf("err"),
+					Error: "err",
 				},
 				"cmd-2": {
 					CMD:     "cmd-2",
@@ -136,14 +133,14 @@ func TestRunnableSetStatus(t *testing.T) {
 			},
 			ExpectedErrorCount:  1,
 			ExpectedWarnCount:   1,
-			ExpectedPhase:       types.CommandPhaseError,
+			ExpectedPhase:       CommandPhaseError,
 			ExpectedOutputCount: 2,
 		},
 		"one error & one warning & one timeout output": {
-			Output: map[string]types.CommandOutput{
+			Output: map[string]CommandOutput{
 				"cmd-1": {
 					CMD:   "cmd-1",
-					Error: errors.Errorf("err"),
+					Error: "err",
 				},
 				"cmd-2": {
 					CMD:     "cmd-2",
@@ -157,7 +154,7 @@ func TestRunnableSetStatus(t *testing.T) {
 			ExpectedErrorCount:   1,
 			ExpectedWarnCount:    1,
 			ExpectedTimeoutCount: 1,
-			ExpectedPhase:        types.CommandPhaseError,
+			ExpectedPhase:        CommandPhaseError,
 			ExpectedOutputCount:  3,
 		},
 	}
@@ -167,7 +164,7 @@ func TestRunnableSetStatus(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			r := Runnable{
 				enabled: mock.Enabled,
-				Status:  &types.CommandStatus{},
+				Status:  &CommandStatus{},
 			}
 			r.setStatus(mock.Output)
 			if mock.ExpectedPhase != r.Status.Phase {
