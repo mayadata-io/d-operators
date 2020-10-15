@@ -14,18 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package command
+package pkg
 
 import (
 	"testing"
-
-	"mayadata.io/d-operators/common/pointer"
-	types "mayadata.io/d-operators/types/command"
 )
 
 func TestNewShellRunner(t *testing.T) {
 	var tests = map[string]struct {
-		CommandInfo       types.CommandInfo
+		CommandInfo       CommandInfo
 		ExpectedCMD       string
 		ExpectedArgsCount int
 		IsError           bool
@@ -34,17 +31,17 @@ func TestNewShellRunner(t *testing.T) {
 			IsError: true,
 		},
 		"missing command name": {
-			CommandInfo: types.CommandInfo{},
+			CommandInfo: CommandInfo{},
 			IsError:     true,
 		},
 		"missing cmd & script": {
-			CommandInfo: types.CommandInfo{
+			CommandInfo: CommandInfo{
 				Name: "testit",
 			},
 			IsError: true,
 		},
 		"cmd as well as script": {
-			CommandInfo: types.CommandInfo{
+			CommandInfo: CommandInfo{
 				Name: "testing",
 				CMD: []string{
 					"ls",
@@ -55,7 +52,7 @@ func TestNewShellRunner(t *testing.T) {
 			IsError: true,
 		},
 		"with cmd": {
-			CommandInfo: types.CommandInfo{
+			CommandInfo: CommandInfo{
 				Name: "testing",
 				CMD: []string{
 					"ls",
@@ -66,7 +63,7 @@ func TestNewShellRunner(t *testing.T) {
 			ExpectedCMD:       "ls",
 		},
 		"with script": {
-			CommandInfo: types.CommandInfo{
+			CommandInfo: CommandInfo{
 				Name:   "testing",
 				Script: "ls -ltr",
 			},
@@ -108,7 +105,7 @@ func TestNewShellRunner(t *testing.T) {
 
 func TestNewShellListRunner(t *testing.T) {
 	var tests = map[string]struct {
-		Spec                     types.CommandSpec
+		Spec                     CommandSpec
 		ExpectedENVCount         int
 		ExpectedItemCount        int
 		ExpectedTimeoutInSeconds int64
@@ -119,20 +116,20 @@ func TestNewShellListRunner(t *testing.T) {
 			ExpectedTimeoutInSeconds: 300,
 		},
 		"with timeout": {
-			Spec: types.CommandSpec{
-				TimeoutInSeconds: pointer.Int64(20),
+			Spec: CommandSpec{
+				TimeoutInSeconds: Int64(20),
 			},
 			ExpectedTimeoutInSeconds: 20,
 		},
 		"with continue on error": {
-			Spec: types.CommandSpec{
-				MustRunAllCommands: pointer.Bool(true),
+			Spec: CommandSpec{
+				MustRunAllCommands: Bool(true),
 			},
 			IsContinueOnError:        true,
 			ExpectedTimeoutInSeconds: 300,
 		},
 		"with env": {
-			Spec: types.CommandSpec{
+			Spec: CommandSpec{
 				Env: map[string]string{
 					"IP": "12.12.1.1",
 				},
@@ -141,8 +138,8 @@ func TestNewShellListRunner(t *testing.T) {
 			ExpectedTimeoutInSeconds: 300,
 		},
 		"with one invalid command": {
-			Spec: types.CommandSpec{
-				Commands: []types.CommandInfo{
+			Spec: CommandSpec{
+				Commands: []CommandInfo{
 					{
 						Name: "cmd-01",
 					},
@@ -151,8 +148,8 @@ func TestNewShellListRunner(t *testing.T) {
 			IsError: true,
 		},
 		"with one valid command": {
-			Spec: types.CommandSpec{
-				Commands: []types.CommandInfo{
+			Spec: CommandSpec{
+				Commands: []CommandInfo{
 					{
 						Name: "cmd-01",
 						CMD: []string{
@@ -166,8 +163,8 @@ func TestNewShellListRunner(t *testing.T) {
 			ExpectedTimeoutInSeconds: 300,
 		},
 		"with one valid & one invalid command": {
-			Spec: types.CommandSpec{
-				Commands: []types.CommandInfo{
+			Spec: CommandSpec{
+				Commands: []CommandInfo{
 					{
 						Name: "cmd-01",
 						CMD: []string{
