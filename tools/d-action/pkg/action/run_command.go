@@ -14,26 +14,28 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package pkg
+package action
 
 import (
 	"fmt"
 	"time"
+
+	types "mayadata.io/d-operators/types/command"
 )
 
 // RunnableConfig helps constructing a new instance of Runnable
 type RunnableConfig struct {
-	Command Command
+	Command types.Command
 }
 
 // Runnable helps executing one or more commands
 // e.g. shell / script commands
 type Runnable struct {
-	Command Command
-	Status  *CommandStatus
+	Command types.Command
+	Status  *types.CommandStatus
 
 	// determines if Command resource can be reconciled more than once
-	enabled EnabledWhen
+	enabled types.EnabledWhen
 
 	// err as value
 	err error
@@ -41,7 +43,7 @@ type Runnable struct {
 
 func (r *Runnable) init() {
 	// enabled defauls to Once i.e. Command can reconcile only once
-	r.enabled = EnabledOnce
+	r.enabled = types.EnabledOnce
 	// override with user specified value if set
 	if r.Command.Spec.Enabled.When != "" {
 		r.enabled = r.Command.Spec.Enabled.When
@@ -52,13 +54,13 @@ func (r *Runnable) init() {
 func NewRunner(config RunnableConfig) (*Runnable, error) {
 	r := &Runnable{
 		Command: config.Command,
-		Status:  &CommandStatus{},
+		Status:  &types.CommandStatus{},
 	}
 	r.init()
 	return r, nil
 }
 
-func (r *Runnable) setStatus(out map[string]CommandOutput) {
+func (r *Runnable) setStatus(out map[string]types.CommandOutput) {
 	var totalTimetaken float64
 	for _, op := range out {
 		totalTimetaken = totalTimetaken + op.ExecutionTime.ValueInSeconds
@@ -73,17 +75,17 @@ func (r *Runnable) setStatus(out map[string]CommandOutput) {
 		}
 	}
 	switch r.enabled {
-	case EnabledOnce:
+	case types.EnabledOnce:
 		// Command that is meant to run only once is initialised to
 		// Completed phase
-		r.Status.Phase = CommandPhaseCompleted
+		r.Status.Phase = types.CommandPhaseCompleted
 	default:
 		// Command that is meant to be run periodically is initialised
 		// to Running phase
-		r.Status.Phase = CommandPhaseRunning
+		r.Status.Phase = types.CommandPhaseRunning
 	}
 	if r.Status.Counter.TimeoutCount > 0 {
-		r.Status.Phase = CommandPhaseTimedOut
+		r.Status.Phase = types.CommandPhaseTimedOut
 		r.Status.Timedout = true
 		r.Status.Reason = fmt.Sprintf(
 			"%d timeout(s) found",
@@ -91,7 +93,7 @@ func (r *Runnable) setStatus(out map[string]CommandOutput) {
 		)
 	}
 	if r.Status.Counter.ErrorCount > 0 {
-		r.Status.Phase = CommandPhaseError
+		r.Status.Phase = types.CommandPhaseError
 		r.Status.Reason = fmt.Sprintf(
 			"%d error(s) found",
 			r.Status.Counter.ErrorCount,
@@ -99,7 +101,7 @@ func (r *Runnable) setStatus(out map[string]CommandOutput) {
 	}
 	totalTimeTakenSecs := time.Duration(totalTimetaken) * time.Second
 	totalTimeTakenSecsFmt := totalTimeTakenSecs.Round(time.Millisecond).String()
-	r.Status.ExecutionTime = ExecutionTime{
+	r.Status.ExecutionTime = types.ExecutionTime{
 		ValueInSeconds: totalTimeTakenSecs.Seconds() + 0.0001,
 		ReadableValue:  totalTimeTakenSecsFmt,
 	}
@@ -107,10 +109,10 @@ func (r *Runnable) setStatus(out map[string]CommandOutput) {
 }
 
 // Run executes the commands in a sequential order
-func (r *Runnable) Run() (status *CommandStatus, err error) {
-	if r.enabled == EnabledNever {
-		return &CommandStatus{
-			Phase:   CommandPhaseSkipped,
+func (r *Runnable) Run() (status *types.CommandStatus, err error) {
+	if r.enabled == types.EnabledNever {
+		return &types.CommandStatus{
+			Phase:   types.CommandPhaseSkipped,
 			Message: "Resource is not enabled",
 		}, nil
 	}

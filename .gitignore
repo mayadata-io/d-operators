@@ -1,11 +1,9 @@
 /vendor/
-tools/commander/vendor/
-tools/recipe-api/vendor/
-tools/command-api/vendor/
+tools/d-action/vendor/
 d-operators
 test/bin/
 test/kubebin/
 test/e2e/uninstall-k3s.txt
 uninstall-k3s.txt
 dope
-dcmd
+daction

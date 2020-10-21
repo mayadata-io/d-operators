@@ -14,13 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// NOTE:
-// Ensure this file is synced with the projects using this
-// structures
-//
-// NOTE:
-//	cmd/commander/pkg/command.go uses this
-
 package types
 
 import (

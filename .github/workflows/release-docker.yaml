@@ -6,12 +6,12 @@ on:
       - 'v[0-9]+.[0-9]+.[0-9]+'
 jobs:
   release-docker:
-    name: Release Docker Image
+    name: Release docker dope image
     runs-on: ubuntu-18.04
     steps:
       - name: Checkout Code
         uses: actions/checkout@v2
-      - name: Setup Docker
+      - name: Build push dope image
         uses: docker/build-push-action@v1
         with:
           username: ${{ secrets.DOCKER_USERNAME }}

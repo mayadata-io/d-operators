@@ -29,7 +29,11 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
-	"mayadata.io/d-commander/pkg"
+
+	types "mayadata.io/d-operators/types/command"
+
+	"mayadata.io/d-action/pkg/action"
+	"mayadata.io/d-action/pkg/util"
 )
 
 var (
@@ -149,7 +153,7 @@ type Runnable struct {
 	Client dynamic.Interface
 	GVR    schema.GroupVersionResource
 
-	commandStatus *pkg.CommandStatus
+	commandStatus *types.CommandStatus
 }
 
 // NewRunner returns a new instance of Runnable
@@ -195,7 +199,7 @@ func NewRunner() (*Runnable, error) {
 
 func (a *Runnable) updateWithRetries() error {
 	var statusNew interface{}
-	err := pkg.MarshalThenUnmarshal(a.commandStatus, &statusNew)
+	err := util.MarshalThenUnmarshal(a.commandStatus, &statusNew)
 	if err != nil {
 		return errors.Wrapf(
 			err,
@@ -208,13 +212,13 @@ func (a *Runnable) updateWithRetries() error {
 		"Command %q / %q: Status %s",
 		*commandNamespace,
 		*commandName,
-		pkg.NewJSON(statusNew).MustMarshal(),
+		util.NewJSON(statusNew).MustMarshal(),
 	)
 
 	// Command is updated with latest labels
 	labels := map[string]string{
 		// this label key is set with same value as that of status.phase
-		pkg.LblKeyCommandPhase: string(a.commandStatus.Phase),
+		types.LblKeyCommandPhase: string(a.commandStatus.Phase),
 	}
 
 	var runtimeErr error
@@ -262,7 +266,7 @@ func (a *Runnable) updateWithRetries() error {
 			}
 
 			// Merge existing labels with desired pair(s)
-			pkg.SetLabels(cmd, labels)
+			util.SetLabels(cmd, labels)
 
 			updated, err := a.Client.
 				Resource(a.GVR).
@@ -293,8 +297,8 @@ func (a *Runnable) updateWithRetries() error {
 			if err == nil {
 				// This is an extra check to detect type conversion issues
 				// if any during later stages
-				var c pkg.Command
-				tErr := pkg.ToTyped(cmdUpdatedStatus, &c)
+				var c types.Command
+				tErr := util.ToTyped(cmdUpdatedStatus, &c)
 				klog.V(1).Infof(
 					"UnstructToTyped: IsError=%t: %v", tErr != nil, tErr,
 				)
@@ -338,9 +342,9 @@ func (a *Runnable) Run() error {
 		)
 	}
 
-	var c pkg.Command
+	var c types.Command
 	// convert from unstructured instance to typed instance
-	err = pkg.ToTyped(got, &c)
+	err = util.ToTyped(got, &c)
 	if err != nil {
 		return errors.Wrapf(
 			err,
@@ -350,8 +354,8 @@ func (a *Runnable) Run() error {
 		)
 	}
 
-	cmdRunner, err := pkg.NewRunner(
-		pkg.RunnableConfig{
+	cmdRunner, err := action.NewRunner(
+		action.RunnableConfig{
 			Command: c,
 		},
 	)

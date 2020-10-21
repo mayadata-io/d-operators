@@ -14,14 +14,34 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package types
+package util
 
-import (
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-)
+// Bool returns a pointer to the given bool
+func Bool(b bool) *bool {
+	o := b
+	return &o
+}
 
-// Delete deletes the state found in the cluster
-type Delete struct {
-	// Desired state that needs to be deleted
-	State *unstructured.Unstructured `json:"state"`
+// Int returns a pointer to the given int
+func Int(i int) *int {
+	o := i
+	return &o
+}
+
+// Int32 returns a pointer to the given int32
+func Int32(i int32) *int32 {
+	o := i
+	return &o
+}
+
+// Int64 returns a pointer to the given int64
+func Int64(i int64) *int64 {
+	o := i
+	return &o
+}
+
+// String returns a pointer to the given string
+func String(s string) *string {
+	o := s
+	return &o
 }
