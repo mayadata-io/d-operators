@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package pkg
+package action
 
 import (
 	"fmt"
@@ -24,6 +24,8 @@ import (
 	"github.com/go-cmd/cmd"
 	"github.com/pkg/errors"
 	"k8s.io/klog/v2"
+
+	types "mayadata.io/d-operators/types/command"
 )
 
 // RunnableShell represents the shell command that gets executed
@@ -39,7 +41,7 @@ type RunnableShell struct {
 }
 
 // NewShellRunner returns a new instance of RunnableShell
-func NewShellRunner(cmdInfo CommandInfo) (RunnableShell, error) {
+func NewShellRunner(cmdInfo types.CommandInfo) (RunnableShell, error) {
 	if cmdInfo.Name == "" {
 		return RunnableShell{},
 			errors.New("Invalid command: Missing name")
@@ -90,7 +92,7 @@ type RunnableShellList struct {
 
 // NewShellListRunner returns a new RunnableShellList from the provided
 // command specifications
-func NewShellListRunner(spec CommandSpec) (RunnableShellList, error) {
+func NewShellListRunner(spec types.CommandSpec) (RunnableShellList, error) {
 	var timeoutInSecs int64 = 300 // defaults to 5 minutes
 	var continueOnErr bool        // defaults to false
 
@@ -124,10 +126,10 @@ func (l RunnableShellList) getCMDEnv() (out []string) {
 }
 
 // Run executes all the shell commands in order
-func (l RunnableShellList) Run() map[string]CommandOutput {
+func (l RunnableShellList) Run() map[string]types.CommandOutput {
 	var timeoutInSecs int64
 	// initialise the run output
-	output := make(map[string]CommandOutput, len(l.Items))
+	output := make(map[string]types.CommandOutput, len(l.Items))
 	cmdEnv := l.getCMDEnv()
 
 	// commands are executed serially one by one
@@ -209,7 +211,7 @@ func (l RunnableShellList) Run() map[string]CommandOutput {
 		if statusChan.Error != nil {
 			statusChanErr = statusChan.Error.Error()
 		}
-		output[rc.Name] = CommandOutput{
+		output[rc.Name] = types.CommandOutput{
 			CMD:       statusChan.Cmd,
 			Completed: statusChan.Complete,
 			Timedout:  isTimeout,
@@ -218,7 +220,7 @@ func (l RunnableShellList) Run() map[string]CommandOutput {
 			PID:       statusChan.PID,
 			Stderr:    stderr.String(),
 			Stdout:    stdout.String(),
-			ExecutionTime: ExecutionTime{
+			ExecutionTime: types.ExecutionTime{
 				ValueInSeconds: timeTaken.Seconds() + 0.0001,
 				ReadableValue:  timeTakenFmt,
 			},

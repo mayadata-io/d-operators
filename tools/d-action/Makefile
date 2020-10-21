@@ -3,8 +3,8 @@ PACKAGE_VERSION ?= $(shell git fetch --all --tags | echo "" | git describe --alw
 ALL_SRC = $(shell find . -name "*.go" | grep -v -e "vendor")
 
 # We are using docker hub as the default registry
-IMG_NAME ?= dcmd
-IMG_REPO ?= mayadataio/dcmd
+IMG_NAME ?= daction
+IMG_REPO ?= mayadataio/daction
 
 all: bins
 
