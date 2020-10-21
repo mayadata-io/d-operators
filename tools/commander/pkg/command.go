@@ -16,7 +16,7 @@ limitations under the License.
 
 // NOTE:
 //	This file is synced from d-operators/types/command/command.go
-//
+
 // NOTE:
 //	This file has its own package name
 

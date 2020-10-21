@@ -1,5 +1,7 @@
 /vendor/
-cmd/commander/vendor/
+tools/commander/vendor/
+tools/recipe-api/vendor/
+tools/command-api/vendor/
 d-operators
 test/bin/
 test/kubebin/
