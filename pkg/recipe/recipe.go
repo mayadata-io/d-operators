@@ -53,7 +53,12 @@ type Runner struct {
 	err error
 
 	// dependency injection functions useful during unit testing
-	updateRecipeWithRetriesFn func() error
+	//
+	// NOTE:
+	//	This is also useful when Recipe is executed via function
+	// calls instead of being watched as a Kubernetes Custom Resource.
+	// In such a case, one can implement this function as a NOOP.
+	UpdateRecipeWithRetriesFn func() error
 }
 
 // NewRunner returns a new instance of Runner
@@ -166,13 +171,13 @@ func (r *Runner) eval(task types.Task) error {
 	}
 	if action == 0 {
 		return errors.Errorf(
-			"Invalid task %q: Task needs one action",
+			"Invalid task %q: Missing action",
 			task.Name,
 		)
 	}
 	if action > 1 {
 		return errors.Errorf(
-			"Invalid task %q: Task supports only one action",
+			"Invalid task %q: More than one actions found",
 			task.Name,
 		)
 	}
@@ -268,8 +273,8 @@ func (r *Runner) mayBePassedOrCompletedStatus() types.RecipeStatusPhase {
 // updateRecipeWithRetries updates the kubernetes cluster with
 // desired recipe
 func (r *Runner) updateRecipeWithRetries() error {
-	if r.updateRecipeWithRetriesFn != nil {
-		return r.updateRecipeWithRetriesFn()
+	if r.UpdateRecipeWithRetriesFn != nil {
+		return r.UpdateRecipeWithRetriesFn()
 	}
 	// get the dynamic client for Recipe
 	client, err := r.fixture.GetClientForAPIVersionAndKind(
@@ -279,7 +284,7 @@ func (r *Runner) updateRecipeWithRetries() error {
 	if err != nil {
 		return errors.Wrapf(
 			err,
-			"Get client failed: Recipe %q %q",
+			"Get client failed: Recipe %q / %q",
 			r.Recipe.Namespace,
 			r.Recipe.Name,
 		)
@@ -290,7 +295,7 @@ func (r *Runner) updateRecipeWithRetries() error {
 	if err != nil {
 		return errors.Wrapf(
 			err,
-			"Marshal unmarshal failed: Recipe %q %q",
+			"Marshal unmarshal failed: Recipe %q / %q",
 			r.Recipe.Namespace,
 			r.Recipe.Name,
 		)
@@ -313,7 +318,7 @@ func (r *Runner) updateRecipeWithRetries() error {
 		if err != nil {
 			runtimeErr = errors.Wrapf(
 				err,
-				"Get instance failed: Recipe %q %q",
+				"Get instance failed: Recipe %q / %q",
 				r.Recipe.Namespace,
 				r.Recipe.Name,
 			)
@@ -330,7 +335,7 @@ func (r *Runner) updateRecipeWithRetries() error {
 		if err != nil {
 			runtimeErr = errors.Wrapf(
 				err,
-				"Set unstruct failed: Recipe %q %q",
+				"Set unstruct failed: Recipe %q / %q",
 				r.Recipe.Namespace,
 				r.Recipe.Name,
 			)
@@ -357,7 +362,7 @@ func (r *Runner) updateRecipeWithRetries() error {
 			//	An update error might be temporary
 			return errors.Wrapf(
 				err,
-				"Update failed: Recipe %q %q",
+				"Update failed: Recipe %q / %q",
 				r.Recipe.Namespace,
 				r.Recipe.Name,
 			)
@@ -379,7 +384,7 @@ func (r *Runner) updateRecipeWithRetries() error {
 		// returned so that update can be retried
 		return errors.Wrapf(
 			err,
-			"Update failed: Recipe %q %q",
+			"Update failed: Recipe %q / %q",
 			r.Recipe.Namespace,
 			r.Recipe.Name,
 		)
@@ -387,7 +392,7 @@ func (r *Runner) updateRecipeWithRetries() error {
 	if runtimeErr != nil {
 		return errors.Wrapf(
 			runtimeErr,
-			"Update failed: Runtime error: Recipe: %q %q",
+			"Update failed: Runtime error: Recipe: %q / %q",
 			r.Recipe.Namespace,
 			r.Recipe.Name,
 		)
@@ -395,12 +400,11 @@ func (r *Runner) updateRecipeWithRetries() error {
 
 	if retryErr == nil {
 		klog.V(3).Infof(
-			"Update succeeded: Recipe %q %q",
+			"Update succeeded: Recipe %q / %q",
 			r.Recipe.Namespace,
 			r.Recipe.Name,
 		)
 	}
-
 	return retryErr
 }
 
@@ -409,7 +413,7 @@ func (r *Runner) runAllTasks() (err error) {
 	defer func() {
 		r.fixture.TearDown()
 		if err == nil {
-			// update recipe's status if there was no error
+			// update recipe's status if there was **no** error
 			err = r.updateRecipeWithRetries()
 		}
 	}()
@@ -422,7 +426,7 @@ func (r *Runner) runAllTasks() (err error) {
 		//	This does not need to be bubbled up as error. Setting
 		// phase will handle this invalid schema.
 		klog.Errorf(
-			"Will skip execution: Invalid schema: Recipe %q %q: %s",
+			"Will skip execution: Invalid schema: Recipe %q / %q: %s",
 			r.Recipe.GetNamespace(),
 			r.Recipe.GetName(),
 			r.FieldPathValidationResult.Error(),
@@ -442,7 +446,7 @@ func (r *Runner) runAllTasks() (err error) {
 	if err != nil {
 		return errors.Wrapf(
 			err,
-			"Eligibility check failed: Recipe %q %q: Status %q %q",
+			"Eligibility check failed: Recipe %q / %q: Status %q %q",
 			r.Recipe.Namespace,
 			r.Recipe.Name,
 			r.Recipe.Status.Phase,
@@ -453,7 +457,7 @@ func (r *Runner) runAllTasks() (err error) {
 		// Recipe may not be eligible during initial reconciliation
 		// attempts. So logging this at verbose level is fine.
 		klog.V(2).Infof(
-			"Will skip execution: Not eligibile: Recipe %q %q",
+			"Will skip execution: Not eligibile: Recipe %q / %q",
 			r.Recipe.GetNamespace(),
 			r.Recipe.GetName(),
 		)
@@ -493,7 +497,7 @@ func (r *Runner) runAllTasks() (err error) {
 			// error
 			return errors.Wrapf(
 				err,
-				"Task failed: Index %d: Name %q: Recipe %q %q",
+				"Task failed: Index %d: Name %q: Recipe %q / %q",
 				idx+1,
 				task.Name,
 				r.Recipe.Namespace,
@@ -547,7 +551,7 @@ func (r *Runner) Run() (status types.RecipeStatus, err error) {
 	if err != nil {
 		return types.RecipeStatus{}, errors.Wrapf(
 			err,
-			"Verify lock failed: Recipe %q %q: Status %q %q",
+			"Verify lock failed: Recipe %q / %q: Status %q %q",
 			r.Recipe.GetNamespace(),
 			r.Recipe.GetName(),
 			r.Recipe.Status.Phase,
@@ -556,7 +560,7 @@ func (r *Runner) Run() (status types.RecipeStatus, err error) {
 	}
 	if locked {
 		klog.V(3).Infof(
-			"Will skip execution: Previous lock exists: Recipe %q %q: Status %q %q",
+			"Will skip execution: Previous lock exists: Recipe %q / %q: Status %q %q",
 			r.Recipe.GetNamespace(),
 			r.Recipe.GetName(),
 			r.Recipe.Status.Phase,
@@ -568,7 +572,7 @@ func (r *Runner) Run() (status types.RecipeStatus, err error) {
 	}
 
 	klog.V(2).Infof(
-		"Will execute: Recipe %q %q: Status %q %q",
+		"Will execute: Recipe %q / %q: Status %q %q",
 		r.Recipe.Namespace,
 		r.Recipe.Name,
 		r.Recipe.Status.Phase,
@@ -580,7 +584,7 @@ func (r *Runner) Run() (status types.RecipeStatus, err error) {
 	if err != nil {
 		return types.RecipeStatus{}, errors.Wrapf(
 			err,
-			"Create lock failed: Recipe %q %q: Status %q %q",
+			"Create lock failed: Recipe %q / %q: Status %q %q",
 			r.Recipe.Namespace,
 			r.Recipe.Name,
 			r.Recipe.Status.Phase,
@@ -603,7 +607,7 @@ func (r *Runner) Run() (status types.RecipeStatus, err error) {
 			if unlockerr != nil {
 				// swallow unlock error by logging
 				klog.Errorf(
-					"Forced unlock failed: Recipe %q %q: Status %q %q: %s",
+					"Forced unlock failed: Recipe %q / %q: Status %q %q: %s",
 					r.Recipe.Namespace,
 					r.Recipe.Name,
 					r.Recipe.Status.Phase,
@@ -614,7 +618,7 @@ func (r *Runner) Run() (status types.RecipeStatus, err error) {
 				return
 			}
 			klog.V(3).Infof(
-				"Forced unlock was successful: Recipe %q %q: Status %q %q",
+				"Forced unlock was successful: Recipe %q / %q: Status %q %q",
 				r.Recipe.Namespace,
 				r.Recipe.Name,
 				r.Recipe.Status.Phase,
@@ -639,7 +643,7 @@ func (r *Runner) Run() (status types.RecipeStatus, err error) {
 		if unlockerr != nil {
 			// swallow the unlock error by logging
 			klog.Errorf(
-				"Graceful unlock failed: Recipe %q %q: Status %q %q: %s",
+				"Graceful unlock failed: Recipe %q / %q: Status %q %q: %s",
 				r.Recipe.Namespace,
 				r.Recipe.Name,
 				r.Recipe.Status.Phase,
@@ -650,7 +654,7 @@ func (r *Runner) Run() (status types.RecipeStatus, err error) {
 			return
 		}
 		klog.V(3).Infof(
-			"Unlocked gracefully: Recipe %q %q: Status %q %q: %s",
+			"Unlocked gracefully: Recipe %q / %q: Status %q %q: %s",
 			r.Recipe.Namespace,
 			r.Recipe.Name,
 			r.Recipe.Status.Phase,
@@ -664,5 +668,28 @@ func (r *Runner) Run() (status types.RecipeStatus, err error) {
 		return types.RecipeStatus{}, err
 	}
 
+	return *r.RecipeStatus, r.runAllTasks()
+}
+
+// RunWithoutLocking executes the tasks in a sequential order
+// without taking a lock (i.e. Kubernetes ConfigMap)
+func (r *Runner) RunWithoutLocking() (status types.RecipeStatus, err error) {
+	err = r.init()
+	if err != nil {
+		return types.RecipeStatus{}, err
+	}
+
+	klog.V(2).Infof(
+		"Will execute: Recipe %q / %q: Status %q %q",
+		r.Recipe.Namespace,
+		r.Recipe.Name,
+		r.Recipe.Status.Phase,
+		r.Recipe.Status.Reason,
+	)
+
+	err = r.evalAllTasks()
+	if err != nil {
+		return types.RecipeStatus{}, err
+	}
 	return *r.RecipeStatus, r.runAllTasks()
 }

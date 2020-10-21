@@ -321,7 +321,7 @@ func TestRunnerRunAllTasks(t *testing.T) {
 					TaskResults: make(map[string]types.TaskResult),
 				},
 				fixture: f,
-				updateRecipeWithRetriesFn: func() error {
+				UpdateRecipeWithRetriesFn: func() error {
 					// update recipe function is mocked
 					return nil
 				},
