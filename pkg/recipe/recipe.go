@@ -36,6 +36,7 @@ type RunnerConfig struct {
 	Recipe                    types.Recipe
 	FieldPathValidationResult schema.FieldPathValidationResult
 	Retry                     *Retryable
+	UpdateRecipeWithRetriesFn func() error
 }
 
 // Runner helps executing a Recipe
