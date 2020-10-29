@@ -96,6 +96,19 @@ type Recipe struct {
 	Status RecipeStatus `json:"status"`
 }
 
+// String implements the Stringer interface
+func (r Recipe) String() string {
+	raw, err := json.MarshalIndent(
+		r,
+		" ",
+		".",
+	)
+	if err != nil {
+		panic(err)
+	}
+	return string(raw)
+}
+
 // RecipeSpec defines the tasks that get executed as part of
 // executing this Recipe
 type RecipeSpec struct {
