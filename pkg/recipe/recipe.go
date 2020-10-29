@@ -36,6 +36,7 @@ type RunnerConfig struct {
 	Recipe                    types.Recipe
 	FieldPathValidationResult schema.FieldPathValidationResult
 	Retry                     *Retryable
+	Fixture                   *Fixture
 	UpdateRecipeWithRetriesFn func() error
 }
 
@@ -81,11 +82,16 @@ func NewRunner(config RunnerConfig) *Runner {
 		RecipeStatus: &types.RecipeStatus{
 			TaskResults: map[string]types.TaskResult{},
 		},
-		Retry: retry,
+		Retry:   retry,
+		fixture: config.Fixture,
 	}
 }
 
 func (r *Runner) initFixture() {
+	if r.fixture != nil {
+		// no further action required
+		return
+	}
 	f, err := NewFixture(FixtureConfig{
 		KubeConfig:   metac.KubeDetails.Config,
 		APIDiscovery: metac.KubeDetails.GetMetacAPIDiscovery(),
