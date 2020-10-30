@@ -46,6 +46,7 @@ var SupportedAbsolutePaths = []string{
 	"spec.eligible.checks.[*].labelSelector.matchExpressions.[*].key",
 	"spec.eligible.checks.[*].labelSelector.matchExpressions.[*].operator",
 	"spec.eligible.checks.[*].labelSelector.matchExpressions.[*].values",
+	"spec.enabled.when",
 	"spec.tasks.[*].name",
 	"spec.tasks.[*].failFast.when",
 	"spec.tasks.[*].ignoreError",
