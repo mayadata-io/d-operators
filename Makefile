@@ -45,4 +45,7 @@ image:
 .PHONY: push
 push: image
 	docker push $(IMG_REPO):$(PACKAGE_VERSION)
+
+.PHONY: push-latest
+push-latest: image
 	docker push $(IMG_REPO):latest
