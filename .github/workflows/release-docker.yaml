@@ -19,17 +19,14 @@ jobs:
           repository: mayadataio/dope
           tag_with_ref: true
           add_git_labels: true
-
   release-docker-daction:
     name: Release docker daction image
     runs-on: ubuntu-18.04
     steps:
       - name: Checkout Code
         uses: actions/checkout@v2
-
       - name: Login to DockerHub
         run: cd tools/d-action
-      
       - name: Build push daction image
         uses: docker/build-push-action@v1
         with:
