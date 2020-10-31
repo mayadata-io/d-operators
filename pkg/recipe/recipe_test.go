@@ -22,6 +22,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"mayadata.io/d-operators/common/pointer"
+	"mayadata.io/d-operators/pkg/kubernetes"
 	types "mayadata.io/d-operators/types/recipe"
 )
 
@@ -313,7 +314,7 @@ func TestRunnerRunAllTasks(t *testing.T) {
 			}
 			timeout := 1 * time.Second // unit test don't need to retry
 			r := &Runner{
-				Retry: NewRetry(RetryConfig{
+				Retry: kubernetes.NewRetry(kubernetes.RetryConfig{
 					WaitTimeout: &timeout,
 				}),
 				Recipe: mock.recipe,

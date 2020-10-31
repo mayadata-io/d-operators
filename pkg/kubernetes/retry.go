@@ -37,16 +37,24 @@ func (rt *RetryTimeout) Error() string {
 // Retryable helps executing user provided functions as
 // conditions in a repeated manner till this condition succeeds
 type Retryable struct {
-	Message string
+	//Message string
 
 	WaitTimeout  time.Duration
 	WaitInterval time.Duration
+
+	// RunOnce will run the function only once
+	//
+	// NOTE:
+	// 	In other words, this makes the retry option
+	// as a No Operation i.e. noop
+	RunOnce bool
 }
 
 // RetryConfig helps in creating an instance of Retryable
 type RetryConfig struct {
 	WaitTimeout  *time.Duration
 	WaitInterval *time.Duration
+	RunOnce      bool
 }
 
 // NewRetry returns a new instance of Retryable
@@ -55,34 +63,46 @@ func NewRetry(config RetryConfig) *Retryable {
 	timeout := 60 * time.Second
 	// sleep interval defaults to 1 second
 	interval := 1 * time.Second
+
 	// override timeout with user specified value
 	if config.WaitTimeout != nil {
 		timeout = *config.WaitTimeout
 	}
+
 	// override interval with user specified value
 	if config.WaitInterval != nil {
 		interval = *config.WaitInterval
 	}
+
 	return &Retryable{
 		WaitTimeout:  timeout,
 		WaitInterval: interval,
+		RunOnce:      config.RunOnce,
 	}
 }
 
 // Waitf retries this provided function as a condition till
 // this condition succeeds.
 //
-// Clients invoking this method need to return appropriate
-// values in the function implementation to let this function
-// to be either returned, or exited or retried.
+// NOTE:
+// 	Clients invoking this method need to return appropriate
+// values (i.e. bool & error) within the condition implementation.
+// These return values let the condition to be either returned or
+// retried.
 func (r *Retryable) Waitf(
-	condition func() (bool, error),
-	message string,
-	args ...interface{},
+	condition func() (bool, error), // condition that gets retried
+	msgFormat string,
+	msgArgs ...interface{},
 ) error {
+	if r.RunOnce {
+		// No need to retry if this condition is meant to be run once
+		_, err := condition()
+		return err
+	}
+
 	context := fmt.Sprintf(
-		message,
-		args...,
+		msgFormat,
+		msgArgs...,
 	)
 	// mark the start time
 	start := time.Now()
@@ -130,6 +150,7 @@ func (r *Retryable) Waitf(
 				context,
 			)
 		}
+		// retry after sleeping for specified interval
 		time.Sleep(r.WaitInterval)
 	}
 }
