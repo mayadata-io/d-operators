@@ -19,6 +19,7 @@ package recipe
 import (
 	"fmt"
 
+	"github.com/pkg/errors"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -53,14 +54,20 @@ func (l *Listable) listCRDs() (*types.ListResult, error) {
 	var crd *v1beta1.CustomResourceDefinition
 	err := UnstructToTyped(l.List.State, &crd)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(
+			err,
+			"Failed to transform unstruct instance to crd equivalent",
+		)
 	}
 	// use crd client to list crds
 	items, err := l.crdClient.
 		CustomResourceDefinitions().
 		List(metav1.ListOptions{})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(
+			err,
+			"Failed to list crds",
+		)
 	}
 	return &types.ListResult{
 		Phase: types.ListStatusPassed,
@@ -85,13 +92,19 @@ func (l *Listable) listResources() (*types.ListResult, error) {
 		l.List.State.GetKind(),
 	)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(
+			err,
+			"Failed to get resource client",
+		)
 	}
 	items, err := client.
 		Namespace(l.List.State.GetNamespace()).
 		List(metav1.ListOptions{}) // TODO add label selector
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(
+			err,
+			"Failed to list resources",
+		)
 	}
 	return &types.ListResult{
 		Phase:   types.ListStatusPassed,
