@@ -25,7 +25,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
+
 	"mayadata.io/d-operators/common/unstruct"
+	"mayadata.io/d-operators/pkg/kubernetes"
 	"mayadata.io/d-operators/pkg/schema"
 	types "mayadata.io/d-operators/types/recipe"
 	metac "openebs.io/metac/start"
@@ -35,7 +37,8 @@ import (
 type RunnerConfig struct {
 	Recipe                    types.Recipe
 	FieldPathValidationResult schema.FieldPathValidationResult
-	Retry                     *Retryable
+	// Retry                     *Retryable
+	Retry                     *kubernetes.Retryable
 	Fixture                   *Fixture
 	UpdateRecipeWithRetriesFn func() error
 }
@@ -45,7 +48,9 @@ type Runner struct {
 	Recipe                    types.Recipe
 	FieldPathValidationResult schema.FieldPathValidationResult
 	RecipeStatus              *types.RecipeStatus
-	Retry                     *Retryable
+
+	// Retry                     *Retryable
+	Retry *kubernetes.Retryable
 
 	fixture    *Fixture
 	isTearDown bool
@@ -71,7 +76,7 @@ func NewRunner(config RunnerConfig) *Runner {
 		isTearDown = *config.Recipe.Spec.Teardown
 	}
 	// check retry
-	var retry = NewRetry(RetryConfig{})
+	var retry = kubernetes.NewRetry(kubernetes.RetryConfig{})
 	if config.Retry != nil {
 		retry = config.Retry
 	}

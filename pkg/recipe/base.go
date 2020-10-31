@@ -16,14 +16,18 @@ limitations under the License.
 
 package recipe
 
-import types "mayadata.io/d-operators/types/recipe"
+import (
+	"mayadata.io/d-operators/pkg/kubernetes"
+	types "mayadata.io/d-operators/types/recipe"
+)
 
 // BaseRunner is the common runner used by all action runners
 type BaseRunner struct {
 	*Fixture
-	TaskIndex    int
-	TaskName     string
-	Retry        *Retryable
+	TaskIndex int
+	TaskName  string
+	//Retry        *Retryable
+	Retry        *kubernetes.Retryable
 	FailFastRule types.FailFastRule
 }
 

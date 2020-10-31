@@ -35,7 +35,7 @@ spec:
           values: 
           - NotEligible
       when: ListCountEquals
-      count: 9
+      count: 7
   resync:
     onNotEligibleResyncInSeconds: 5
   tasks:
@@ -54,7 +54,7 @@ spec:
       stateCheck:
         stateCheckOperator: ListCountEquals
         # These many Recipes should succeed
-        count: 8
+        count: 7
   # Then assert the count of Recipes that should fail
   - name: assert-count-of-tests-that-failed
     assert: 
@@ -69,7 +69,7 @@ spec:
       stateCheck:
         stateCheckOperator: ListCountEquals
         # These many Recipes should fail
-        count: 1
+        count: 0
   # Then assert the count of Recipes that should error
   - name: assert-count-of-tests-that-errored
     assert: 

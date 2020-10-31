@@ -25,10 +25,12 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/klog/v2"
-	typesgvk "mayadata.io/d-operators/types/gvk"
-	types "mayadata.io/d-operators/types/recipe"
 	metac "openebs.io/metac/apis/metacontroller/v1alpha1"
 	"openebs.io/metac/controller/common/selector"
+
+	"mayadata.io/d-operators/pkg/kubernetes"
+	typesgvk "mayadata.io/d-operators/types/gvk"
+	types "mayadata.io/d-operators/types/recipe"
 )
 
 // EligibleItemKey defines a key based on APIVersion & Kind
@@ -80,14 +82,18 @@ type EligibilityConfig struct {
 	RecipeName string
 	Fixture    *Fixture
 	Eligible   *types.Eligible
-	Retry      *Retryable
+	// Retry      *Retryable
+	Retry *kubernetes.Retryable
 }
 
 // Eligibility flags if a Recipe should get executed or not
 type Eligibility struct {
 	*Fixture
-	Eligible   *types.Eligible
-	Retry      *Retryable
+	Eligible *types.Eligible
+
+	// Retry      *Retryable
+	Retry *kubernetes.Retryable
+
 	RecipeName string
 
 	eligibles   map[string]types.EligibleItem

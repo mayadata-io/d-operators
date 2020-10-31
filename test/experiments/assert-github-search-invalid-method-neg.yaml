@@ -3,8 +3,6 @@ kind: Recipe
 metadata:
   name: assert-github-search-with-invalid-method-neg
   namespace: d-testing
-  labels:
-    d-testing.dope.mayadata.io/inference: "true"
 spec:
   tasks:
   # Start by applying this HTTP resource
