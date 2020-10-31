@@ -173,6 +173,16 @@ func (u *Utility) setAPIResourceDiscoveryOrDefault(config UtilityConfig) {
 	// this interval for these new CRDs to be discovered.
 	d.Start(time.Duration(30) * time.Second)
 
+	// loop for a while till resources are discovered
+	var count int
+	for {
+		if d.HasSynced() || count >= 5 {
+			break
+		}
+		time.Sleep(1 * time.Second)
+		count++
+	}
+
 	u.apiResourceDiscovery = d
 }
 
