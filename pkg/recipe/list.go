@@ -22,6 +22,7 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 
 	types "mayadata.io/d-operators/types/recipe"
 )
@@ -62,7 +63,11 @@ func (l *Listable) listCRDs() (*types.ListResult, error) {
 	// use crd client to list crds
 	items, err := l.crdClient.
 		CustomResourceDefinitions().
-		List(metav1.ListOptions{})
+		List(metav1.ListOptions{
+			LabelSelector: labels.Set(
+				l.List.State.GetLabels(),
+			).String(),
+		})
 	if err != nil {
 		return nil, errors.Wrapf(
 			err,
@@ -99,7 +104,11 @@ func (l *Listable) listResources() (*types.ListResult, error) {
 	}
 	items, err := client.
 		Namespace(l.List.State.GetNamespace()).
-		List(metav1.ListOptions{}) // TODO add label selector
+		List(metav1.ListOptions{
+			LabelSelector: labels.Set(
+				l.List.State.GetLabels(),
+			).String(),
+		})
 	if err != nil {
 		return nil, errors.Wrapf(
 			err,
