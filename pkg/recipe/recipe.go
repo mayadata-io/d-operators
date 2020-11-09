@@ -87,8 +87,9 @@ func NewRunner(config RunnerConfig) *Runner {
 		RecipeStatus: &types.RecipeStatus{
 			TaskResults: map[string]types.TaskResult{},
 		},
-		Retry:   retry,
-		fixture: config.Fixture,
+		Retry:                     retry,
+		fixture:                   config.Fixture,
+		UpdateRecipeWithRetriesFn: config.UpdateRecipeWithRetriesFn,
 	}
 }
 
