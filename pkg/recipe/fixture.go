@@ -18,6 +18,7 @@ package recipe
 
 import (
 	"github.com/pkg/errors"
+	apiextnv1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	apiextnv1beta1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -59,10 +60,15 @@ type Fixture struct {
 	// clientset to invoke kubernetes operations
 	kubeClientset kubernetes.Interface
 
-	// client to invoke operations against
+	// V1Beta1 client to invoke operations against
 	// k8s.io/apiextensions-apiserver i.e. invoke operations
 	// against custom resource definitions aka CRDs
 	crdClient apiextnv1beta1.ApiextensionsV1beta1Interface
+
+	// V1 client to invoke operations against
+	// k8s.io/apiextensions-apiserver i.e. invoke operations
+	// against custom resource definitions aka CRDs
+	crdClientV1 apiextnv1.ApiextensionsV1Interface
 
 	tearDown      bool
 	teardownFuncs []func() error
@@ -91,6 +97,18 @@ func (f *Fixture) setCRDClient(config FixtureConfig) {
 	)
 }
 
+func (f *Fixture) setCRDClientV1(config FixtureConfig) {
+	if config.KubeConfig == nil {
+		f.err = errors.Errorf(
+			"Failed to set crd client v1: Nil kube config provided",
+		)
+		return
+	}
+	f.crdClientV1, f.err = apiextnv1.NewForConfig(
+		config.KubeConfig,
+	)
+}
+
 func (f *Fixture) setDynamicClientset(config FixtureConfig) {
 	f.dynamicClientset, f.err = dynamicclientset.New(
 		config.KubeConfig,
@@ -113,6 +131,7 @@ func NewFixture(config FixtureConfig) (*Fixture, error) {
 		f.setTearDown,
 		f.setAPIDiscovery,
 		f.setCRDClient,
+		f.setCRDClientV1,
 		f.setDynamicClientset,
 		f.setKubeClientset,
 	}
