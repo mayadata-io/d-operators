@@ -225,11 +225,13 @@ func (a *Applyable) createCRD() (*types.ApplyResult, error) {
 				nil,
 			)
 	})
-	// run an additional step to wait till this CRD
-	// is discovered at apiserver
-	err = a.postCreateCRD(crd)
-	if err != nil {
-		return nil, err
+	if !a.Apply.IgnoreDiscovery {
+		// run an additional step to wait till this CRD
+		// is discovered at apiserver
+		err = a.postCreateCRD(crd)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &types.ApplyResult{
 		Phase: types.ApplyStatusPassed,
