@@ -47,6 +47,13 @@ type Apply struct {
 	// NOTE:
 	//	Presence of Targets implies an update operation
 	Targets metac.ResourceSelector `json:"targets,omitempty"`
+
+	// IgnoreDiscovery if set to true will not retry till
+	// resource gets discovered
+	//
+	// NOTE:
+	//	This is only applicable for kind: CustomResourceDefinition
+	IgnoreDiscovery bool
 }
 
 // String implements the Stringer interface

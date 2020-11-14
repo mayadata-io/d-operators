@@ -248,11 +248,13 @@ func (c *Creatable) createCRD() (*types.CreateResult, error) {
 				nil,
 			)
 	})
-	// run an additional step to wait till this CRD
-	// is discovered at apiserver
-	err = c.postCreateCRD(crd)
-	if err != nil {
-		return nil, err
+	if !c.Create.IgnoreDiscovery {
+		// run an additional step to wait till this CRD
+		// is discovered at apiserver
+		err = c.postCreateCRD(crd)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &types.CreateResult{
 		Phase: types.CreateStatusPassed,
