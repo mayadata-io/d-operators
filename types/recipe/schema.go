@@ -50,6 +50,7 @@ var SupportedAbsolutePaths = []string{
 	"spec.tasks.[*].name",
 	"spec.tasks.[*].failFast.when",
 	"spec.tasks.[*].ignoreError",
+	"spec.tasks.[*].create.ignoreDiscovery",
 	"spec.tasks.[*].create.replicas",
 	"spec.tasks.[*].assert.stateCheck.stateCheckOperator",
 	"spec.tasks.[*].assert.stateCheck.count",
@@ -57,6 +58,8 @@ var SupportedAbsolutePaths = []string{
 	"spec.tasks.[*].assert.pathCheck.pathCheckOperator",
 	"spec.tasks.[*].assert.pathCheck.value",
 	"spec.tasks.[*].assert.pathCheck.dataType",
+	"spec.tasks.[*].apply.ignoreDiscovery",
+	"spec.tasks.[*].apply.replicas",
 }
 
 // UserAllowedPathPrefixes represent the nested field paths
