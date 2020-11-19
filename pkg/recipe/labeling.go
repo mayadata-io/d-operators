@@ -128,7 +128,10 @@ func (l *Labeling) labelOrUnset(
 	obj *unstructured.Unstructured,
 ) error {
 	var isInclude bool
-	for _, name := range l.Label.FilterByNames {
+	if len(l.Label.IncludeByNames) == 0 {
+		isInclude = true
+	}
+	for _, name := range l.Label.IncludeByNames {
 		if name == obj.GetName() {
 			isInclude = true
 			break
@@ -195,5 +198,10 @@ func (l *Labeling) labelAll() (*types.LabelResult, error) {
 // Run applyies the desired labels or unsets them
 // against the resource(s)
 func (l *Labeling) Run() (*types.LabelResult, error) {
+	if len(l.Label.ApplyLabels) == 0 {
+		return nil, errors.Errorf(
+			"Invalid label operation: Missing ApplyLabels",
+		)
+	}
 	return l.labelAll()
 }

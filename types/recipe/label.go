@@ -29,13 +29,15 @@ type Label struct {
 	// labeled
 	State *unstructured.Unstructured `json:"state"`
 
-	// Filter the resources by these names
+	// Include the resources by these names
 	//
 	// Optional
-	FilterByNames []string `json:"filterByNames,omitempty"`
+	IncludeByNames []string `json:"includeByNames,omitempty"`
 
 	// ApplyLabels represents the labels that need to be
-	// applied
+	// applied against the selected resources
+	//
+	// This is mandatory field
 	ApplyLabels map[string]string `json:"applyLabels"`
 
 	// AutoUnset removes the labels from the resources if
