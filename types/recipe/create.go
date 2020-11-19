@@ -35,7 +35,7 @@ type Create struct {
 	//
 	// NOTE:
 	//	This is only applicable for kind: CustomResourceDefinition
-	IgnoreDiscovery bool
+	IgnoreDiscovery bool `json:"ignoreDiscovery"`
 }
 
 // String implements the Stringer interface
