@@ -158,5 +158,17 @@ func (a *Assertable) Run() (types.AssertStatus, error) {
 			return types.AssertStatus{}, a.err
 		}
 	}
+	var errorOnAssertFailure bool
+	if a.Assert.ErrorOnAssertFailure != nil {
+		errorOnAssertFailure = *a.Assert.ErrorOnAssertFailure
+	}
+	if errorOnAssertFailure &&
+		a.status.Phase != types.AssertResultPassed {
+		return types.AssertStatus{}, errors.Errorf(
+			"%s: ErrorOnAssertFailure=%t",
+			a.status,
+			errorOnAssertFailure,
+		)
+	}
 	return *a.status, nil
 }

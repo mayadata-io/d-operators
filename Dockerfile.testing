@@ -1,0 +1,9 @@
+# --------------------------
+# Build d-operators binary
+# --------------------------
+FROM golang:1.13.5 as builder
+
+WORKDIR /mayadata.io/d-operators/
+
+# copy all manifests
+COPY . .

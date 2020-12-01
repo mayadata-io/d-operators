@@ -34,6 +34,10 @@ type Labeling struct {
 
 	result *types.LabelResult
 	err    error
+
+	totalFoundCount int
+	labeledCount    int
+	unLabeledCount  int
 }
 
 // LabelingConfig helps in creating new instance of Labeling
@@ -49,6 +53,28 @@ func NewLabeler(config LabelingConfig) *Labeling {
 		Label:      config.Label,
 		result:     &types.LabelResult{},
 	}
+}
+
+// NewDefaultLabeler returns a new instance of Labeling
+func NewDefaultLabeler(name string, lbl *types.Label) (*Labeling, error) {
+	runner, err := NewDefaultBaseRunner(name)
+	if err != nil {
+		return nil, err
+	}
+	return &Labeling{
+		BaseRunner: *runner,
+		Label:      lbl,
+		result:     &types.LabelResult{},
+	}, nil
+}
+
+func (l *Labeling) verboseMessage() string {
+	return fmt.Sprintf(
+		"Resource labeling: Found %d: Labeled %d: UnLabeled %d",
+		l.totalFoundCount,
+		l.labeledCount,
+		l.unLabeledCount,
+	)
 }
 
 func (l *Labeling) unset(
@@ -97,6 +123,9 @@ func (l *Labeling) unset(
 			obj,
 			metav1.UpdateOptions{},
 		)
+	if err == nil {
+		l.unLabeledCount++
+	}
 	return err
 }
 
@@ -105,9 +134,11 @@ func (l *Labeling) label(
 	obj *unstructured.Unstructured,
 ) error {
 	var newLbls = map[string]string{}
+	// fill with existing labels
 	for key, val := range obj.GetLabels() {
 		newLbls[key] = val
 	}
+	// add / update desired labels to existing labels
 	for nkey, nval := range l.Label.ApplyLabels {
 		newLbls[nkey] = nval
 	}
@@ -120,6 +151,9 @@ func (l *Labeling) label(
 			obj,
 			metav1.UpdateOptions{},
 		)
+	if err == nil {
+		l.labeledCount++
+	}
 	return err
 }
 
@@ -129,6 +163,8 @@ func (l *Labeling) labelOrUnset(
 ) error {
 	var isInclude bool
 	if len(l.Label.IncludeByNames) == 0 {
+		// If resource names are not provided then all
+		// resources will be labeled
 		isInclude = true
 	}
 	for _, name := range l.Label.IncludeByNames {
@@ -137,10 +173,13 @@ func (l *Labeling) labelOrUnset(
 			break
 		}
 	}
+	if isInclude {
+		return l.label(client, obj)
+	}
 	if !isInclude && l.Label.AutoUnset {
 		return l.unset(client, obj)
 	}
-	return l.label(client, obj)
+	return nil
 }
 
 func (l *Labeling) labelAll() (*types.LabelResult, error) {
@@ -163,6 +202,7 @@ func (l *Labeling) labelAll() (*types.LabelResult, error) {
 					"Failed to get resource client",
 				)
 			}
+			// list all resources
 			items, err := client.
 				Namespace(l.Label.State.GetNamespace()).
 				List(metav1.ListOptions{
@@ -176,6 +216,7 @@ func (l *Labeling) labelAll() (*types.LabelResult, error) {
 					"Failed to list resources",
 				)
 			}
+			l.totalFoundCount = len(items.Items)
 			for _, obj := range items.Items {
 				err := l.labelOrUnset(client, &obj)
 				if err != nil {
@@ -192,6 +233,7 @@ func (l *Labeling) labelAll() (*types.LabelResult, error) {
 	return &types.LabelResult{
 		Phase:   types.LabelStatusPassed,
 		Message: message,
+		Verbose: l.verboseMessage(),
 	}, nil
 }
 

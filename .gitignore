@@ -4,6 +4,7 @@ d-operators
 test/bin/
 test/kubebin/
 test/e2e/uninstall-k3s.txt
+test/integration/uninstall-k3s.txt
 uninstall-k3s.txt
 dope
 daction

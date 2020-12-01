@@ -18,6 +18,7 @@ package types
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -34,6 +35,10 @@ type Assert struct {
 
 	// PathCheck has assertions related to resource paths
 	PathCheck *PathCheck `json:"pathCheck,omitempty"`
+
+	// ErrorOnAssertFailure when set to true will result in
+	// error if assertion fails
+	ErrorOnAssertFailure *bool `json:"errorOnAssertFailure,omitempty"`
 }
 
 // String implements the Stringer interface
@@ -84,6 +89,18 @@ type AssertStatus struct {
 	Verbose string            `json:"verbose,omitempty"`
 	Warning string            `json:"warning,omitempty"`
 	Timeout string            `json:"timeout,omitempty"`
+}
+
+// String implements the Stringer interface
+func (a AssertStatus) String() string {
+	return fmt.Sprintf(
+		"Assert status: Phase %q: Message %q: Verbose %q: Warning %q: Timeout %q",
+		a.Phase,
+		a.Message,
+		a.Verbose,
+		a.Warning,
+		a.Timeout,
+	)
 }
 
 // AssertCheckType defines the type of assert check
