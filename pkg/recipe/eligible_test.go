@@ -1,3 +1,5 @@
+// +build !integration
+
 /*
 Copyright 2020 The MayaData Authors.
 

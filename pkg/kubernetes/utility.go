@@ -25,9 +25,7 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog/v2"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"openebs.io/metac/dynamic/clientset"
 	dynamicclientset "openebs.io/metac/dynamic/clientset"
 	dynamicdiscovery "openebs.io/metac/dynamic/discovery"
@@ -38,7 +36,6 @@ type UtilityConfig struct {
 	KubeConfig   *rest.Config
 	APIDiscovery *dynamicdiscovery.APIResourceDiscovery
 	Retry        *Retryable
-	IsTeardown   bool
 }
 
 // UtilityFuncs exposes Utility fields as functional options
@@ -71,14 +68,6 @@ type Utility struct {
 	// In other words invoke operations against custom resource
 	// definitions aka CRDs
 	crdClient apiextnv1beta1.ApiextensionsV1beta1Interface
-
-	// If resources created using this utility should be deleted
-	// when this instance's Teardown method is invoked
-	isTeardown bool
-
-	// list of teardown functions invoked when this instance's
-	// Teardown method is invoked
-	teardownFuncs []func() error
 
 	// error as value
 	err error
@@ -136,7 +125,6 @@ func NewUtility(config UtilityConfig) (*Utility, error) {
 	// 	Following order needs to be maintained
 	var setters = []func(UtilityConfig){
 		// pre settings
-		u.setTeardownFlag,
 		u.setAPIResourceDiscoveryOrDefault,
 
 		// post settings
@@ -151,10 +139,6 @@ func NewUtility(config UtilityConfig) (*Utility, error) {
 		}
 	}
 	return u, nil
-}
-
-func (u *Utility) setTeardownFlag(config UtilityConfig) {
-	u.isTeardown = config.IsTeardown
 }
 
 func (u *Utility) setAPIResourceDiscoveryOrDefault(config UtilityConfig) {
@@ -203,64 +187,6 @@ func (u *Utility) setKubeClientset(config UtilityConfig) {
 	u.kubeClientset, u.err = kubernetes.NewForConfig(
 		u.kubeConfig,
 	)
-}
-
-// MustTeardown deletes resources created through this instance
-func (u *Utility) MustTeardown() {
-	// cleanup in descending order
-	for i := len(u.teardownFuncs) - 1; i >= 0; i-- {
-		teardown := u.teardownFuncs[i]
-		err := teardown()
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				klog.V(3).Infof(
-					"Teardown ignored: Resource not found: %+v",
-					err,
-				)
-				continue
-			}
-			if apierrors.IsConflict(err) {
-				klog.V(3).Infof(
-					"Teardown ignored: Conflict: %+v",
-					err,
-				)
-				continue
-			}
-			// we treat the teardown error as level 1 Info
-			klog.V(1).Infof(
-				"Teardown failed: %s: %+v",
-				apierrors.ReasonForError(err),
-				err,
-			)
-		}
-	}
-}
-
-// Teardown optionally deletes resources created through this
-// instance
-func (u *Utility) Teardown() {
-	if !u.isTeardown {
-		return
-	}
-	u.MustTeardown()
-}
-
-// MustAddToTeardown adds the given teardown function to
-// the list of teardown functions
-func (u *Utility) MustAddToTeardown(teardown func() error) {
-	if teardown == nil {
-		return
-	}
-	u.teardownFuncs = append(u.teardownFuncs, teardown)
-}
-
-// AddToTeardown optionally adds the given teardown function to
-// the list of teardown functions
-func (u *Utility) AddToTeardown(teardown func() error) {
-	if !u.isTeardown {
-		return
-	}
-	u.MustAddToTeardown(teardown)
 }
 
 // GetClientForAPIVersionAndKind returns the dynamic client for the

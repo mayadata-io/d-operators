@@ -34,9 +34,17 @@ test:
 testv:
 	@go test ./... -cover -v -args --logtostderr -v=2
 
+.PHONY: integration-test
+integration-test: 
+	@go test ./... -cover --tags=integration
+
 .PHONY: e2e-test
 e2e-test: 
 	@cd test/e2e && ./suite.sh
+
+.PHONY: integration-test-suite
+integration-test-suite:
+	@cd test/integration && ./suite.sh
 
 .PHONY: image
 image:

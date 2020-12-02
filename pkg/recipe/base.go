@@ -24,11 +24,53 @@ import (
 // BaseRunner is the common runner used by all action runners
 type BaseRunner struct {
 	*Fixture
-	TaskIndex int
-	TaskName  string
-	//Retry        *Retryable
+	TaskIndex    int
+	TaskName     string
 	Retry        *kubernetes.Retryable
 	FailFastRule types.FailFastRule
+}
+
+// NewDefaultBaseRunner returns a new instance of BaseRunner
+// set with defaults
+func NewDefaultBaseRunner(taskname string) (*BaseRunner, error) {
+	inst, err := kubernetes.Singleton(kubernetes.UtilityConfig{})
+	if err != nil {
+		return nil, err
+	}
+	f, err := NewFixture(FixtureConfig{
+		KubeConfig:   inst.GetKubeConfig(),
+		APIDiscovery: inst.GetAPIResourceDiscovery(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &BaseRunner{
+		Fixture:  f,
+		TaskName: taskname,
+		Retry:    kubernetes.NewRetry(kubernetes.RetryConfig{}),
+	}, nil
+}
+
+// NewDefaultBaseRunnerWithTeardown returns a new instance of BaseRunner
+// set with defaults
+func NewDefaultBaseRunnerWithTeardown(taskname string) (*BaseRunner, error) {
+	inst, err := kubernetes.Singleton(kubernetes.UtilityConfig{})
+	if err != nil {
+		return nil, err
+	}
+	f, err := NewFixture(FixtureConfig{
+		IsTearDown:   true,
+		KubeConfig:   inst.GetKubeConfig(),
+		APIDiscovery: inst.GetAPIResourceDiscovery(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &BaseRunner{
+		Fixture:  f,
+		TaskName: taskname,
+		Retry:    kubernetes.NewRetry(kubernetes.RetryConfig{}),
+	}, nil
 }
 
 // IsFailFastOnDiscoveryError returns true if logic that leads to

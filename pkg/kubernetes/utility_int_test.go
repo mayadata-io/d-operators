@@ -1,4 +1,4 @@
-// +build !integration
+// +build integration
 
 /*
 Copyright 2020 The MayaData Authors.
@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package recipe
+package kubernetes
 
 import (
 	"testing"
@@ -24,23 +24,18 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func TestNewFixture(t *testing.T) {
+func TestNewFixtureIT(t *testing.T) {
 	var tests = map[string]struct {
 		kubeConfig *rest.Config
 		isErr      bool
 	}{
-		"nil kubeconfig": {
-			isErr: true,
-		},
-		"empty kubeconfig": {
-			kubeConfig: &rest.Config{},
-		},
+		"nil kubeconfig": {},
 	}
 	for name, mock := range tests {
 		name := name
 		mock := mock
 		t.Run(name, func(t *testing.T) {
-			_, err := NewFixture(FixtureConfig{
+			_, err := NewUtility(UtilityConfig{
 				KubeConfig: mock.kubeConfig,
 			})
 			if mock.isErr && err == nil {

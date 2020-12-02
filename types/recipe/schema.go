@@ -35,6 +35,7 @@ package types
 var SupportedAbsolutePaths = []string{
 	"apiVersion",
 	"kind",
+	// spec
 	"spec.teardown",
 	"spec.resync.onNotEligibleResyncInSeconds",
 	"spec.resync.onErrorResyncInSeconds",
@@ -47,19 +48,27 @@ var SupportedAbsolutePaths = []string{
 	"spec.eligible.checks.[*].labelSelector.matchExpressions.[*].operator",
 	"spec.eligible.checks.[*].labelSelector.matchExpressions.[*].values",
 	"spec.enabled.when",
+	// spec.tasks[*]
 	"spec.tasks.[*].name",
 	"spec.tasks.[*].failFast.when",
 	"spec.tasks.[*].ignoreError",
+	// spec.tasks.[*].create
 	"spec.tasks.[*].create.ignoreDiscovery",
 	"spec.tasks.[*].create.replicas",
+	// spec.tasks.[*].assert
 	"spec.tasks.[*].assert.stateCheck.stateCheckOperator",
 	"spec.tasks.[*].assert.stateCheck.count",
 	"spec.tasks.[*].assert.pathCheck.path",
 	"spec.tasks.[*].assert.pathCheck.pathCheckOperator",
 	"spec.tasks.[*].assert.pathCheck.value",
 	"spec.tasks.[*].assert.pathCheck.dataType",
+	"spec.tasks.[*].assert.errorOnAssertFailure",
+	// spec.tasks.[*].apply
 	"spec.tasks.[*].apply.ignoreDiscovery",
 	"spec.tasks.[*].apply.replicas",
+	// spec.tasks.[*].label
+	"spec.tasks.[*].label.includeByNames",
+	"spec.tasks.[*].label.autoUnset",
 }
 
 // UserAllowedPathPrefixes represent the nested field paths
@@ -76,12 +85,14 @@ var SupportedAbsolutePaths = []string{
 // NOTE:
 //	Each prefix set here must end with a dot i.e. `.`
 var UserAllowedPathPrefixes = []string{
-	"metadata.",                    // K8s controlled
-	"status.",                      // dope controlled
-	"spec.tasks.[*].apply.state.",  // can be any K8s resource
-	"spec.tasks.[*].delete.state.", // can be any K8s resource
-	"spec.tasks.[*].create.state.", // can be any K8s resource
-	"spec.tasks.[*].assert.state.", // can be any K8s resource
+	"metadata.",                                           // K8s controlled
+	"status.",                                             // dope controlled
+	"spec.tasks.[*].apply.state.",                         // can be any K8s resource
+	"spec.tasks.[*].delete.state.",                        // can be any K8s resource
+	"spec.tasks.[*].create.state.",                        // can be any K8s resource
+	"spec.tasks.[*].assert.state.",                        // can be any K8s resource
+	"spec.tasks.[*].label.state.",                         // can be any K8s resource
+	"spec.tasks.[*].label.applyLabels.",                   // can be any K8s labels
 	"spec.eligible.checks.[*].labelSelector.matchLabels.", // can be any label pairs
 }
 

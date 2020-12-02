@@ -96,6 +96,23 @@ func (r *TaskRunner) delete() (*types.TaskResult, error) {
 	}, nil
 }
 
+func (r *TaskRunner) label() (*types.TaskResult, error) {
+	c := NewLabeler(LabelingConfig{
+		BaseRunner: r.BaseRunner,
+		Label:      r.Task.Label,
+	})
+	got, err := c.Run()
+	if err != nil {
+		return nil, err
+	}
+	return &types.TaskResult{
+		Phase:   got.Phase.ToTaskStatusPhase(),
+		Message: got.Message,
+		Verbose: got.Verbose,
+		Warning: got.Warning,
+	}, nil
+}
+
 func (r *TaskRunner) create() (*types.TaskResult, error) {
 	c := NewCreator(CreatableConfig{
 		BaseRunner: r.BaseRunner,
@@ -223,6 +240,14 @@ func (r *TaskRunner) tryRunDelete() (*types.TaskResult, bool, error) {
 
 }
 
+func (r *TaskRunner) tryRunLabel() (*types.TaskResult, bool, error) {
+	if r.Task.Label == nil || r.Task.Label.State == nil {
+		return nil, false, nil
+	}
+	got, err := r.label()
+	return got, true, err
+}
+
 func (r *TaskRunner) tryRunApply() (*types.TaskResult, bool, error) {
 	// check if this is delete from Apply action
 	isDel, err := r.isDeleteFromApply()
@@ -256,6 +281,7 @@ func (r *TaskRunner) Run() (types.TaskResult, error) {
 		r.tryRunAssert,
 		r.tryRunDelete,
 		r.tryRunApply,
+		r.tryRunLabel,
 	}
 	for _, fn := range probables {
 		got, hasRun, err := fn()

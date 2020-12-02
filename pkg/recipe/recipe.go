@@ -93,6 +93,72 @@ func NewRunner(config RunnerConfig) *Runner {
 	}
 }
 
+// NewNonCustomResourceRunner returns a new instance of Runner
+func NewNonCustomResourceRunner(name string, recipe types.Recipe) (*Runner, error) {
+	br, err := NewDefaultBaseRunner(name)
+	if err != nil {
+		return nil, err
+	}
+	return &Runner{
+		Recipe: recipe,
+		RecipeStatus: &types.RecipeStatus{
+			TaskResults: map[string]types.TaskResult{},
+		},
+		Retry:                     br.Retry,
+		fixture:                   br.Fixture,
+		UpdateRecipeWithRetriesFn: func() error { return nil },
+	}, nil
+}
+
+// NonCustomResourceRunnerOption is used to create new instance of
+// Runner
+type NonCustomResourceRunnerOption struct {
+	Teardown  bool
+	SingleTry bool
+}
+
+// NewNonCustomResourceRunnerWithOptions returns a new instance of Runner
+func NewNonCustomResourceRunnerWithOptions(
+	name string,
+	recipe types.Recipe,
+	options NonCustomResourceRunnerOption,
+) (*Runner, error) {
+	var (
+		br    *BaseRunner
+		retry *kubernetes.Retryable
+		err   error
+	)
+
+	if options.Teardown {
+		// Teardown is enabled
+		br, err = NewDefaultBaseRunnerWithTeardown(name)
+	} else {
+		// Default BaseRunner has teardown disabled
+		br, err = NewDefaultBaseRunner(name)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if options.SingleTry {
+		// Multiple retries is disabled
+		retry = kubernetes.NewRetry(kubernetes.RetryConfig{RunOnce: true})
+	} else {
+		// Default BaseRunner has multiple retries enabled
+		retry = br.Retry
+	}
+
+	return &Runner{
+		Recipe: recipe,
+		RecipeStatus: &types.RecipeStatus{
+			TaskResults: map[string]types.TaskResult{},
+		},
+		Retry:                     retry,
+		fixture:                   br.Fixture,
+		UpdateRecipeWithRetriesFn: func() error { return nil },
+	}, nil
+}
+
 func (r *Runner) initFixture() {
 	if r.fixture != nil {
 		// no further action required
@@ -182,6 +248,10 @@ func (r *Runner) eval(task types.Task) error {
 		action++
 		state = task.Create.State
 	}
+	if task.Label != nil {
+		action++
+		state = task.Label.State
+	}
 	if action == 0 {
 		return errors.Errorf(
 			"Invalid task %q: Missing action",
@@ -194,6 +264,9 @@ func (r *Runner) eval(task types.Task) error {
 			task.Name,
 		)
 	}
+	// TODO (@amitd)
+	// Below logic may not be required. Its not used.
+	// This can be removed after adding integration & e2e tests
 	if state.GetKind() == "CustomResourceDefinition" {
 		r.hasCRDTask = true
 	}
