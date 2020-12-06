@@ -20,6 +20,7 @@ import (
 	"github.com/pkg/errors"
 	apiextnv1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	apiextnv1beta1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -231,4 +232,10 @@ func (f *Fixture) GetAPIForAPIVersionAndResource(
 			apiversion,
 			resource,
 		)
+}
+
+// GetAPIResourcesForKind returns the list of discoverd api resources
+// based on the provided kind
+func (f *Fixture) GetAPIResourcesForKind(kind string) []*metav1.APIResource {
+	return f.apiDiscovery.GetAPIResourcesForKind(kind)
 }
