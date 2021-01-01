@@ -82,27 +82,34 @@ k3s kubectl get node
 echo -e "\n Apply integration manifests to K3s cluster"
 k3s kubectl apply -f it.yaml
 
-echo -e "\n Retry 50 times until integration test job gets completed"
+echo -e "\n Will retry 50 times until integration test job gets completed"
+
+echo -e "\n Start Time"
 date
+echo -e "\n"
+
 phase=""
 for i in {1..50}
 do
     succeeded=$(k3s kubectl get job inference -n dit -o=jsonpath='{.status.succeeded}')
     failed=$(k3s kubectl get job inference -n dit -o=jsonpath='{.status.failed}')
 
-    echo -e "Attempt $i: Inference status: status.succeeded='$succeeded'"
-    echo -e "Attempt $i: Inference status: status.failed='$failed'"
+    echo -e "Attempt $i: status.succeeded='$succeeded' status.failed='$failed'"
 
     if [[ "$failed" == "1" ]]; then
         break # Abandon this loop since job has failed
     fi
+
     if [[ "$succeeded" != "1" ]]; then
-        sleep 10 # Sleep & retry since experiment is in-progress
+        sleep 15 # Sleep & retry since experiment is in-progress
     else
         break # Abandon this loop since succeeded is set
     fi
 done
+
+echo -e "\n End Time"
 date
+echo -e "\n"
 
 echo -e "\n Display status of inference job"
 k3s kubectl get job inference -n dit -ojson | jq .status || true
@@ -110,7 +117,7 @@ k3s kubectl get job inference -n dit -ojson | jq .status || true
 echo -e "\n Display test logs & coverage"
 k3s kubectl -n dit logs -ljob-name=inference --tail=-1 || true
 
-if [[ "$succeeded" != "1" ]]; then
+if [ "$succeeded" != "1" ] || [ "$failed" == "1" ]; then
     echo ""
     echo "--------------------------"
     echo -e "++ Integration test suite failed:"

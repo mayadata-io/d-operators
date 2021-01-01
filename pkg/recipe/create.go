@@ -18,11 +18,8 @@ package recipe
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/pkg/errors"
-	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -67,203 +64,33 @@ func NewCreator(config CreatableConfig) *Creatable {
 	}
 }
 
-func (c *Creatable) postCreateCRDV1(
-	crd *v1.CustomResourceDefinition,
-) error {
-	if len(crd.Spec.Versions) == 0 {
-		return errors.Errorf(
-			"Invalid CRD spec: Missing spec.versions",
-		)
-	}
-	var versionToVerify = crd.Spec.Versions[0].Name
-	message := fmt.Sprintf(
-		"PostCreate CRD: Kind %s: APIVersion %s: TaskName %s",
-		crd.Spec.Names.Singular,
-		crd.Spec.Group+"/"+versionToVerify,
-		c.TaskName,
-	)
-	// discover custom resource API
-	return c.Retry.Waitf(
-		func() (bool, error) {
-			api := c.GetAPIForAPIVersionAndResource(
-				crd.Spec.Group+"/"+versionToVerify,
-				crd.Spec.Names.Plural,
-			)
-			if api == nil {
-				return c.IsFailFastOnDiscoveryError(),
-					errors.Errorf(
-						"Failed to discover: Kind %s: APIVersion %s",
-						crd.Spec.Names.Singular,
-						crd.Spec.Group+"/"+versionToVerify,
-					)
-			}
-			// fetch dynamic client for the custom resource
-			// corresponding to this CRD
-			customResourceClient, err := c.GetClientForAPIVersionAndResource(
-				crd.Spec.Group+"/"+versionToVerify,
-				crd.Spec.Names.Plural,
-			)
-			if err != nil {
-				return c.IsFailFastOnDiscoveryError(), err
-			}
-			_, err = customResourceClient.List(metav1.ListOptions{})
-			if err != nil {
-				return false, err
-			}
-			return true, nil
-		},
-		message,
-	)
-}
-
-func (c *Creatable) postCreateCRD(
-	crd *v1beta1.CustomResourceDefinition,
-) error {
-	message := fmt.Sprintf(
-		"PostCreate CRD: Kind %s: APIVersion %s: TaskName %s",
-		crd.Spec.Names.Singular,
-		crd.Spec.Group+"/"+crd.Spec.Version,
-		c.TaskName,
-	)
-	// discover custom resource API
-	return c.Retry.Waitf(
-		func() (bool, error) {
-			api := c.GetAPIForAPIVersionAndResource(
-				crd.Spec.Group+"/"+crd.Spec.Version,
-				crd.Spec.Names.Plural,
-			)
-			if api == nil {
-				return c.IsFailFastOnDiscoveryError(),
-					errors.Errorf(
-						"Failed to discover: Kind %s: APIVersion %s",
-						crd.Spec.Names.Singular,
-						crd.Spec.Group+"/"+crd.Spec.Version,
-					)
-			}
-			// fetch dynamic client for the custom resource
-			// corresponding to this CRD
-			customResourceClient, err := c.GetClientForAPIVersionAndResource(
-				crd.Spec.Group+"/"+crd.Spec.Version,
-				crd.Spec.Names.Plural,
-			)
-			if err != nil {
-				return c.IsFailFastOnDiscoveryError(), err
-			}
-			_, err = customResourceClient.List(metav1.ListOptions{})
-			if err != nil {
-				return false, err
-			}
-			return true, nil
-		},
-		message,
-	)
-}
-
-func (c *Creatable) createCRDV1() (*types.CreateResult, error) {
-	var crd *v1.CustomResourceDefinition
-	err := UnstructToTyped(c.Create.State, &crd)
-	if err != nil {
-		return nil, err
-	}
-	// use crd client to create crd
-	crd, err = c.crdClientV1.
-		CustomResourceDefinitions().
-		Create(crd)
-	if err != nil {
-		return nil, errors.Wrapf(
-			err,
-			"%s",
-			c,
-		)
-	}
-	// add to teardown functions
-	c.AddToTeardown(func() error {
-		_, err := c.crdClientV1.
-			CustomResourceDefinitions().
-			Get(
-				crd.GetName(),
-				metav1.GetOptions{},
-			)
-		if err != nil && apierrors.IsNotFound(err) {
-			// nothing to do
-			return nil
-		}
-		return c.crdClientV1.
-			CustomResourceDefinitions().
-			Delete(
-				crd.Name,
-				nil,
-			)
-	})
-	// run an additional step to wait till this CRD
-	// is discovered at apiserver
-	err = c.postCreateCRDV1(crd)
-	if err != nil {
-		return nil, err
-	}
-	return &types.CreateResult{
-		Phase: types.CreateStatusPassed,
-		Message: fmt.Sprintf(
-			"Create CRD: Kind %s: APIVersion %s",
-			crd.Spec.Names.Singular,
-			c.Create.State.GetAPIVersion(),
-		),
-	}, nil
-}
-
 func (c *Creatable) createCRD() (*types.CreateResult, error) {
-	ver := c.Create.State.GetAPIVersion()
-	if strings.HasSuffix(ver, "/v1") {
-		return c.createCRDV1()
-	}
-
-	var crd *v1beta1.CustomResourceDefinition
-	err := UnstructToTyped(c.Create.State, &crd)
-	if err != nil {
-		return nil, err
-	}
-	// use crd client to create crd
-	crd, err = c.crdClient.
-		CustomResourceDefinitions().
-		Create(crd)
-	if err != nil {
-		return nil, errors.Wrapf(err, "%s", c)
-	}
-	// add to teardown functions
-	c.AddToTeardown(func() error {
-		_, err := c.crdClient.
-			CustomResourceDefinitions().
-			Get(
-				crd.GetName(),
-				metav1.GetOptions{},
-			)
-		if err != nil && apierrors.IsNotFound(err) {
-			// nothing to do
-			return nil
-		}
-		return c.crdClient.
-			CustomResourceDefinitions().
-			Delete(
-				crd.Name,
-				nil,
-			)
-	})
-	if !c.Create.IgnoreDiscovery {
-		// run an additional step to wait till this CRD
-		// is discovered at apiserver
-		err = c.postCreateCRD(crd)
+	if IsCRDVersion(c.Create.State.GetAPIVersion(), "v1") {
+		e, err := NewCRDV1Executor(ExecutableCRDV1Config{
+			BaseRunner:      c.BaseRunner,
+			IgnoreDiscovery: c.Create.IgnoreDiscovery,
+			State:           c.Create.State,
+		})
 		if err != nil {
 			return nil, err
 		}
+		return e.Create()
+	} else if IsCRDVersion(c.Create.State.GetAPIVersion(), "v1beta1") {
+		e, err := NewCRDV1Beta1Executor(ExecutableCRDV1Beta1Config{
+			BaseRunner:      c.BaseRunner,
+			IgnoreDiscovery: c.Create.IgnoreDiscovery,
+			State:           c.Create.State,
+		})
+		if err != nil {
+			return nil, err
+		}
+		return e.Create()
+	} else {
+		return nil, errors.Errorf(
+			"Unsupported CRD API version %q",
+			c.Create.State.GetAPIVersion(),
+		)
 	}
-	return &types.CreateResult{
-		Phase: types.CreateStatusPassed,
-		Message: fmt.Sprintf(
-			"Create CRD: Kind %s: APIVersion %s",
-			crd.Spec.Names.Singular,
-			crd.Spec.Group+"/"+crd.Spec.Version,
-		),
-	}, nil
 }
 
 func (c *Creatable) createResource(

@@ -35,7 +35,9 @@ testv:
 	@go test ./... -cover -v -args --logtostderr -v=2
 
 .PHONY: integration-test
-integration-test: 
+integration-test:
+	# Uncomment to list verbose output
+	# @go test ./... -cover --tags=integration -v -args --logtostderr -v=1
 	@go test ./... -cover --tags=integration
 
 .PHONY: e2e-test
