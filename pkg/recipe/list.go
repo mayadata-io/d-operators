@@ -20,9 +20,9 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"openebs.io/metac/dynamic/clientset"
 
 	types "mayadata.io/d-operators/types/recipe"
 )
@@ -51,40 +51,6 @@ func NewLister(config ListableConfig) *Listable {
 	}
 }
 
-func (l *Listable) listCRDs() (*types.ListResult, error) {
-	var crd *v1beta1.CustomResourceDefinition
-	err := UnstructToTyped(l.List.State, &crd)
-	if err != nil {
-		return nil, errors.Wrapf(
-			err,
-			"Failed to transform unstruct instance to crd equivalent",
-		)
-	}
-	// use crd client to list crds
-	items, err := l.crdClient.
-		CustomResourceDefinitions().
-		List(metav1.ListOptions{
-			LabelSelector: labels.Set(
-				l.List.State.GetLabels(),
-			).String(),
-		})
-	if err != nil {
-		return nil, errors.Wrapf(
-			err,
-			"Failed to list crds",
-		)
-	}
-	return &types.ListResult{
-		Phase: types.ListStatusPassed,
-		Message: fmt.Sprintf(
-			"List CRD: Kind %s: APIVersion %s",
-			crd.Spec.Names.Singular,
-			crd.Spec.Group+"/"+crd.Spec.Version,
-		),
-		V1Beta1CRDItems: items,
-	}, nil
-}
-
 func (l *Listable) listResources() (*types.ListResult, error) {
 	var message = fmt.Sprintf(
 		"List resources with %s / %s: GVK %s",
@@ -92,9 +58,23 @@ func (l *Listable) listResources() (*types.ListResult, error) {
 		l.List.State.GetName(),
 		l.List.State.GroupVersionKind(),
 	)
-	client, err := l.GetClientForAPIVersionAndKind(
-		l.List.State.GetAPIVersion(),
-		l.List.State.GetKind(),
+
+	var client *clientset.ResourceClient
+	var err error
+
+	// ---
+	// Retry in-case resource client is not yet
+	// discovered
+	// ---
+	err = l.Retry.Waitf(
+		func() (bool, error) {
+			client, err = l.GetClientForAPIVersionAndKind(
+				l.List.State.GetAPIVersion(),
+				l.List.State.GetKind(),
+			)
+			return err == nil, err
+		},
+		message,
 	)
 	if err != nil {
 		return nil, errors.Wrapf(
@@ -125,9 +105,5 @@ func (l *Listable) listResources() (*types.ListResult, error) {
 // Run executes applying the desired state against the
 // cluster
 func (l *Listable) Run() (*types.ListResult, error) {
-	if l.List.State.GetKind() == "CustomResourceDefinition" {
-		// list CRDs
-		return l.listCRDs()
-	}
 	return l.listResources()
 }

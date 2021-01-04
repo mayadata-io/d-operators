@@ -218,8 +218,11 @@ func (f *Fixture) GetClientForAPIVersionAndResource(
 	)
 }
 
-// GetAPIForAPIVersionAndResource returns the discovered api based
-// on the provided api version & resource
+// GetAPIForAPIVersionAndResource returns the discovered
+// api based on the provided api version & resource
+//
+// This has been deprecated in favour of
+// GetDiscoveryAPIForAPIVersionAndResource
 func (f *Fixture) GetAPIForAPIVersionAndResource(
 	apiversion string,
 	resource string,
@@ -231,6 +234,32 @@ func (f *Fixture) GetAPIForAPIVersionAndResource(
 		GetAPIForAPIVersionAndResource(
 			apiversion,
 			resource,
+		)
+}
+
+// GetDiscoveryAPIForAPIVersionAndResource returns the discovered api based
+// on the provided api version & resource
+func (f *Fixture) GetDiscoveryAPIForAPIVersionAndResource(
+	apiversion string,
+	resource string,
+) *dynamicdiscovery.APIResource {
+	return f.apiDiscovery.
+		GetAPIForAPIVersionAndResource(
+			apiversion,
+			resource,
+		)
+}
+
+// GetDiscoveryAPIForAPIVersionAndKind returns the discovered api based
+// on the provided api version & resource
+func (f *Fixture) GetDiscoveryAPIForAPIVersionAndKind(
+	apiversion string,
+	kind string,
+) *dynamicdiscovery.APIResource {
+	return f.apiDiscovery.
+		GetAPIForAPIVersionAndKind(
+			apiversion,
+			kind,
 		)
 }
 

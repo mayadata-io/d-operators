@@ -66,7 +66,7 @@ const (
 	CreateStatusFailed CreateStatusPhase = "Failed"
 )
 
-// ToTaskStatusPhase transforms CreateStatusPhase to TestResultPhase
+// ToTaskStatusPhase transforms CreateStatusPhase to TaskStatusPhase
 func (phase CreateStatusPhase) ToTaskStatusPhase() TaskStatusPhase {
 	switch phase {
 	case CreateStatusPassed:
@@ -75,6 +75,20 @@ func (phase CreateStatusPhase) ToTaskStatusPhase() TaskStatusPhase {
 		return TaskStatusFailed
 	case CreateStatusWarning:
 		return TaskStatusWarning
+	default:
+		return ""
+	}
+}
+
+// ToApplyStatusPhase transforms CreateStatusPhase to ApplyStatusPhase
+func (phase CreateStatusPhase) ToApplyStatusPhase() ApplyStatusPhase {
+	switch phase {
+	case CreateStatusPassed:
+		return ApplyStatusPassed
+	case CreateStatusFailed:
+		return ApplyStatusFailed
+	case CreateStatusWarning:
+		return ApplyStatusWarning
 	default:
 		return ""
 	}

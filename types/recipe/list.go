@@ -82,3 +82,16 @@ type ListResult struct {
 	V1Beta1CRDItems *v1beta1.CustomResourceDefinitionList `json:"v1b1CRDs,omitempty"`
 	Items           *unstructured.UnstructuredList        `json:"items,omitempty"`
 }
+
+// String implements the Stringer interface
+func (l ListResult) String() string {
+	raw, err := json.MarshalIndent(
+		l,
+		" ",
+		".",
+	)
+	if err != nil {
+		panic(err)
+	}
+	return string(raw)
+}

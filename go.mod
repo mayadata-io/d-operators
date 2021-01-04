@@ -3,6 +3,7 @@ module mayadata.io/d-operators
 go 1.13
 
 require (
+	github.com/ghodss/yaml v1.0.0
 	github.com/go-resty/resty/v2 v2.2.0
 	github.com/google/go-cmp v0.4.0
 	github.com/pkg/errors v0.9.1
