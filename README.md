@@ -54,17 +54,17 @@ It is important to understand that these declarative patterns are built upon pro
 ### When to use D-operators
 D-operators is not meant to build complex controller logic like Deployment, StatefulSet or Pod in a declarative yaml. However, if one needs to use available Kubernetes resources to build new k8s controller(s) then d-operators should be considered to build one. D-operators helps implement the last mile automation needed to manage applications & infrastructure in Kubernetes clusters.
 
-### E to E testing
+### Declarative Testing
 D-operators make use of its custom resource(s) to test its controllers. One can imagine these custom resources acting as the building blocks to implement a custom CI framework. One of the primary advantages with this approach, is to let custom resources remove the need to write code to implement test cases.
 
-_NOTE: One can make use of these YAMLs (kind: Recipe) to test their own Kubernetes controllers declaratively_
+_NOTE: One can make use of these YAMLs (kind: Recipe) to test any Kubernetes controllers declaratively_
 
-Navigate to test/experiments to learn more on these YAMLs.
+Navigate to test/declarative/experiments to learn more on these YAMLs.
 
 ```sh
-# Following runs the e2e test suite
+# Following runs the declarative test suite
 #
-# NOTE: test/e2e/suite.sh does the following:
+# NOTE: test/declarative/suite.sh does the following:
 # - d-operators' image known as 'dope' is built
 # - a docker container is started & acts as the image registry
 # - dope image is pushed to this image registry
@@ -72,16 +72,22 @@ Navigate to test/experiments to learn more on these YAMLs.
 # - d-operators' manifests are applied
 # - experiments _(i.e. test code written as YAMLs)_ are applied
 # - experiments are asserted
-# - if all experiments pass then e2e is a success else it failed
+# - if all experiments pass then this testing is a success else it failed
 # - k3s is un-installed
 # - local image registry is stopped
-sudo make e2e-test
+sudo make declarative-test-suite
 ```
 
-### Deploying experiments using D-operators
-To deploy experiments using d-operators apply the below commands:
-- kubectl apply -f deploy/
-- kubectl apply -f test/experiments/<experiment-yaml>
+### Programmatic Testing
+D-operators also lets one to write testing Kubernetes controllers using Golang. This involves building the docker image (refer Dockerfile.testing) of the entire codebase and letting it run as a Kubernetes pod (refer test/integration/it.yaml). The setup required run these tests can be found at test/integration folder. Actual test logic are regular _test.go files found in respective packages. These _test.go files need to be tagged appropriately. These mode of testing has the additional advantage of getting the code coverage.
+
+```go
+// +build integration
+```
+
+```sh
+make integration-test-suite
+```
 
 ### Available Kubernetes controllers
 - [x] kind: Recipe

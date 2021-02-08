@@ -1,13 +1,10 @@
 ---
-name: Unit Test, E to E Test and Github Release (if on master)
+name: Testing and Github Release (if on master)
 on: [push, pull_request]
 jobs:
   unittest:
     runs-on: ubuntu-18.04
-    strategy:
-      matrix:
-        test: ['test']
-    name: ${{ matrix.test }}
+    name: Unit Test
     steps:
       - name: Checkout Code
         uses: actions/checkout@v2
@@ -15,10 +12,10 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: 1.13.5
-      - run: make ${{ matrix.test }}
+      - run: make test
   integrationtest:
     runs-on: ubuntu-18.04
-    name: integrationtest
+    name: Integration Test
     steps:
       - name: Checkout Code
         uses: actions/checkout@v2
@@ -27,12 +24,9 @@ jobs:
         with:
           go-version: 1.13.5
       - run: sudo make integration-test-suite
-  e2etest:
+  declarativetest:
     runs-on: ubuntu-18.04
-    strategy:
-      matrix:
-        test: ['e2e-test']
-    name: ${{ matrix.test }}
+    name: Declarative Test
     steps:
       - name: Checkout Code
         uses: actions/checkout@v2
@@ -40,11 +34,11 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: 1.13.5
-      - run: sudo make ${{ matrix.test }}
+      - run: sudo make declarative-test-suite
   release:
     name: Make Github Release
     runs-on: ubuntu-18.04
-    needs: ['unittest', 'e2etest', 'integrationtest']
+    needs: ['unittest', 'declarativetest', 'integrationtest']
     steps:
       - name: Checkout Code
         uses: actions/checkout@v1

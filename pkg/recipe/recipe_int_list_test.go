@@ -52,6 +52,9 @@ func TestListSimpleRun(t *testing.T) {
 						"metadata": map[string]interface{}{
 							"name":      "cm-one",
 							"namespace": "list-simple-integration-testing",
+							"labels": map[string]interface{}{
+								"ns": "list-simple-integration-testing",
+							},
 						},
 					},
 				},
@@ -67,6 +70,9 @@ func TestListSimpleRun(t *testing.T) {
 						"metadata": map[string]interface{}{
 							"name":      "cm-two",
 							"namespace": "list-simple-integration-testing",
+							"labels": map[string]interface{}{
+								"ns": "list-simple-integration-testing",
+							},
 						},
 					},
 				},
@@ -110,6 +116,9 @@ func TestListSimpleRun(t *testing.T) {
 						"kind":       "ConfigMap",
 						"metadata": map[string]interface{}{
 							"namespace": "list-simple-integration-testing",
+							"labels": map[string]interface{}{
+								"ns": "list-simple-integration-testing",
+							},
 						},
 					},
 				},
