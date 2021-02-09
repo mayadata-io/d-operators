@@ -40,9 +40,9 @@ integration-test:
 	# @go test ./... -cover --tags=integration -v -args --logtostderr -v=1
 	@go test ./... -cover --tags=integration
 
-.PHONY: e2e-test
-e2e-test: 
-	@cd test/e2e && ./suite.sh
+.PHONY: declarative-test-suite
+declarative-test-suite: 
+	@cd test/declarative && ./suite.sh
 
 .PHONY: integration-test-suite
 integration-test-suite:

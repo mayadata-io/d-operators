@@ -94,7 +94,7 @@ echo -e "\n Apply d-operators based ci to K3s cluster"
 k3s kubectl apply -f ci.yaml
 
 echo -e "\n Apply test experiments to K3s cluster"
-k3s kubectl apply -f ./../experiments/
+k3s kubectl apply -f ./experiments/
 
 echo -e "\n Apply ci inference to K3s cluster"
 k3s kubectl apply -f inference.yaml
