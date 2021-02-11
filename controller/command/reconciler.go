@@ -61,6 +61,17 @@ func (r *Reconciler) eval() {
 }
 
 func (r *Reconciler) sync() {
+	// Check for deletion timestamp on command resource
+	// if set then command is marked for deletion
+	if !r.observedCommand.DeletionTimestamp.IsZero() {
+		klog.V(1).Infof(
+			"Will skip command reconciliation: It is marked for deletion: Command %q / %q",
+			r.observedCommand.GetNamespace(),
+			r.observedCommand.GetName(),
+		)
+		return
+	}
+
 	// creating / deleting a Kubernetes Job is part of Command reconciliation
 	jobBuilder := command.NewJobBuilder(
 		command.JobBuildingConfig{

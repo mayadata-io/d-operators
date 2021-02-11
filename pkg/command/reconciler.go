@@ -57,6 +57,11 @@ type Reconciliation struct {
 	// client to invoke CRUD operations against k8s Job
 	jobClient *clientset.ResourceClient
 
+	// isChildJobAvailableFn will fetch the child object from
+	// k8s cluster
+	// NOTE: This is helpful to mocking
+	isChildJobAvailableFn func() (*unstructured.Unstructured, bool, error)
+
 	// is Command resource supposed to run Once
 	isRunOnce bool
 
@@ -98,6 +103,10 @@ type Reconciliation struct {
 }
 
 func (r *Reconciliation) initChildJobDetails() {
+	var got *unstructured.Unstructured
+	var found bool
+	var err error
+
 	if r.childJob == nil || r.childJob.Object == nil {
 		return
 	}
@@ -115,7 +124,12 @@ func (r *Reconciliation) initChildJobDetails() {
 		)
 		return
 	}
-	got, found, err := r.isChildJobAvailable()
+
+	if r.isChildJobAvailableFn != nil {
+		got, found, err = r.isChildJobAvailableFn()
+	} else {
+		got, found, err = r.isChildJobAvailable()
+	}
 	if err != nil {
 		r.err = err
 		return
@@ -162,16 +176,17 @@ func (r *Reconciliation) initChildJobDetails() {
 		return
 	}
 
-	// Extract status.active of this Job
-	activeCount, found, err := unstructured.NestedInt64(
+	// Extract status.conditions of this Job to know whether
+	// job has completed its execution
+	jobConditions, found, err := unstructured.NestedSlice(
 		got.Object,
 		"status",
-		"active",
+		"conditions",
 	)
 	if err != nil {
 		r.err = errors.Wrapf(
 			err,
-			"Failed to get Job status.active: Kind %q: Job %q / %q",
+			"Failed to get Job status.conditions: Kind %q: Job %q / %q",
 			r.childJob.GetKind(),
 			r.childJob.GetNamespace(),
 			r.childJob.GetName(),
@@ -180,21 +195,45 @@ func (r *Reconciliation) initChildJobDetails() {
 	}
 	if !found {
 		klog.V(1).Infof(
-			"Job status.active is not set: Kind %q: Job %q / %q",
+			"Job status.conditions is not set: Kind %q: Job %q / %q",
 			r.childJob.GetKind(),
 			r.childJob.GetNamespace(),
 			r.childJob.GetName(),
 		)
-		// Job's status.active is not set
+		// Job's status.conditions is not set
 		//
 		// Nothing to do
 		// Wait for next reconcile
 		return
 	}
-
-	if activeCount > 0 {
-		r.isChildJobCompleted = true
+	// Look for condition type complete
+	// if found then mark isChildJobCompleted as true
+	for _, value := range jobConditions {
+		condition, ok := value.(map[string]interface{})
+		if !ok {
+			r.err = errors.Errorf(
+				"Job status.condition is not map[string]interface{} got %T: "+
+					"kind %q: Job %q / %q",
+				value,
+				r.childJob.GetKind(),
+				r.childJob.GetNamespace(),
+				r.childJob.GetName(),
+			)
+			return
+		}
+		condType := condition["type"].(string)
+		if condType == types.JobPhaseCompleted {
+			condStatus := condition["status"].(string)
+			if condStatus == "True" {
+				r.isChildJobCompleted = true
+			}
+		}
 	}
+
+	// If there is no condtion with complete type then
+	// nothing to do
+
+	// wait for next reconciliation
 }
 
 func (r *Reconciliation) initCommandDetails() {
@@ -356,6 +395,9 @@ func (r *Reconciliation) isChildJobAvailable() (*unstructured.Unstructured, bool
 }
 
 func (r *Reconciliation) deleteChildJob() (types.CommandStatus, error) {
+	// If propagationPolicy is set to background then the garbage collector will
+	// delete dependents in the background
+	propagationPolicy := v1.DeletePropagationBackground
 	err := r.jobClient.
 		Namespace(r.childJob.GetNamespace()).
 		Delete(
@@ -363,6 +405,7 @@ func (r *Reconciliation) deleteChildJob() (types.CommandStatus, error) {
 			&v1.DeleteOptions{
 				// Delete immediately
 				GracePeriodSeconds: pointer.Int64(0),
+				PropagationPolicy:  &propagationPolicy,
 			},
 		)
 	if err != nil && !apierrors.IsNotFound(err) {
@@ -445,12 +488,28 @@ func (r *Reconciliation) reconcileRunAlwaysCommand() (types.CommandStatus, error
 		return r.createChildJob()
 	}
 	if r.isStatusSet && r.isChildJobCompleted {
+		// Since this is for run always we need to delete
+		// and create child job
 		klog.V(1).Infof(
 			"Will delete command job: Command %q / %q",
 			r.command.GetNamespace(),
 			r.command.GetName(),
 		)
-		return r.deleteChildJob()
+		_, err := r.deleteChildJob()
+		if err != nil {
+			return types.CommandStatus{}, err
+		}
+		klog.V(1).Infof("Deleted command job: Command %q / %q successfully",
+			r.command.GetNamespace(),
+			r.command.GetName(),
+		)
+
+		klog.V(1).Infof(
+			"Will create command job: Command %q / %q",
+			r.command.GetNamespace(),
+			r.command.GetName(),
+		)
+		return r.createChildJob()
 	}
 	return types.CommandStatus{
 		Phase:   types.CommandPhaseInProgress,

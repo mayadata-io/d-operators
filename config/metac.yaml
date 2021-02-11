@@ -65,3 +65,50 @@ spec:
     sync:
       inline:
         funcName: sync/command
+---
+apiVersion: dope/v1
+kind: GenericController
+metadata:
+  name: finalize-command
+  namespace: dope
+spec:
+  watch:
+    apiVersion: dope.mayadata.io/v1
+    resource: commands
+  attachments:
+  # Delete pod
+  - apiVersion: v1
+    resource: pods
+    advancedSelector:
+      selectorTerms:
+      # select Pod if it has following label
+      - matchLabels:
+        matchReferenceExpressions:
+        - key: metadata.labels.job-name
+          operator: EqualsWatchName # match this lbl value against watch Name
+  # Delete job
+  - apiVersion: batch/v1
+    resource: jobs
+    advancedSelector:
+      selectorTerms:
+      # select job if its labels has following
+      - matchLabels:
+          command.dope.mayadata.io/controller: "true"
+        matchReferenceExpressions:
+        - key: metadata.labels.command\.dope\.mayadata\.io/name
+          operator: EqualsWatchName # match this lbl value against watch Name
+  - apiVersion: v1
+    resource: configmaps
+    advancedSelector:
+      selectorTerms:
+      # select ConfigMap if its labels has following
+      - matchLabels:
+          command.dope.mayadata.io/lock: "true"
+        matchReferenceExpressions:
+        - key: metadata.labels.command\.dope\.mayadata\.io/name
+          operator: EqualsWatchName # match this lbl value against watch Name
+  hooks:
+    finalize:
+      inline:
+        funcName: finalize/command
+---
