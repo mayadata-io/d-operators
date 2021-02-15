@@ -54,7 +54,7 @@ spec:
       stateCheck:
         stateCheckOperator: ListCountEquals
         # These many Recipes should succeed
-        count: 7
+        count: 8
   # Then assert the count of Recipes that should fail
   - name: assert-count-of-tests-that-failed
     assert: 

@@ -60,6 +60,31 @@ spec:
     description: Description of this phase
     JSONPath: .status.reason
 ---
+# Command custom resource is used to write command test cases
+# in a declarative approach
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+  name: commands.dope.mayadata.io
+spec:
+  group: dope.mayadata.io
+  names:
+    kind: Command
+    listKind: CommandList
+    plural: commands
+    shortNames:
+    - cmds
+    singular: command
+  scope: Namespaced
+  subresources:
+    status: {}
+  version: v1
+  versions:
+  - name: v1
+    served: true
+    storage: true
+---
 # HTTP custom resource is used to invoke http request
 # in a declarative way
 apiVersion: apiextensions.k8s.io/v1beta1
