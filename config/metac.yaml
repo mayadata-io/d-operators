@@ -81,7 +81,10 @@ spec:
     resource: pods
     advancedSelector:
       selectorTerms:
-      # select Pod if it has following label
+      # select pod if its namespace is same as watch namespace
+      - matchFields:
+          metadata.namespace: EqualsWatchNamespace
+      # select Pod if its labels has following
       - matchLabels:
         matchReferenceExpressions:
         - key: metadata.labels.job-name
@@ -95,8 +98,8 @@ spec:
       - matchLabels:
           command.dope.mayadata.io/controller: "true"
         matchReferenceExpressions:
-        - key: metadata.labels.command\.dope\.mayadata\.io/name
-          operator: EqualsWatchName # match this lbl value against watch Name
+        - key: metadata.labels.command\.dope\.mayadata\.io/uid
+          operator: EqualsWatchUID # match this lbl value against watch UID
   - apiVersion: v1
     resource: configmaps
     advancedSelector:
@@ -105,8 +108,8 @@ spec:
       - matchLabels:
           command.dope.mayadata.io/lock: "true"
         matchReferenceExpressions:
-        - key: metadata.labels.command\.dope\.mayadata\.io/name
-          operator: EqualsWatchName # match this lbl value against watch Name
+        - key: metadata.labels.command\.dope\.mayadata\.io/uid
+          operator: EqualsWatchUID # match this lbl value against watch Name
   hooks:
     finalize:
       inline:

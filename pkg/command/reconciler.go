@@ -18,6 +18,7 @@ package command
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -57,10 +58,10 @@ type Reconciliation struct {
 	// client to invoke CRUD operations against k8s Job
 	jobClient *clientset.ResourceClient
 
-	// isChildJobAvailableFn will fetch the child object from
-	// k8s cluster
+	// getChildJob will hold function to fetch the child object
+	// from k8s cluster
 	// NOTE: This is helpful to mocking
-	isChildJobAvailableFn func() (*unstructured.Unstructured, bool, error)
+	getChildJob func() (*unstructured.Unstructured, bool, error)
 
 	// is Command resource supposed to run Once
 	isRunOnce bool
@@ -125,8 +126,8 @@ func (r *Reconciliation) initChildJobDetails() {
 		return
 	}
 
-	if r.isChildJobAvailableFn != nil {
-		got, found, err = r.isChildJobAvailableFn()
+	if r.getChildJob != nil {
+		got, found, err = r.getChildJob()
 	} else {
 		got, found, err = r.isChildJobAvailable()
 	}
@@ -224,7 +225,7 @@ func (r *Reconciliation) initChildJobDetails() {
 		condType := condition["type"].(string)
 		if condType == types.JobPhaseCompleted {
 			condStatus := condition["status"].(string)
-			if condStatus == "True" {
+			if strings.ToLower(condStatus) == "true" {
 				r.isChildJobCompleted = true
 			}
 		}
@@ -488,8 +489,9 @@ func (r *Reconciliation) reconcileRunAlwaysCommand() (types.CommandStatus, error
 		return r.createChildJob()
 	}
 	if r.isStatusSet && r.isChildJobCompleted {
-		// Since this is for run always we need to delete
-		// and create child job
+		// Since this is for run always we are performing below steps
+		// 1. Delete Job and wait til it gets deleted from etcd
+		// 2. Create Job in the same reconciliation
 		klog.V(1).Infof(
 			"Will delete command job: Command %q / %q",
 			r.command.GetNamespace(),
@@ -499,6 +501,29 @@ func (r *Reconciliation) reconcileRunAlwaysCommand() (types.CommandStatus, error
 		if err != nil {
 			return types.CommandStatus{}, err
 		}
+
+		// Logic to wait for Job resource deletion from etcd
+		var message = fmt.Sprintf(
+			"Waiting for command job: %q / %q deletion",
+			r.childJob.GetNamespace(),
+			r.childJob.GetName(),
+		)
+		err = r.Retry.Waitf(
+			func() (bool, error) {
+				_, err := r.jobClient.
+					Namespace(r.childJob.GetNamespace()).
+					Get(r.childJob.GetName(), v1.GetOptions{})
+				if err != nil {
+					if apierrors.IsNotFound(err) {
+						return true, nil
+					}
+					return false, err
+				}
+				return false, nil
+			},
+			message,
+		)
+
 		klog.V(1).Infof("Deleted command job: Command %q / %q successfully",
 			r.command.GetNamespace(),
 			r.command.GetName(),

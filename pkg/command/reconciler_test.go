@@ -32,7 +32,7 @@ import (
 	types "mayadata.io/d-operators/types/command"
 )
 
-func fakeChildAvailable(
+func getFakeChildJob(
 	jobObj *unstructured.Unstructured,
 	isError bool) func() (*unstructured.Unstructured, bool, error) {
 	return func() (*unstructured.Unstructured, bool, error) {
@@ -150,8 +150,8 @@ func TestReconcilerInitChildJobDetails(t *testing.T) {
 		mock := mock
 		t.Run(name, func(t *testing.T) {
 			r := &Reconciliation{
-				childJob:              mock.ChildJob,
-				isChildJobAvailableFn: fakeChildAvailable(mock.ChildJob, mock.InjectAPIError),
+				childJob:    mock.ChildJob,
+				getChildJob: getFakeChildJob(mock.ChildJob, mock.InjectAPIError),
 			}
 			r.initChildJobDetails()
 			if mock.IsError && r.err == nil {
