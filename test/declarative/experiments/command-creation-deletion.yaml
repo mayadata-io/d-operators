@@ -74,6 +74,8 @@ spec:
         metadata:
           name: testing-command
           namespace: recipe-integration-cmd-testing
+          labels:
+            command.dope.mayadata.io/name: testing-command
         spec:
           commands:
           - name: Sleep-test
@@ -143,6 +145,44 @@ spec:
           namespace: recipe-integration-cmd-testing
         status:
           succeeded: 1
+      stateCheck:
+        stateCheckOperator: Equals
+  - name: assert-command-completion
+    assert:
+      state:
+        kind: Command
+        apiVersion: dope.mayadata.io/v1
+        metadata:
+          namespace: recipe-integration-cmd-testing
+          labels:
+            command.dope.mayadata.io/phase: Completed
+            command.dope.mayadata.io/name: testing-command
+      stateCheck:
+        stateCheckOperator: ListCountEquals
+        count: 1
+  - name: assert-command-completion
+    assert:
+      state:
+        kind: Command
+        apiVersion: dope.mayadata.io/v1
+        metadata:
+          namespace: recipe-integration-cmd-testing
+          labels:
+            command.dope.mayadata.io/phase: Completed
+            command.dope.mayadata.io/name: testing-command
+      stateCheck:
+        stateCheckOperator: ListCountEquals
+        count: 1
+  - name: assert-command-completion-status
+    assert:
+      state:
+        kind: Command
+        apiVersion: dope.mayadata.io/v1
+        metadata:
+          name: testing-command
+          namespace: recipe-integration-cmd-testing
+        status:
+          phase: Completed
       stateCheck:
         stateCheckOperator: Equals
   - name: delete-command

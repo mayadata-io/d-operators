@@ -28,6 +28,7 @@ vendor: go.mod go.sum
 
 .PHONY: test
 test: 
+	@cat config/metac.yaml
 	@go test ./... -cover
 
 .PHONY: testv
