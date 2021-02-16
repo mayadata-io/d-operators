@@ -82,10 +82,9 @@ spec:
     advancedSelector:
       selectorTerms:
       # select Pod if its labels has following
-      - matchLabels:
-        matchReferenceExpressions:
+      - matchReferenceExpressions:
         - key: metadata.namespace
-          Operator: EqualsWatchNamespace
+          operator: EqualsWatchNamespace
         - key: metadata.labels.job-name
           operator: EqualsWatchName # match this lbl value against watch Name
   # Delete job

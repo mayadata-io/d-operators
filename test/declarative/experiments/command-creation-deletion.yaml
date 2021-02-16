@@ -120,9 +120,6 @@ spec:
           namespace: recipe-integration-cmd-testing
           labels:
             command.dope.mayadata.io/controller: true
-      stateCheck:
-        stateCheckOperator: ListCountEquals
-        count: 1
   - name: assert-pod-creation-via-command-creation
     assert:
       state:
@@ -145,35 +142,7 @@ spec:
           namespace: recipe-integration-cmd-testing
         status:
           succeeded: 1
-      stateCheck:
-        stateCheckOperator: Equals
-  - name: assert-command-completion
-    assert:
-      state:
-        kind: Command
-        apiVersion: dope.mayadata.io/v1
-        metadata:
-          namespace: recipe-integration-cmd-testing
-          labels:
-            command.dope.mayadata.io/phase: Completed
-            command.dope.mayadata.io/name: testing-command
-      stateCheck:
-        stateCheckOperator: ListCountEquals
-        count: 1
-  - name: assert-command-completion
-    assert:
-      state:
-        kind: Command
-        apiVersion: dope.mayadata.io/v1
-        metadata:
-          namespace: recipe-integration-cmd-testing
-          labels:
-            command.dope.mayadata.io/phase: Completed
-            command.dope.mayadata.io/name: testing-command
-      stateCheck:
-        stateCheckOperator: ListCountEquals
-        count: 1
-  - name: assert-command-completion-status
+  - name: assert-command-finalizer
     assert:
       state:
         kind: Command
@@ -181,10 +150,21 @@ spec:
         metadata:
           name: testing-command
           namespace: recipe-integration-cmd-testing
+          finalizers:
+          - protect.gctl.metac.openebs.io/dope-finalize-command
+  - name: assert-command-completion
+    assert:
+      state:
+        kind: Command
+        apiVersion: dope.mayadata.io/v1
+        metadata:
+          name: testing-command
+          namespace: recipe-integration-cmd-testing
+          labels:
+            command.dope.mayadata.io/phase: Completed
+            command.dope.mayadata.io/name: testing-command
         status:
           phase: Completed
-      stateCheck:
-        stateCheckOperator: Equals
   - name: delete-command
     delete:
       state:
