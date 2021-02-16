@@ -17,7 +17,6 @@ limitations under the License.
 package command
 
 import (
-	"k8s.io/klog/v2"
 	"openebs.io/metac/controller/generic"
 )
 
@@ -45,7 +44,6 @@ var (
 //	Returning error will panic this process. We would rather want this
 // controller to run continuously. Hence, the errors are handled.
 func Finalize(request *generic.SyncHookRequest, response *generic.SyncHookResponse) error {
-	klog.Infof("[Debug] In Finalize hook attach lengths %d", request.Attachments.Len())
 	if request.Attachments.IsEmpty() {
 		// Since no Dependents found it is safe to delete Command
 		response.Finalized = true

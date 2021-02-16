@@ -107,7 +107,7 @@ echo -e "\n Apply d-operators based ci to K3s cluster"
 k3s kubectl apply -f ci.yaml
 
 echo -e "\n Apply test experiments to K3s cluster"
-k3s kubectl apply -f ./experiments/command-creation-deletion.yaml
+k3s kubectl apply -f ./experiments/
 
 echo -e "\n Apply ci inference to K3s cluster"
 k3s kubectl apply -f inference.yaml
@@ -120,15 +120,6 @@ date
 phase=""
 for i in {1..50}
 do
-    ## TODO Remove these debug lines
-    echo -e "\n List of available commands"
-    k3s kubectl get command -A -o yaml
-    deletionTime=$(k3s kubectl get command -n recipe-integration-cmd-testing testing-command -o=jsonpath='{.metadata.deletionTimestamp}')
-    echo "-e \n Command deletion timestamp $deletionTime"
-    echo -e "\n List of available jobs"
-    k3s kubectl get job -A
-    echo -e "\n List of available pods"
-    k3s kubectl get po -A
     phase=$(k3s kubectl -n $ns get $group inference -o=jsonpath='{.status.phase}')
     echo -e "Attempt $i: Inference status: status.phase='$phase'"
     if [[ "$phase" == "" ]] || [[ "$phase" == "NotEligible" ]]; then
