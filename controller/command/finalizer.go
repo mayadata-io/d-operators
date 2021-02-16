@@ -53,6 +53,7 @@ func Finalize(request *generic.SyncHookRequest, response *generic.SyncHookRespon
 	}
 
 	response.ResyncAfterSeconds = defaultDeletionResyncTime
+	// Observed attachments will get deleted
 	response.ExplicitDeletes = request.Attachments.List()
 	return nil
 }

@@ -61,7 +61,7 @@ spec:
         subjects:
         - kind: ServiceAccount
           name: recipe-integration-cmd-testing-sa
-          namespace: recipe-integration-cmd-testing-dope
+          namespace: recipe-integration-cmd-testing
         roleRef:
           kind: ClusterRole
           name: recipe-integration-cmd-testing-dope
@@ -89,25 +89,25 @@ spec:
                     containers:
                     - command:
                       - /usr/bin/daction
-                      image: mittachaitu/daction:latest
+                      image: localhost:5000/daction
                       imagePullPolicy: IfNotPresent
                       name: daction
                       args:
                       - -v=3
-                        --command-name=testing-command
-                        --command-ns=recipe-integration-cmd-testing
+                      - --command-name=testing-command
+                      - --command-ns=recipe-integration-cmd-testing
   - name: assert-cm-lock-creation
     assert:
       state:
         kind: ConfigMap
         apiVersion: v1
         metadata:
-          name: testing-command-lock
           namespace: recipe-integration-cmd-testing
           labels:
             command.dope.mayadata.io/name: testing-command
       stateCheck:
-        stateCheckOperator: Equals
+        stateCheckOperator: ListCountEquals
+        count: 1
   - name: assert-job-creation-via-command
     assert:
       state:
@@ -133,6 +133,18 @@ spec:
       stateCheck:
         stateCheckOperator: ListCountEquals
         count: 1
+  - name: assert-job-completion
+    assert:
+      state:
+        kind: Job
+        apiVersion: batch/v1
+        metadata:
+          name: testing-command
+          namespace: recipe-integration-cmd-testing
+        status:
+          succeeded: 1
+      stateCheck:
+        stateCheckOperator: Equals
   - name: delete-command
     delete:
       state:
@@ -171,12 +183,12 @@ spec:
         kind: ConfigMap
         apiVersion: v1
         metadata:
-          name: testing-command-lock
           namespace: recipe-integration-cmd-testing
           labels:
             command.dope.mayadata.io/name: testing-command
       stateCheck:
-        stateCheckOperator: NotFound
+        stateCheckOperator: ListCountEquals
+        count: 0
   - name: delete-clusterrole
     delete:
       state:

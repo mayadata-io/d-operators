@@ -79,9 +79,6 @@ fi
 echo -e "\n Verify if K3s is up and running"
 k3s kubectl get node
 
-echo -e "\n Apply crd manifest to k3s cluster"
-k3s kubectl apply -f crd.yaml
-
 echo -e "\n Apply integration manifests to K3s cluster"
 k3s kubectl apply -f it.yaml
 

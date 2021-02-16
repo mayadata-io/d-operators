@@ -50,6 +50,9 @@ echo "--------------------------"
 # Name of the targeted controller binary under test
 ctrlbin="dope"
 
+# Name of the daction controller binary
+dactionctrlbin="daction"
+
 # group that defines the Recipe custom resource
 group="recipes.dope.mayadata.io"
 
@@ -62,17 +65,27 @@ docker image remove $ctrlbin:e2e || true
 echo -e "\n Remove locally cached image localhost:5000/$ctrlbin"
 docker image remove localhost:5000/$ctrlbin || true
 
+echo -e "\n Remove locally cached image localhost:5000/$dactionctrlbin"
+docker image remove localhost:5000/$dactionctrlbin || true
+
 echo -e "\n Run local docker registry at port 5000"
 docker run -d -p 5000:5000 --restart=always --name e2eregistry registry:2
 
 echo -e "\n Build $ctrlbin image as $ctrlbin:e2e"
 docker build -t $ctrlbin:e2e ./../../
 
+echo -e "\n Build $dactionctrlbin image as $dactionctrlbin:e2e"
+docker build -t $dactionctrlbin:e2e ./../../tools/d-action
+
 echo -e "\n Tag $ctrlbin:e2e image as localhost:5000/$ctrlbin"
 docker tag $ctrlbin:e2e localhost:5000/$ctrlbin
 
+echo -e "\n Tag $dactionctrlbin:e2e image as localhost:5000/$dactionctrlbin"
+docker tag $dactionctrlbin:e2e localhost:5000/$dactionctrlbin
+
 echo -e "\n Push the image to local registry running at localhost:5000"
 docker push localhost:5000/$ctrlbin
+docker push localhost:5000/$dactionctrlbin
 
 echo -e "\n Setup K3s registries path"
 mkdir -p "/etc/rancher/k3s/"
