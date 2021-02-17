@@ -1,0 +1,232 @@
+## Test will verify creation & deletion of command and their dependents
+## 1. Create new Namespace
+## 2. Create service account
+## 3. Create clusterrole
+## 4. Create clusterrolebinding
+## 5. Create Command resource
+## 6. Make sure k8s ConfigMap is created for above command
+## 6. Make sure k8s Job is created for above command
+## 7. Make sure k8s pod is created for above command
+## 8. Delete Command resource
+## 9. Make sure K8s ConfigMap, Job & Pod related to above
+##    command resource should be deleted
+## 10. Delete clusterrolebinding
+## 11. Delete clusterrole
+## 12. Delete namespace
+apiVersion: dope.mayadata.io/v1
+kind: Recipe
+metadata:
+  name: create-and-assert-command-resource
+  namespace: d-testing
+  labels:
+    d-testing.dope.mayadata.io/inference: "true"
+spec:
+  tasks:
+  - name: create-command-test-namespace
+    create: 
+      state: 
+        kind: Namespace
+        apiVersion: v1
+        metadata:
+          name: recipe-integration-cmd-testing
+  - name: create-service-account
+    create: 
+      state: 
+        kind: ServiceAccount
+        apiVersion: v1
+        metadata:
+          name: recipe-integration-cmd-testing-sa
+          namespace: recipe-integration-cmd-testing
+  - name: create-rbac-clusterrole
+    create: 
+      state: 
+        kind: ClusterRole
+        apiVersion: rbac.authorization.k8s.io/v1
+        metadata:
+          name: recipe-integration-cmd-testing-dope
+        rules:
+        - apiGroups:
+          - "*"
+          resources:
+          - "*"
+          verbs:
+          - "*"
+  - name: create-rbac-cluster-role
+    create: 
+      state: 
+        kind: ClusterRoleBinding
+        apiVersion: rbac.authorization.k8s.io/v1
+        metadata:
+          name: recipe-integration-cmd-testing-dope
+        subjects:
+        - kind: ServiceAccount
+          name: recipe-integration-cmd-testing-sa
+          namespace: recipe-integration-cmd-testing
+        roleRef:
+          kind: ClusterRole
+          name: recipe-integration-cmd-testing-dope
+          apiGroup: rbac.authorization.k8s.io
+  - name: create-command-resource
+    create:
+      state:
+        kind: Command
+        apiVersion: dope.mayadata.io/v1
+        metadata:
+          name: testing-command
+          namespace: recipe-integration-cmd-testing
+          labels:
+            command.dope.mayadata.io/name: testing-command
+        spec:
+          commands:
+          - name: Sleep-test
+            script: sleep 3
+          template:
+            job:
+              apiVersion: batch/v1
+              kind: Job
+              spec:
+                template:
+                  spec:
+                    serviceAccountName: recipe-integration-cmd-testing-sa
+                    containers:
+                    - command:
+                      - /usr/bin/daction
+                      image: localhost:5000/daction
+                      imagePullPolicy: IfNotPresent
+                      name: daction
+                      args:
+                      - -v=3
+                      - --command-name=testing-command
+                      - --command-ns=recipe-integration-cmd-testing
+  - name: assert-cm-lock-creation
+    assert:
+      state:
+        kind: ConfigMap
+        apiVersion: v1
+        metadata:
+          namespace: recipe-integration-cmd-testing
+          labels:
+            command.dope.mayadata.io/name: testing-command
+      stateCheck:
+        stateCheckOperator: ListCountEquals
+        count: 1
+  - name: assert-job-creation-via-command
+    assert:
+      state:
+        kind: Job
+        apiVersion: batch/v1
+        metadata:
+          name: testing-command
+          namespace: recipe-integration-cmd-testing
+          labels:
+            command.dope.mayadata.io/controller: "true"
+  - name: assert-pod-creation-via-command-creation
+    assert:
+      state:
+        kind: Pod
+        apiVersion: v1
+        metadata:
+          namespace: recipe-integration-cmd-testing
+          labels:
+            job-name: testing-command
+      stateCheck:
+        stateCheckOperator: ListCountEquals
+        count: 1
+  - name: assert-job-completion
+    assert:
+      state:
+        kind: Job
+        apiVersion: batch/v1
+        metadata:
+          name: testing-command
+          namespace: recipe-integration-cmd-testing
+        status:
+          succeeded: 1
+  - name: assert-command-finalizer
+    assert:
+      state:
+        kind: Command
+        apiVersion: dope.mayadata.io/v1
+        metadata:
+          name: testing-command
+          namespace: recipe-integration-cmd-testing
+          finalizers:
+          - protect.gctl.metac.openebs.io/dope-finalize-command
+  - name: assert-command-completion
+    assert:
+      state:
+        kind: Command
+        apiVersion: dope.mayadata.io/v1
+        metadata:
+          name: testing-command
+          namespace: recipe-integration-cmd-testing
+          labels:
+            command.dope.mayadata.io/phase: Completed
+            command.dope.mayadata.io/name: testing-command
+        status:
+          phase: Completed
+  - name: delete-command
+    delete:
+      state:
+        kind: Command
+        apiVersion: dope.mayadata.io/v1
+        metadata:
+          name: testing-command
+          namespace: recipe-integration-cmd-testing
+  - name: assert-pod-deletion-via-command-deletion
+    assert:
+      state:
+        kind: Pod
+        apiVersion: v1
+        metadata:
+          namespace: recipe-integration-cmd-testing
+          labels:
+            job-name: testing-command
+      stateCheck:
+        stateCheckOperator: ListCountEquals
+        count: 0
+  - name: assert-job-deletion-via-command-deletion
+    assert:
+      state:
+        kind: Job
+        apiVersion: batch/v1
+        metadata:
+          name: testing-command
+          namespace: recipe-integration-cmd-testing
+          labels:
+            command.dope.mayadata.io/controller: true
+      stateCheck:
+        stateCheckOperator: NotFound
+  - name: assert-cm-lock-deletion-via-command-deletion
+    assert:
+      state:
+        kind: ConfigMap
+        apiVersion: v1
+        metadata:
+          namespace: recipe-integration-cmd-testing
+          labels:
+            command.dope.mayadata.io/name: testing-command
+      stateCheck:
+        stateCheckOperator: ListCountEquals
+        count: 0
+  - name: delete-clusterrole
+    delete:
+      state:
+        kind: ClusterRole
+        apiVersion: rbac.authorization.k8s.io/v1
+        metadata:
+          name: recipe-integration-cmd-testing-dope
+  - name: delete-clusterrolebinding
+    delete:
+      state:
+        kind: ClusterRoleBinding
+        apiVersion: rbac.authorization.k8s.io/v1
+        metadata:
+          name: recipe-integration-cmd-testing-dope
+  - name: delete-namespace
+    delete:
+      state:
+        kind: Namespace
+        apiVersion: v1
+        metadata:
+          name: recipe-integration-cmd-testing

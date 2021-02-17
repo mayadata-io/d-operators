@@ -89,7 +89,7 @@ const (
 const (
 	// JobPhaseCompleted represents a Kubernetes Job with
 	// Completed status
-	JobPhaseCompleted string = "Completed"
+	JobPhaseCompleted string = "Complete"
 
 	// KindJob defines the constant to represent the Job's kind
 	KindJob string = "Job"
